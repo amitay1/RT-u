@@ -71,7 +71,7 @@ Scope: Source code and text docs scanned in repo root. Binary assets (pdf/docx/i
 - CAD integration issues documented in `docs/CAD_ENGINE_ERROR_REPORT.md`.
 
 ## Licensing and Updates
-- License generator: `scripts/license-generator.js` (HMAC signature).
+- License generator: `scripts/license-generator.cjs` (HMAC signature).
 - Electron license manager: `electron/license-manager.cjs` (AES-256-CBC local storage).
 - License UI: `src/components/LicenseActivation.tsx`, gating in `src/contexts/LicenseContext.tsx`.
 - Update server: `update-server/index.js` (factory configs, channels, admin endpoints).
@@ -130,12 +130,12 @@ Scope: Source code and text docs scanned in repo root. Binary assets (pdf/docx/i
 
 ## Important Docs
 - `README.md`, `CLAUDE.md`
-- `AUTO_FILL_DOCUMENTATION.md`, `ADVANCED_DRAWING_STATUS.md`
-- `SCAN_PLAN_IMPLEMENTATION.md`
+- `docs/AUTO_FILL_DOCUMENTATION.md`, `docs/ADVANCED_DRAWING_STATUS.md`
+- `docs/project/SCAN_PLAN_IMPLEMENTATION.md`
 - `docs/TECHNIQUE_SHEET_ANALYSIS.md`, `docs/STANDARDS_COMPARISON.md`
 - `docs/TUV_EXPORT_SYSTEM_README.md`, `docs/TUV_EXPORT_SYSTEM_ENHANCED_README.md`
-- `LICENSING_SYSTEM.md`, `LICENSING_QUICKSTART.md`, `README_LICENSING.md`
-- `UPDATE_SERVER_INTEGRATION.md`, `PRODUCTION_DEPLOYMENT.md`
-- `DEPLOYMENT.md`, `PRODUCTION_READINESS_REPORT.md`
-- `PROFILE_SYNC_SETUP.md`
+- `docs/licensing/LICENSING_SYSTEM.md`, `docs/licensing/LICENSING_QUICKSTART.md`, `docs/licensing/README_LICENSING.md`
+- `docs/licensing/UPDATE_SERVER_INTEGRATION.md`, `docs/licensing/PRODUCTION_DEPLOYMENT.md`
+- `docs/DEPLOYMENT.md`, `docs/PRODUCTION_READINESS_REPORT.md`
+- `docs/setup/PROFILE_SYNC_SETUP.md`
 - `docs/PRODUCTION_TO_INSTALLATION_GUIDE.md`

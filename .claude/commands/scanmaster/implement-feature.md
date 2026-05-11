@@ -4,7 +4,7 @@ When this command is run with a short feature description, do the following:
 
 1. Read the feature description and search the repo for:
    - Relevant modules in `src/`, `server/`, `tasks/`, `drawing-engine/`.
-   - Any mentions in `ROADMAP.md`, `AUTO_FILL_DOCUMENTATION.md`, `TECHNIQUE_SHEET_ANALYSIS.md`
+   - Any mentions in `docs/ROADMAP.md`, `docs/AUTO_FILL_DOCUMENTATION.md`, `docs/TECHNIQUE_SHEET_ANALYSIS.md`
      or other UT/standard-related docs.
 
 2. Propose a concrete implementation plan:

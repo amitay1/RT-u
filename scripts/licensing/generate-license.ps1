@@ -1,5 +1,7 @@
 # ScanMaster License Generator
-# Usage: .\generate-license.ps1
+# Usage from repo root: .\scripts\licensing\generate-license.ps1
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -34,17 +36,22 @@ Write-Host ""
 $lifetimeChoice = Read-Host "Lifetime license? (Y/n)"
 if ($lifetimeChoice.ToLower() -eq "n") {
     $expiryDate = Read-Host "Enter expiry date (YYYY-MM-DD)"
-    $expiryArg = "--expiry $expiryDate"
+    $expiryArgs = @("--expiry", $expiryDate)
 } else {
-    $expiryArg = "--lifetime"
+    $expiryArgs = @("--lifetime")
 }
 
 Write-Host ""
 Write-Host "Generating license..." -ForegroundColor Green
 Write-Host ""
 
-# Run the generator
-node scripts/license-generator.cjs --factory "$factoryName" --standards $standards $expiryArg
+# Run the generator from the repository root so relative output paths stay stable.
+Push-Location $repoRoot
+try {
+    & node "scripts/license-generator.cjs" --factory $factoryName --standards $standards @expiryArgs
+} finally {
+    Pop-Location
+}
 
 Write-Host ""
 Write-Host "Done! Copy the LICENSE KEY above and give it to the customer." -ForegroundColor Green

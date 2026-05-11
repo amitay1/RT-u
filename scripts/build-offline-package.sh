@@ -259,9 +259,9 @@ echo ""
 echo "Step 6: Copying documentation..."
 
 # Copy existing docs
-cp PRODUCTION_TO_INSTALLATION_GUIDE.md "${OUTPUT_DIR}/documentation/"
+cp docs/PRODUCTION_TO_INSTALLATION_GUIDE.md "${OUTPUT_DIR}/documentation/"
 cp README.md "${OUTPUT_DIR}/documentation/"
-cp DEPLOYMENT.md "${OUTPUT_DIR}/documentation/"
+cp docs/DEPLOYMENT.md "${OUTPUT_DIR}/documentation/"
 
 # Copy legal docs
 cp legal/*.md "${OUTPUT_DIR}/documentation/"

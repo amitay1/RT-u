@@ -6,7 +6,7 @@
  * Integrates with the export flow to prevent export of non-compliant sheets.
  */
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -142,28 +142,25 @@ export function ComplianceCheckerDialog({
   const [isChecking, setIsChecking] = useState(false);
   const [report, setReport] = useState<ComplianceReport | null>(null);
 
-  // Run compliance check when dialog opens
-  const handleRunCheck = () => {
+  // Run compliance check when dialog opens.
+  useEffect(() => {
+    if (!open || report) return;
+
     setIsChecking(true);
-    // Small delay to show loading state
-    setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       const result = runComplianceCheck(data);
       setReport(result);
       setIsChecking(false);
     }, 500);
-  };
 
-  // Run check on open
-  useMemo(() => {
-    if (open && !report) {
-      handleRunCheck();
-    }
-  }, [open]);
+    return () => window.clearTimeout(timeoutId);
+  }, [data, open, report]);
 
   // Reset when closing
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setReport(null);
+      setIsChecking(false);
     }
     onOpenChange(newOpen);
   };

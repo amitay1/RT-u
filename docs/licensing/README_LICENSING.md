@@ -27,7 +27,7 @@ This is a complete, production-ready licensing and update system built specifica
 ```bash
 cd Scan-Master-16-12-25-main
 
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Acme Corporation" \
   --standards AMS,ASTM \
   --lifetime
@@ -73,7 +73,7 @@ Scan-Master-16-12-25-main/
 ├── 📄 PRODUCTION_DEPLOYMENT.md         # Production deployment guide
 │
 ├── scripts/
-│   ├── license-generator.js            # CLI tool to generate licenses
+│   ├── license-generator.cjs            # CLI tool to generate licenses
 │   ├── example-licenses.bat/sh         # Generate example licenses
 │
 ├── electron/
@@ -101,7 +101,7 @@ Scan-Master-16-12-25-main/
 
 ## 🎯 What Each Component Does
 
-### 1. License Generator (`scripts/license-generator.js`)
+### 1. License Generator (`scripts/license-generator.cjs`)
 
 **Purpose:** Generate cryptographically signed license keys for customers
 
@@ -115,13 +115,13 @@ Scan-Master-16-12-25-main/
 **Usage:**
 ```bash
 # Generate license
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Boeing Defense" \
   --standards AMS,ASTM,BS3,BS4,MIL \
   --lifetime
 
 # Verify license
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --verify "SM-FAC-BOEING-XXYYZZ-AMSASTMBS3BS4MIL-LIFETIME-ABC123"
 ```
 
@@ -382,7 +382,7 @@ http://localhost:3001/admin
 
 **1. Generate test license:**
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Test Company" \
   --standards AMS,ASTM \
   --lifetime
@@ -668,7 +668,7 @@ Support: support@scanmaster.com
 
 **Fix:** Generate renewal license with new expiry:
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Same Factory Name" \
   --standards AMS,ASTM \
   --expiry 2026-12-31
@@ -686,7 +686,7 @@ node scripts/license-generator.js \
 
 **Check:**
 ```bash
-node scripts/license-generator.js --verify "SM-FAC-..."
+node scripts/license-generator.cjs --verify "SM-FAC-..."
 ```
 
 **Fix:** Generate new license with additional standard
@@ -747,10 +747,10 @@ node scripts/license-generator.js --verify "SM-FAC-..."
 
 ```bash
 # Generate license
-node scripts/license-generator.js --factory "Name" --standards AMS,ASTM --lifetime
+node scripts/license-generator.cjs --factory "Name" --standards AMS,ASTM --lifetime
 
 # Verify license
-node scripts/license-generator.js --verify "SM-FAC-..."
+node scripts/license-generator.cjs --verify "SM-FAC-..."
 
 # Start update server
 cd update-server && node index.js

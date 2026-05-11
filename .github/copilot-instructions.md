@@ -104,16 +104,16 @@ npm run electron:dev # Desktop app development
 npm run release      # Windows: version bump + electron build
 ```
 
-### Release Script (`release.ps1`)
+### Release Script (`scripts/release.ps1`)
 ```powershell
-.\release.ps1 [patch|minor|major] [message]
+.\scripts\release.ps1 [patch|minor|major] [message]
 # Bumps version → git commit/tag/push → npm run dist:win → gh release create
 ```
 
 ### Release Workflow
 After completing a batch of changes (bug fixes, features), run the release script in background:
 ```powershell
-.\release.ps1
+.\scripts\release.ps1
 ```
 **Do NOT wait** for the build to finish - continue working on the next task immediately so the user can report more issues while the new version builds (~5-10 min).
 
@@ -142,7 +142,7 @@ After completing a batch of changes (bug fixes, features), run the release scrip
 - Install npm packages without explicit confirmation
 - Edit `dist/`, `cad-3d-output/`, `cad-engine-jobs/` (build artifacts)
 - Add global state libraries (Zustand, Redux, etc.)
-- Change UT calculations without reading `standards/` and `AUTO_FILL_DOCUMENTATION.md`
+- Change UT calculations without reading `standards/` and `docs/AUTO_FILL_DOCUMENTATION.md`
 - Assume `html2canvas` exists (it doesn't)
 - Use `console.log` directly - use `logInfo`/`logError` from `@/lib/logger`
 
@@ -153,6 +153,6 @@ After completing a batch of changes (bug fixes, features), run the release scrip
 
 ## Key Documentation
 - `CLAUDE.md` - Full project context with feature checklist
-- `AUTO_FILL_DOCUMENTATION.md` - Field dependency rules
+- `docs/AUTO_FILL_DOCUMENTATION.md` - Field dependency rules
 - `drawing-engine/README.md` - Python CAD setup
 - `standards/` - UT standard data files (update data here, not code)

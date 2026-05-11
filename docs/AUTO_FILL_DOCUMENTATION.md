@@ -105,42 +105,45 @@
 ### שדות שמתמלאים אוטומטית:
 
 #### **Acceptance Criteria (כל השדות)**
-כאשר בוחרים Class, מתמלאים אוטומטית:
+כאשר בוחרים Class, מתמלאים אוטומטית (FBH-based per AMS-STD-2154E):
 
 **Class AAA** (הכי מחמיר):
-- Single Discontinuity: "No indications >2% DAC"
-- Multiple Discontinuities: "No indications >1% DAC"
-- Linear Discontinuity: "Not permitted"
-- Back Reflection Loss: 2%
-- Noise Level: "Grass height <5% FSH"
+- Single Discontinuity: 1/64" (0.4mm) FBH response
+- Multiple Discontinuities: 1/64" (0.4mm) FBH (centers <1" apart)
+- Linear Discontinuity: 1/64" (0.4mm) FBH, 1/8" max length
+- Back Reflection Loss: Per Note 4
+- Noise Level: 10% FSH maximum
 
 **Class AA**:
-- Single: >5% DAC
-- Multiple: >2% DAC
-- Linear: Not permitted
-- BRL: 4%
-- Noise: <10% FSH
+- Single: 3/64" (1.2mm) FBH response
+- Multiple: 2/64" (0.8mm) FBH (centers <1" apart)
+- Linear: 2/64" (0.8mm) FBH, 1/2" max length
+- BRL: 50% maximum
+- Noise: 15% FSH maximum
 
 **Class A**:
-- Single: >8% DAC
-- Multiple: >5% DAC
-- Linear: >1/4" not permitted
-- BRL: 6%
-- Noise: <15% FSH
+- Single: 5/64" (2.0mm) FBH response
+- Multiple: 2/64" (0.8mm) FBH (centers <1" apart)
+- Linear: 3/64" (1.2mm) FBH, 1" max length
+- BRL: 50% maximum
+- Noise: 20% FSH maximum
 
 **Class B**:
-- Single: >15% DAC
-- Multiple: >8% DAC
-- Linear: >1/2" not permitted
-- BRL: 10%
-- Noise: <20% FSH
+- Single: 8/64" (3.2mm) FBH response
+- Multiple: 3/64" (1.2mm) FBH (centers <1" apart)
+- Linear: 5/64" (2.0mm) FBH, 1" max length
+- BRL: 50% maximum
+- Noise: 25% FSH maximum
 
 **Class C** (הכי מקל):
-- Single: >25% DAC
-- Multiple: >15% DAC
-- Linear: >1" not permitted
-- BRL: 15%
-- Noise: <25% FSH
+- Single: 8/64" (3.2mm) FBH response
+- Multiple: 5/64" (2.0mm) FBH
+- Linear: Not applicable
+- BRL: 50% maximum
+- Noise: 30% FSH maximum
+
+> **Note:** Values updated February 2026 to use FBH-based criteria per AMS-STD-2154E Table VI.
+> Previous DAC% notation was replaced in January 2026.
 
 ---
 

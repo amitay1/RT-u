@@ -133,6 +133,6 @@ npm run dist:win     # Build Windows installer
 ## Related Docs (in repo)
 
 - `CLAUDE.md` - Full project guidelines
-- `AUTO_FILL_DOCUMENTATION.md` - Auto-fill logic
+- `docs/AUTO_FILL_DOCUMENTATION.md` - Auto-fill logic
 - `TECHNIQUE_SHEET_ANALYSIS.md` - Domain rules
-- `ROADMAP.md` - Feature priorities
+- `docs/ROADMAP.md` - Feature priorities

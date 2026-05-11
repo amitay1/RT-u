@@ -21,7 +21,7 @@ do the following:
 3. Design tests that focus on:
    - Correct handling of UT standards and acceptance classes.
    - Correct interpretation of geometry (OD/ID/thickness, scan directions, etc.).
-   - Realistic edge cases based on docs in `standards/` and `AUTO_FILL_DOCUMENTATION.md`.
+   - Realistic edge cases based on docs in `standards/` and `docs/AUTO_FILL_DOCUMENTATION.md`.
 
 4. Implement the tests:
    - Keep them deterministic and fast.

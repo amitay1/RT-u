@@ -362,7 +362,7 @@ versions.stable = '1.0.22'; // Higher than your current version
 
 **3. Generate Test License:**
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Test Factory" \
   --standards AMS,ASTM \
   --lifetime

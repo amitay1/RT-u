@@ -413,9 +413,9 @@ export const StandardSelector = ({
         </div>
 
         <Dialog open={isLibraryOpen} onOpenChange={setIsLibraryOpen}>
-          <DialogContent className="max-w-[1100px] gap-0 overflow-hidden p-0">
-            <div className="grid max-h-[85vh] md:grid-cols-[320px_minmax(0,1fr)]">
-              <div className="border-b border-border bg-muted/30 p-5 md:border-b-0 md:border-r">
+          <DialogContent className="max-h-[85vh] max-w-[1100px] gap-0 overflow-y-auto p-0 md:overflow-hidden">
+            <div className="grid md:h-[85vh] md:max-h-[85vh] md:grid-cols-[320px_minmax(0,1fr)]">
+              <div className="border-b border-border bg-muted/30 p-5 md:min-h-0 md:overflow-y-auto md:border-b-0 md:border-r">
                 <DialogHeader className="text-left">
                   <DialogTitle className="text-xl">Standard Library</DialogTitle>
                   <DialogDescription>

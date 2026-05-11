@@ -76,12 +76,14 @@ See `.env.production.template` for complete configuration guide.
 
 ## 📚 Documentation
 
-- [Production Readiness Report](./PRODUCTION_READINESS_REPORT.md) - 83% ready, see critical fixes
-- [Completion Report](./COMPLETION_REPORT_OPTION_B.md) - Recent updates summary
-- [Auto-Fill Documentation](./AUTO_FILL_DOCUMENTATION.md) - Smart field logic
-- [Advanced Drawing Status](./ADVANCED_DRAWING_STATUS.md) - Technical drawing capabilities
-- [Deployment Guide](./DEPLOYMENT.md) - Docker, AWS, GCP instructions
-- [Roadmap](./ROADMAP.md) - Future features
+- [Project Structure](./docs/PROJECT_STRUCTURE.md) - repository layout and ownership
+- [Production Readiness Report](./docs/PRODUCTION_READINESS_REPORT.md) - 83% ready, see critical fixes
+- [Completion Report](./docs/COMPLETION_REPORT_OPTION_B.md) - Recent updates summary
+- [Auto-Fill Documentation](./docs/AUTO_FILL_DOCUMENTATION.md) - Smart field logic
+- [Advanced Drawing Status](./docs/ADVANCED_DRAWING_STATUS.md) - Technical drawing capabilities
+- [Deployment Guide](./docs/DEPLOYMENT.md) - Docker, AWS, GCP instructions
+- [Roadmap](./docs/ROADMAP.md) - Future features
+- [Licensing System](./docs/licensing/README_LICENSING.md) - licensing and update-server overview
 
 ## 🚢 Deployment
 
@@ -102,7 +104,7 @@ npm run deploy:gcp
 
 ### Desktop App (Electron)
 ```sh
-npm run build:desktop
+npm run electron:build
 ```
 
 ## 📄 Legal

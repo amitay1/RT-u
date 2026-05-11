@@ -32,7 +32,7 @@ Scan Master uses a **license key-based activation system** with the following fe
 ```
 ┌─────────────────────────────────────┐
 │  License Generator (Your Side)      │
-│  scripts/license-generator.js       │
+│  scripts/license-generator.cjs       │
 │  - Generates license keys           │
 │  - Signs with secret key            │
 └─────────────────────────────────────┘
@@ -83,7 +83,7 @@ cd Scan-Master-16-12-25-main/scripts
 
 #### Example 1: Basic License (AMS + ASTM)
 ```bash
-node license-generator.js \
+node license-generator.cjs \
   --factory "Acme Corporation" \
   --standards AMS,ASTM \
   --lifetime
@@ -121,7 +121,7 @@ Generated: 2025-12-29T14:30:00.000Z
 
 #### Example 2: All Standards, Lifetime
 ```bash
-node license-generator.js \
+node license-generator.cjs \
   --factory "Boeing Defense" \
   --standards AMS,ASTM,BS3,BS4,MIL \
   --lifetime
@@ -131,7 +131,7 @@ node license-generator.js \
 
 #### Example 3: Time-Limited License
 ```bash
-node license-generator.js \
+node license-generator.cjs \
   --factory "Trial Company" \
   --standards AMS,ASTM \
   --expiry 2026-12-31
@@ -142,7 +142,7 @@ node license-generator.js \
 ### Verify a License Key
 
 ```bash
-node license-generator.js --verify "SM-FAC-ACMECO-M9X2K1-AMSASTM-LIFETIME-A8F3D9E2C1B4"
+node license-generator.cjs --verify "SM-FAC-ACMECO-M9X2K1-AMSASTM-LIFETIME-A8F3D9E2C1B4"
 ```
 
 **Output:**
@@ -297,7 +297,7 @@ await window.electron.license.deactivate()
 
 2. **Generate test license**:
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Test Company" \
   --standards AMS,ASTM \
   --lifetime
@@ -309,7 +309,7 @@ node scripts/license-generator.js \
 
 #### Test Case 1: Expired License
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Expired Test" \
   --standards AMS \
   --expiry 2024-01-01  # Past date
@@ -322,7 +322,7 @@ Manually edit license key → **Expected:** "Invalid signature" error
 
 #### Test Case 3: Partial Standards
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Partial Test" \
   --standards AMS  # Only one standard
   --lifetime
@@ -485,12 +485,12 @@ Total with all: $4,300
 
 For licensing system support:
 - **Technical issues**: Check logs in Electron DevTools
-- **Key generation**: Review `scripts/license-generator.js`
+- **Key generation**: Review `scripts/license-generator.cjs`
 - **Customer activation**: Check `electron/license-manager.cjs` logs
 
 **Emergency license generation:**
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Emergency" \
   --standards AMS,ASTM,BS3,BS4,MIL \
   --lifetime

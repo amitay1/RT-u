@@ -11,7 +11,7 @@
 cd Scan-Master-16-12-25-main
 
 # Generate a license for a customer
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Acme Corporation" \
   --standards AMS,ASTM \
   --lifetime
@@ -66,7 +66,7 @@ console.log(license.purchasedStandards);
 
 ### Generate lifetime license (all standards)
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Boeing Defense" \
   --standards AMS,ASTM,BS3,BS4,MIL \
   --lifetime
@@ -74,7 +74,7 @@ node scripts/license-generator.js \
 
 ### Generate 1-year trial
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --factory "Trial Company" \
   --standards AMS \
   --expiry 2026-12-29
@@ -82,7 +82,7 @@ node scripts/license-generator.js \
 
 ### Verify a license key
 ```bash
-node scripts/license-generator.js \
+node scripts/license-generator.cjs \
   --verify "SM-FAC-ACMECO-M9X2K1-AMSASTM-LIFETIME-A8F3D9E2C1B4"
 ```
 
@@ -143,7 +143,7 @@ Before deploying:
 → Re-generate key, make sure customer copies full key
 
 **Standard still locked after activation**
-→ Check which standards are in license: `node scripts/license-generator.js --verify KEY`
+→ Check which standards are in license: `node scripts/license-generator.cjs --verify KEY`
 
 **Lost license key**
 → Look up in `licenses/` folder or re-generate with same factory name

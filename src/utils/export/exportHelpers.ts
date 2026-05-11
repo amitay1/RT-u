@@ -355,20 +355,21 @@ export function getPartDimensionRows(setup: {
   const hpt = setup.hptDiskGeometry;
   const isV2500Standard = setup.standard === 'NDIP-1226' || setup.standard === 'NDIP-1227';
   const showStandardHptInspectionRows = setup.standard === 'NDIP-1226' || setup.standard === 'NDIP-1227';
+  const showCommonDimensions = !isV2500Standard || setup.partType === 'hpt_disk';
 
   // Common dimensions with geometry-aware labels
-  if (!isV2500Standard && setup.partThickness) {
+  if (showCommonDimensions && setup.partThickness) {
     rows.push([labels.thicknessLabel, formatNumber(setup.partThickness, 1, 'mm')]);
   }
-  if (!isV2500Standard && setup.partLength) {
+  if (showCommonDimensions && setup.partLength) {
     rows.push([labels.lengthLabel, formatNumber(setup.partLength, 1, 'mm')]);
   }
-  if (!isV2500Standard && setup.partWidth) {
+  if (showCommonDimensions && setup.partWidth) {
     rows.push(['Width', formatNumber(setup.partWidth, 1, 'mm')]);
   }
 
   // Cylindrical dimensions
-  if (!isV2500Standard && isCylindrical(setup.partType)) {
+  if (showCommonDimensions && isCylindrical(setup.partType)) {
     if (setup.diameter) {
       rows.push([labels.odLabel, formatNumber(setup.diameter, 1, 'mm')]);
     }
@@ -381,10 +382,10 @@ export function getPartDimensionRows(setup: {
   }
 
   // Rectangular hollow inner dimensions
-  if (!isV2500Standard && setup.innerLength) {
+  if (showCommonDimensions && setup.innerLength) {
     rows.push(['Inner Length', formatNumber(setup.innerLength, 1, 'mm')]);
   }
-  if (!isV2500Standard && setup.innerWidth) {
+  if (showCommonDimensions && setup.innerWidth) {
     rows.push(['Inner Width', formatNumber(setup.innerWidth, 1, 'mm')]);
   }
 
@@ -405,7 +406,7 @@ export function getPartDimensionRows(setup: {
   }
 
   // Hollow indicator
-  if (!isV2500Standard && setup.isHollow !== undefined) {
+  if (showCommonDimensions && setup.isHollow !== undefined) {
     rows.push(['Hollow Part', setup.isHollow ? 'Yes' : 'No']);
   }
 

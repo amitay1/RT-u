@@ -63,7 +63,7 @@ Prefer small, safe, well-explained changes over big rewrites. Ask before doing a
   - Introduce new global state libraries (Zustand, Redux, etc.) on its own.
 
 - When a change affects UT standards, geometry, or acceptance criteria:
-  - First read the relevant docs under `standards/` and `AUTO_FILL_DOCUMENTATION.md` / `TECHNIQUE_SHEET_ANALYSIS.md`.
+  - First read the relevant docs under `standards/`, `docs/AUTO_FILL_DOCUMENTATION.md`, and `docs/TECHNIQUE_SHEET_ANALYSIS.md`.
   - Be conservative and explain the reasoning in detail.
 
 - After each non-trivial change:
@@ -135,7 +135,7 @@ Database schema and migrations must stay consistent with Drizzle + the Supabase 
 ## Project Structure (high level)
 
 ```text
-attached_assets/          # Assets attached to jobs / docs (input files, images, etc.)
+docs/archive/attached-assets/ # Archived assets attached to old jobs / docs
 cad-3d-output/            # Generated 3D / STEP-like CAD output (treat as build artifacts)
 cad-engine-jobs/          # Job definitions / JSON configs for CAD generation
 dist/                     # Frontend build output
@@ -544,9 +544,9 @@ CAD_WORKER_THREADS=     # Number of CAD worker threads (default: 2)
 
 ## Related Documentation (in repo)
 
-- [AUTO_FILL_DOCUMENTATION.md](AUTO_FILL_DOCUMENTATION.md) – Auto-fill logic details
+- [AUTO_FILL_DOCUMENTATION.md](docs/AUTO_FILL_DOCUMENTATION.md) – Auto-fill logic details
 - [TECHNIQUE_SHEET_ANALYSIS.md](TECHNIQUE_SHEET_ANALYSIS.md) – Technique sheet structure and domain rules
 - [TUV_EXPORT_SYSTEM_README.md](TUV_EXPORT_SYSTEM_README.md) / [TUV_EXPORT_SYSTEM_ENHANCED_README.md](TUV_EXPORT_SYSTEM_ENHANCED_README.md) – TUV export formats
-- [ROADMAP.md](ROADMAP.md) – Feature roadmap and priorities
-- [PRODUCTION_TO_INSTALLATION_GUIDE.md](PRODUCTION_TO_INSTALLATION_GUIDE.md) – Deployment / installation flow
+- [ROADMAP.md](docs/ROADMAP.md) – Feature roadmap and priorities
+- [PRODUCTION_TO_INSTALLATION_GUIDE.md](docs/PRODUCTION_TO_INSTALLATION_GUIDE.md) – Deployment / installation flow
 - `standards/` – UT standard reference data (AMS, ASTM, TUV, materials)

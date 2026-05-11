@@ -8,7 +8,7 @@
  * - Cryptographic signature
  *
  * Usage:
- *   node scripts/license-generator.js --factory "Acme Corp" --standards AMS,ASTM --lifetime
+ *   node scripts/license-generator.cjs --factory "Acme Corp" --standards AMS,ASTM --lifetime
  */
 
 const crypto = require('crypto');
@@ -297,7 +297,7 @@ if (require.main === module) {
 Scan Master License Generator
 
 Usage:
-  node license-generator.js --factory "Company Name" --standards AMS,ASTM [options]
+  node license-generator.cjs --factory "Company Name" --standards AMS,ASTM [options]
 
 Options:
   --factory, -f      Factory/Company name (required)
@@ -310,13 +310,13 @@ Options:
 
 Examples:
   # Generate lifetime license with AMS and ASTM standards
-  node license-generator.js --factory "Acme Corp" --standards AMS,ASTM --lifetime
+  node license-generator.cjs --factory "Acme Corp" --standards AMS,ASTM --lifetime
 
   # Generate license expiring in 1 year with all standards
-  node license-generator.js --factory "Boeing" --standards AMS,ASTM,MIL --expiry 2025-12-31
+  node license-generator.cjs --factory "Boeing" --standards AMS,ASTM,MIL --expiry 2025-12-31
 
   # Verify a license key
-  node license-generator.js --verify "SM-FAC-ACMECO-123ABC-AMSASTM-LIFETIME-a8f3d9e2c1b4"
+  node license-generator.cjs --verify "SM-FAC-ACMECO-123ABC-AMSASTM-LIFETIME-a8f3d9e2c1b4"
 
 Available Standards:
   AMS   - Aerospace Material Specification ($500)

@@ -8,7 +8,7 @@ release/
 electron/
 cad-3d-output/
 cad-engine-jobs/
-attached_assets/
+docs/archive/attached-assets/
 tests/
 docs/
 *.step

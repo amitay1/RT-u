@@ -1,10 +1,10 @@
 ﻿# ScanMaster Release Script
-# Usage: .\release.ps1 [patch|minor|major] [message]
+# Usage: .\scripts\release.ps1 [patch|minor|major] [message]
 # Examples:
-#   .\release.ps1                    -> v1.0.18 to v1.0.19 (patch)
-#   .\release.ps1 minor              -> v1.0.18 to v1.1.0
-#   .\release.ps1 major              -> v1.0.18 to v2.0.0
-#   .\release.ps1 patch "Bug fixes"  -> v1.0.19: Bug fixes
+#   .\scripts\release.ps1                    -> v1.0.18 to v1.0.19 (patch)
+#   .\scripts\release.ps1 minor              -> v1.0.18 to v1.1.0
+#   .\scripts\release.ps1 major              -> v1.0.18 to v2.0.0
+#   .\scripts\release.ps1 patch "Bug fixes"  -> v1.0.19: Bug fixes
 
 param(
     [string]$BumpType = "patch",
@@ -644,8 +644,10 @@ Write-Host ""
 Write-Info "Staging changes..."
 git add -A
 
-# Safety check: make sure release artifacts are NOT staged
-$stagedReleaseFiles = git diff --cached --name-only | Select-String -Pattern "^release-" -SimpleMatch
+# Safety check: make sure release artifacts are NOT staged.
+# core.quotePath=false avoids quoted octal paths that Test-Path cannot parse.
+$stagedPaths = @(git -c core.quotePath=false diff --cached --name-only)
+$stagedReleaseFiles = $stagedPaths | Where-Object { $_ -like "release-*" }
 if ($stagedReleaseFiles) {
     Write-Err "SAFETY: Release build files are staged for commit!"
     Write-Err "These files should be in .gitignore:"
@@ -656,11 +658,13 @@ if ($stagedReleaseFiles) {
 }
 
 # Also make sure no file over 90MB is staged (GitHub limit is 100MB)
-$largeFiles = git diff --cached --name-only | ForEach-Object {
-    if (Test-Path $_) {
-        $size = (Get-Item $_).Length / 1MB
+$largeFilePaths = @(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)
+$largeFiles = $largeFilePaths | ForEach-Object {
+    $path = $_
+    if (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path -LiteralPath $path -PathType Leaf)) {
+        $size = (Get-Item -LiteralPath $path).Length / 1MB
         if ($size -gt 90) {
-            [PSCustomObject]@{ Name = $_; SizeMB = [math]::Round($size, 1) }
+            [PSCustomObject]@{ Name = $path; SizeMB = [math]::Round($size, 1) }
         }
     }
 }

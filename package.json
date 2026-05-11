@@ -6,7 +6,7 @@
                    "email":  "amitay1@gmail.com"
                },
     "private":  true,
-    "version":  "1.1.75",
+    "version":  "1.1.76",
     "type":  "module",
     "scripts":  {
                     "dev":  "tsx watch --clear-screen=false --ignore \u0027**/*.timestamp-*.mjs\u0027 server/index.ts",
@@ -23,12 +23,12 @@
                     "dist:win":  "npm run build \u0026\u0026 electron-builder --win",
                     "dist:mac":  "npm run build \u0026\u0026 electron-builder --mac",
                     "dist:linux":  "npm run build \u0026\u0026 electron-builder --linux",
-                    "release":  "powershell -ExecutionPolicy Bypass -File ./release.ps1",
-                    "release:minor":  "powershell -ExecutionPolicy Bypass -File ./release.ps1 minor",
-                    "release:major":  "powershell -ExecutionPolicy Bypass -File ./release.ps1 major",
-                    "license:generate":  "node scripts/license-generator.js",
-                    "license:verify":  "node scripts/license-generator.js --verify",
-                    "license:examples":  "node scripts/example-licenses.bat"
+                    "release":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1",
+                    "release:minor":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 minor",
+                    "release:major":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 major",
+                    "license:generate":  "node scripts/license-generator.cjs",
+                    "license:verify":  "node scripts/license-generator.cjs --verify",
+                    "license:examples":  ".\\scripts\\example-licenses.bat"
                 },
     "main":  "electron/main.cjs",
     "dependencies":  {

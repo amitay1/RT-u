@@ -348,7 +348,7 @@ export function validateWizardData(
       }
       break;
 
-    case "calibration":
+    case "calibration": {
       // Accept either blockTypes or calibrationBlockTypes
       const hasBlockTypes =
         (data.blockTypes && data.blockTypes.length > 0) ||
@@ -360,6 +360,7 @@ export function validateWizardData(
         errors.push("Sensitivity setting method is required");
       }
       break;
+    }
 
     case "scan":
       // Accept either method or inspectionMethod
@@ -374,7 +375,7 @@ export function validateWizardData(
       }
       break;
 
-    case "acceptance":
+    case "acceptance": {
       // Accept either acceptanceClass or acceptanceClasses
       const hasAcceptance =
         data.acceptanceClass ||
@@ -386,8 +387,9 @@ export function validateWizardData(
         errors.push("Evaluation method is required");
       }
       break;
+    }
 
-    case "documentation":
+    case "documentation": {
       // Accept either inspectionLevel or personnelLevels
       const hasPersonnel =
         (data.inspectionLevel && data.inspectionLevel.length > 0) ||
@@ -402,6 +404,7 @@ export function validateWizardData(
         errors.push("Record retention period is required");
       }
       break;
+    }
 
     case "review":
       // No validation for review step itself

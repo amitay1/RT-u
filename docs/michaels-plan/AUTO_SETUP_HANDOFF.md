@@ -454,8 +454,8 @@ npm run lint
 
 - [תוכנית מפורטת](../plans/jolly-sauteeing-feather.md) - Implementation plan
 - [מסמך דרישות מקורי](../src/components/Automated%20Setup%20Software.pdf) - Original requirements
-- [AUTO_CALIBRATION_RECOMMENDATION.md](./AUTO_CALIBRATION_RECOMMENDATION.md) - Calibration system docs
-- [CLAUDE.md](../CLAUDE.md) - Project guidelines
+- [AUTO_CALIBRATION_RECOMMENDATION.md](../AUTO_CALIBRATION_RECOMMENDATION.md) - Calibration system docs
+- [CLAUDE.md](../../CLAUDE.md) - Project guidelines
 
 ---
 

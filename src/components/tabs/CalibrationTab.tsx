@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 // New components for FBH table with dropdowns and previews
 import { FBHHoleTableWithPreviews } from "../FBHHoleTableWithPreviews";
-import { PWCalibrationBlockDrawing } from "../drawings/PWCalibrationBlockDrawing";
 import { PWASIMCalibrationBlockDrawing } from "../drawings/PWASIMCalibrationBlockDrawing";
 import { DynamicCalibrationBlockDrawing } from "../drawings/DynamicCalibrationBlockDrawing";
 import { RingSegmentBlockDrawing } from "../drawings/RingSegmentBlockDrawing";
@@ -1112,10 +1111,9 @@ export const CalibrationTab = ({
     [standard, inspectionSetup.partNumber],
   );
 
-  // Get P&W standard reference for drawing
-  const pwStandardRef = useMemo(() => {
-    if (v2500Stage === 1) return 'NDIP-1226';
-    if (v2500Stage === 2) return 'NDIP-1227';
+  const pwCalibrationBlockImage = useMemo(() => {
+    if (v2500Stage === 1) return "/standards/ndip-1226-calibration-block.png";
+    if (v2500Stage === 2) return "/standards/ndip-1227-calibration-block.png";
     return null;
   }, [v2500Stage]);
 
@@ -1298,16 +1296,15 @@ export const CalibrationTab = ({
             )}
           </div>
 
-          {/* V2500 standards have published Figure 1 geometry (IAE2P16675). */}
-          {isV2500Standard && pwStandardRef && !isGTFStandard && (
-            <PWCalibrationBlockDrawing
-              width={950}
-              height={700}
-              showDimensions={true}
-              showTitleBlock={true}
-              standardRef={pwStandardRef}
-              title="IAE2P16675 - 45 deg Angle Calibration Block"
-            />
+          {/* V2500 standards use the original bundled Figure 1 image from the NDIP procedure. */}
+          {isV2500Standard && pwCalibrationBlockImage && !isGTFStandard && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <img
+                src={pwCalibrationBlockImage}
+                alt={standard === "NDIP-1226" ? "NDIP-1226 Figure 1 calibration block" : "NDIP-1227 Figure 1 calibration block"}
+                className="w-full h-auto max-h-[900px] object-contain bg-white"
+              />
+            </div>
           )}
 
           {/* GTF NDIPs are proprietary; avoid showing V2500 geometry as exact. */}
