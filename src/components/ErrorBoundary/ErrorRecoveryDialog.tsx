@@ -8,8 +8,64 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, RefreshCw, RotateCcw, Download, Trash2 } from 'lucide-react';
+import { AlertTriangle, RefreshCw, RotateCcw, Download, Trash2, ExternalLink } from 'lucide-react';
 import type { CrashSnapshot } from '@/hooks/useCrashRecovery';
+
+const LATEST_RELEASE_URL = 'https://github.com/amitay1/Scan-Master-16-12-25/releases/latest';
+
+type CrashUpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
+
+interface CrashUpdateStatus {
+  status: CrashUpdateState;
+  version?: string;
+  percent?: number;
+  error?: string;
+}
+
+interface RecoveryElectronApi {
+  checkForUpdates?: () => Promise<unknown>;
+  forceCheckUpdates?: () => Promise<unknown>;
+  downloadUpdate?: () => Promise<unknown>;
+  installUpdate?: (silent?: boolean) => Promise<unknown>;
+  getUpdateInfo?: () => Promise<{
+    updateAvailable?: boolean;
+    updateDownloaded?: boolean;
+    updateVersion?: string;
+    currentVersion?: string;
+  }>;
+  onUpdateStatus?: (callback: (event: unknown, status: CrashUpdateStatus) => void) => void;
+  removeUpdateListener?: (callback: (event: unknown, status: CrashUpdateStatus) => void) => void;
+  openExternal?: (url: string) => Promise<unknown> | void;
+}
+
+function getRecoveryElectronApi(): RecoveryElectronApi | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const win = window as Window & {
+    electron?: RecoveryElectronApi;
+    electronAPI?: RecoveryElectronApi;
+  };
+
+  return win.electron || win.electronAPI || null;
+}
+
+function openLatestReleasePage() {
+  const api = getRecoveryElectronApi();
+  const result = api?.openExternal?.(LATEST_RELEASE_URL);
+
+  if (result && typeof (result as Promise<unknown>).catch === 'function') {
+    (result as Promise<unknown>).catch(() => {
+      window.open(LATEST_RELEASE_URL, '_blank', 'noopener,noreferrer');
+    });
+    return;
+  }
+
+  if (!result) {
+    window.open(LATEST_RELEASE_URL, '_blank', 'noopener,noreferrer');
+  }
+}
 
 interface ErrorRecoveryDialogProps {
   open: boolean;
@@ -150,10 +206,105 @@ export function CrashErrorDialog({
   onExportDiagnostics,
 }: CrashErrorDialogProps) {
   const [showDetails, setShowDetails] = React.useState(false);
+  const [updateState, setUpdateState] = React.useState<CrashUpdateState>('idle');
+  const [updateVersion, setUpdateVersion] = React.useState<string | null>(null);
+  const [downloadPercent, setDownloadPercent] = React.useState(0);
+  const [updateMessage, setUpdateMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const electron = getRecoveryElectronApi();
+    if (!electron) {
+      setUpdateMessage('Automatic update is unavailable here. Use Download Latest Version.');
+      return;
+    }
+
+    electron.getUpdateInfo?.()
+      .then((info) => {
+        if (info?.updateDownloaded) {
+          setUpdateState('downloaded');
+          setUpdateVersion(info.updateVersion || null);
+        } else if (info?.updateAvailable) {
+          setUpdateState('available');
+          setUpdateVersion(info.updateVersion || null);
+        }
+      })
+      .catch(() => {
+        setUpdateMessage('Could not read update status. You can still download the latest installer.');
+      });
+
+    const handleUpdateStatus = (_event: unknown, status: CrashUpdateStatus) => {
+      setUpdateState(status.status);
+
+      if (status.version) {
+        setUpdateVersion(status.version);
+      }
+
+      if (typeof status.percent === 'number') {
+        setDownloadPercent(Math.round(status.percent));
+      }
+
+      if (status.status === 'not-available') {
+        setUpdateMessage('No automatic update was found. Download the latest installer if support published a fixed version.');
+      } else if (status.status === 'error') {
+        setUpdateMessage(status.error || 'Automatic update failed. Download the latest installer manually.');
+      } else {
+        setUpdateMessage(null);
+      }
+    };
+
+    electron.onUpdateStatus?.(handleUpdateStatus);
+
+    return () => {
+      electron.removeUpdateListener?.(handleUpdateStatus);
+    };
+  }, []);
+
+  const handleRecoveryUpdate = React.useCallback(async () => {
+    const electron = getRecoveryElectronApi();
+    if (!electron) {
+      openLatestReleasePage();
+      return;
+    }
+
+    try {
+      setUpdateMessage(null);
+
+      if (updateState === 'downloaded') {
+        await electron.installUpdate?.(true);
+        return;
+      }
+
+      if (updateState === 'available') {
+        setUpdateState('downloading');
+        await electron.downloadUpdate?.();
+        return;
+      }
+
+      setUpdateState('checking');
+      const result = await (electron.forceCheckUpdates?.() || electron.checkForUpdates?.());
+      if (result && typeof result === 'object' && 'updateAvailable' in result && !result.updateAvailable) {
+        setUpdateState('not-available');
+        setUpdateMessage('No automatic update was found. Download the latest installer if support published a fixed version.');
+      }
+    } catch (updateError) {
+      setUpdateState('error');
+      setUpdateMessage(updateError instanceof Error ? updateError.message : 'Automatic update failed. Download the latest installer manually.');
+    }
+  }, [updateState]);
+
+  const updateButtonText = React.useMemo(() => {
+    if (updateState === 'checking') return 'Checking for Update...';
+    if (updateState === 'downloading') return `Downloading Update ${downloadPercent}%`;
+    if (updateState === 'downloaded') return `Install Update${updateVersion ? ` v${updateVersion}` : ''}`;
+    if (updateState === 'available') return `Download Update${updateVersion ? ` v${updateVersion}` : ''}`;
+    return 'Check for Fixed Version';
+  }, [downloadPercent, updateState, updateVersion]);
+
+  const updateButtonDisabled = updateState === 'checking' || updateState === 'downloading';
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[640px]">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30">
@@ -179,6 +330,20 @@ export function CrashErrorDialog({
             Your work has been automatically saved. You can try reloading the application
             or export diagnostics to send to support.
           </p>
+
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              If reload does not fix it, install the latest version.
+            </p>
+            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+              This opens a recovery path even when the main application cannot load.
+            </p>
+            {updateMessage && (
+              <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">
+                {updateMessage}
+              </p>
+            )}
+          </div>
 
           {componentStack && (
             <div>
@@ -210,6 +375,27 @@ export function CrashErrorDialog({
           >
             <Download className="h-4 w-4 mr-1" />
             Export Diagnostics
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openLatestReleasePage}
+            className="w-full sm:w-auto"
+          >
+            <ExternalLink className="h-4 w-4 mr-1" />
+            Download Latest Version
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRecoveryUpdate}
+            disabled={updateButtonDisabled}
+            className="w-full sm:w-auto"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            {updateButtonText}
           </Button>
 
           <Button

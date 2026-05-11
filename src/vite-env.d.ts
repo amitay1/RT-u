@@ -6,7 +6,18 @@ declare const __APP_VERSION__: string;
 interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   checkForUpdates: () => Promise<void>;
+  forceCheckUpdates?: () => Promise<void>;
+  downloadUpdate?: () => Promise<void>;
   installUpdate: (silent?: boolean) => Promise<{ started: boolean }>;
+  getUpdateInfo?: () => Promise<{
+    updateAvailable?: boolean;
+    updateDownloaded?: boolean;
+    updateVersion?: string;
+    releaseNotes?: unknown;
+    releaseDate?: string;
+    currentVersion?: string;
+  }>;
+  openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
   onUpdateStatus: (callback: (event: any, status: UpdateStatusEvent) => void) => void;
   removeUpdateListener: (callback: (event: any, status: UpdateStatusEvent) => void) => void;
   confirmAppClose?: () => Promise<{ success: boolean }>;
@@ -33,6 +44,7 @@ interface PrepareForUpdateInstallPayload {
 declare global {
   interface Window {
     electron?: ElectronAPI;
+    electronAPI?: ElectronAPI;
   }
 }
 

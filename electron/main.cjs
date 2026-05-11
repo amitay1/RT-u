@@ -573,6 +573,20 @@ function setupIPCHandlers() {
     return { success: true };
   });
 
+  ipcMain.handle('open-external-url', async (event, url) => {
+    try {
+      const targetUrl = new URL(String(url || ''));
+      if (!['https:', 'http:', 'mailto:'].includes(targetUrl.protocol)) {
+        return { success: false, error: 'Blocked unsupported URL protocol' };
+      }
+
+      await shell.openExternal(targetUrl.toString());
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // IPC handlers for manual update control
   ipcMain.handle('check-for-updates', async () => {
     return safeCheckForUpdates(false);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Compliance Checker Dialog
  *
@@ -6,7 +5,7 @@
  * Integrates with the export flow to prevent export of non-compliant sheets.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -42,9 +41,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import { runComplianceCheck, type ComplianceCheckData } from "@/utils/complianceChecker";
-import type { ComplianceReport, ComplianceResult, ComplianceCategory } from "@/types/compliance";
-import type { StandardType } from "@/types/techniqueSheet";
+import { runComplianceCheck } from "@/utils/complianceChecker";
+import type {
+  ComplianceCheckData,
+  ComplianceReport,
+  ComplianceResult,
+  ComplianceCategory,
+} from "@/types/compliance";
 
 // ============================================================================
 // TYPES
@@ -141,24 +144,38 @@ export function ComplianceCheckerDialog({
 }: ComplianceCheckerDialogProps) {
   const [isChecking, setIsChecking] = useState(false);
   const [report, setReport] = useState<ComplianceReport | null>(null);
+  const checkTimeoutRef = useRef<number | null>(null);
+
+  const clearPendingCheck = useCallback(() => {
+    if (checkTimeoutRef.current !== null) {
+      window.clearTimeout(checkTimeoutRef.current);
+      checkTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleRunCheck = useCallback(() => {
+    clearPendingCheck();
+    setIsChecking(true);
+    setReport(null);
+    checkTimeoutRef.current = window.setTimeout(() => {
+      const result = runComplianceCheck(data);
+      setReport(result);
+      setIsChecking(false);
+      checkTimeoutRef.current = null;
+    }, 500);
+  }, [clearPendingCheck, data]);
 
   // Run compliance check when dialog opens.
   useEffect(() => {
     if (!open || report) return;
-
-    setIsChecking(true);
-    const timeoutId = window.setTimeout(() => {
-      const result = runComplianceCheck(data);
-      setReport(result);
-      setIsChecking(false);
-    }, 500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [data, open, report]);
+    handleRunCheck();
+    return clearPendingCheck;
+  }, [clearPendingCheck, handleRunCheck, open, report]);
 
   // Reset when closing
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
+      clearPendingCheck();
       setReport(null);
       setIsChecking(false);
     }

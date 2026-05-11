@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: (silent = true) => ipcRenderer.invoke('install-update', silent),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
 
   // Window controls
   minimize: () => ipcRenderer.invoke('window-minimize'),
@@ -82,6 +83,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // Version info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
 
   // Update checking
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

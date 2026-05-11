@@ -84,7 +84,9 @@ marketing/clips*/
 marketing/verify_*/
 
 # Standards reference PDFs/docs (local only)
+standards/pdfs/*.pdf
 standards/pdfs/*.docx
+standards/pdfs/*.txt
 
 # Large archives and unrelated content
 *.rar

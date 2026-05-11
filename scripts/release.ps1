@@ -780,8 +780,172 @@ if (-not $UploadOnly) {
     $jsonContent = $packageJson | ConvertTo-Json -Depth 100
     $utf8NoBOM = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $jsonContent, $utf8NoBOM)
+    Write-Info "Package version updated locally. Git commit/tag/push will run after release validation passes."
+}
 
-    # ── Git: commit, tag, push ───────────────────────────────────────
+# ── Electron build ───────────────────────────────────────────────────
+
+$freshOutputDir = $null
+$buildOK = $false
+$filesToUpload = @()
+
+if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir))) {
+    $freshOutputDir = Resolve-ReleaseBuildDir -TargetVersion $newVersion -RequestedBuildDir $BuildDir
+    if (-not $freshOutputDir) {
+        Write-Err "Could not find a build directory for v$newVersion."
+        Write-Err "Pass -BuildDir .\release-build-YYYYMMDD-HHMMSS or run a full release build."
+        exit 1
+    }
+
+    Write-Host ""
+    Write-Info "Using existing build output: $freshOutputDir"
+    Write-Info "Validating build output in: $freshOutputDir"
+    $validation = Test-ReleaseBuildOutput -OutputDir $freshOutputDir -TargetVersion $newVersion -WithPortable ([bool]$IncludePortable)
+    $buildOK = $validation.BuildOK
+    $filesToUpload = @($validation.FilesToUpload)
+
+    if (-not $buildOK) {
+        Write-Host ""
+        Write-Err "Build validation FAILED. Installer files will NOT be uploaded."
+    }
+} elseif (-not $SkipBuild) {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Info "Validating and building Electron app for Windows..."
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host ""
+
+    $buildExitCode = 0
+    Write-Info "Running unit tests..."
+    npm run test
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Unit tests failed. Release assets will NOT be created or uploaded."
+        $buildExitCode = 1
+    } else {
+        Write-Success "Unit tests passed."
+    }
+
+    # Try to close ScanMaster if running
+    if ($buildExitCode -eq 0) {
+        Write-Info "Closing ScanMaster if running..."
+        Get-Process | Where-Object { $_.ProcessName -like "*Scan*Master*" -or $_.MainWindowTitle -like "*ScanMaster*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+
+        # Clean build folders to prevent stale artifacts
+        Write-Info "Cleaning dist-electron..."
+        if (Test-Path "dist-electron") {
+            Remove-Item -Path "dist-electron" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        # Use a fresh timestamped output directory to avoid Windows file-lock issues
+        $buildTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $freshOutputDir = "release-build-$buildTimestamp"
+        Write-Info "  Build output directory: $freshOutputDir"
+
+        # Temporarily update electron-builder.json with the fresh output dir
+        $ebJsonPath = "electron-builder.json"
+        $ebJsonRaw = Get-Content $ebJsonPath -Raw
+        $ebJson = $ebJsonRaw | ConvertFrom-Json
+        $originalOutputDir = $ebJson.directories.output
+        $originalWinTarget = $ebJson.win.target
+        $ebJson.directories.output = $freshOutputDir
+
+        if (-not $IncludePortable) {
+            Write-Info "  Windows targets: nsis only (portable skipped for faster release)"
+            $ebJson.win.target = @(
+                [PSCustomObject]@{
+                    target = "nsis"
+                    arch = @("x64")
+                }
+            )
+        } else {
+            Write-Info "  Windows targets: nsis + portable"
+        }
+
+        $ebJsonContent = $ebJson | ConvertTo-Json -Depth 100
+        $utf8NoBOM2 = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonContent, $utf8NoBOM2)
+
+        try {
+            npm run dist:win
+            $buildExitCode = $LASTEXITCODE
+        } catch {
+            Write-Err "Build threw an exception: $_"
+            $buildExitCode = 1
+        } finally {
+            # ALWAYS restore the original output dir, even if build fails or is interrupted
+            $ebJson.directories.output = $originalOutputDir
+            $ebJson.win.target = $originalWinTarget
+            $ebJsonRestored = $ebJson | ConvertTo-Json -Depth 100
+            [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonRestored, $utf8NoBOM2)
+            Write-Info "  electron-builder.json restored"
+        }
+    }
+
+    if ($buildExitCode -eq 0) {
+        Write-Info "Running production smoke test..."
+        npm run smoke:release
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Production smoke test failed. Release assets will NOT be uploaded."
+            $buildExitCode = 1
+        } else {
+            Write-Success "Production smoke test passed."
+        }
+    }
+
+    if ($buildExitCode -ne 0) {
+        Write-Err "Build failed (exit code $buildExitCode)!"
+        Write-Warn "You can manually build later with: npm run dist:win"
+    }
+
+    if ($buildExitCode -eq 0 -and $freshOutputDir) {
+        # ── Validate build output ────────────────────────────────────
+
+        Write-Host ""
+        Write-Info "Validating build output in: $freshOutputDir"
+
+        $validation = Test-ReleaseBuildOutput -OutputDir $freshOutputDir -TargetVersion $newVersion -WithPortable ([bool]$IncludePortable)
+        $buildOK = $validation.BuildOK
+        $filesToUpload = @($validation.FilesToUpload)
+
+        if (-not $buildOK) {
+            Write-Host ""
+            Write-Err "Build validation FAILED. Installer files will NOT be uploaded."
+        }
+    } else {
+        $buildOK = $false
+    }
+} else {
+    Write-Warn "Build was skipped and no -BuildDir was provided, so no installer files will be uploaded."
+}
+
+# ── Git: commit, tag, push ───────────────────────────────────────────
+
+if (-not $UploadOnly) {
+    if (-not $buildOK) {
+        Write-Host ""
+        Write-Err "Release validation failed. Git commit/tag/push will NOT run."
+        Write-Err "No users will receive this version until tests, build, smoke, and asset validation pass."
+
+        # Revert only the automatic version bump; keep the user's real source changes intact.
+        $packageJson.version = $currentVersion
+        $revertJson = $packageJson | ConvertTo-Json -Depth 100
+        [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        exit 1
+    }
+
+    if (-not $ghAvailable) {
+        Write-Host ""
+        Write-Err "GitHub CLI (gh) is required before publishing a customer release."
+        Write-Err "Aborting before git commit/tag/push so an incomplete auto-update release is not created."
+        Write-Err "Install: winget install GitHub.cli && gh auth login"
+
+        # Revert only the automatic version bump; keep the user's real source changes intact.
+        $packageJson.version = $currentVersion
+        $revertJson = $packageJson | ConvertTo-Json -Depth 100
+        [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        exit 1
+    }
 
     Write-Info "Staging changes..."
     if ($CommitAll) {
@@ -818,7 +982,8 @@ if (-not $UploadOnly) {
         Write-Err "SAFETY: Large files (>90MB) detected in staging - GitHub will reject these!"
         $largeFiles | ForEach-Object { Write-Err "  $($_.Name) ($($_.SizeMB) MB)" }
         Write-Err "Aborting. Add these patterns to .gitignore and try again."
-        # Revert the version bump
+
+        # Revert only the automatic version bump; keep the user's real source changes intact.
         $packageJson.version = $currentVersion
         $revertJson = $packageJson | ConvertTo-Json -Depth 100
         [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
@@ -856,115 +1021,6 @@ if (-not $UploadOnly) {
         exit 1
     }
     Write-Success "Push successful!"
-}
-
-# ── Electron build ───────────────────────────────────────────────────
-
-$freshOutputDir = $null
-$buildOK = $false
-$filesToUpload = @()
-
-if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir))) {
-    $freshOutputDir = Resolve-ReleaseBuildDir -TargetVersion $newVersion -RequestedBuildDir $BuildDir
-    if (-not $freshOutputDir) {
-        Write-Err "Could not find a build directory for v$newVersion."
-        Write-Err "Pass -BuildDir .\release-build-YYYYMMDD-HHMMSS or run a full release build."
-        exit 1
-    }
-
-    Write-Host ""
-    Write-Info "Using existing build output: $freshOutputDir"
-    Write-Info "Validating build output in: $freshOutputDir"
-    $validation = Test-ReleaseBuildOutput -OutputDir $freshOutputDir -TargetVersion $newVersion -WithPortable ([bool]$IncludePortable)
-    $buildOK = $validation.BuildOK
-    $filesToUpload = @($validation.FilesToUpload)
-
-    if (-not $buildOK) {
-        Write-Host ""
-        Write-Err "Build validation FAILED. Installer files will NOT be uploaded."
-    }
-} elseif (-not $SkipBuild) {
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Yellow
-    Write-Info "Building Electron app for Windows..."
-    Write-Host "========================================" -ForegroundColor Yellow
-    Write-Host ""
-
-    # Try to close ScanMaster if running
-    Write-Info "Closing ScanMaster if running..."
-    Get-Process | Where-Object { $_.ProcessName -like "*Scan*Master*" -or $_.MainWindowTitle -like "*ScanMaster*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
-
-    # Clean build folders to prevent stale artifacts
-    Write-Info "Cleaning dist-electron..."
-    if (Test-Path "dist-electron") {
-        Remove-Item -Path "dist-electron" -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
-    # Use a fresh timestamped output directory to avoid Windows file-lock issues
-    $buildTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $freshOutputDir = "release-build-$buildTimestamp"
-    Write-Info "  Build output directory: $freshOutputDir"
-
-    # Temporarily update electron-builder.json with the fresh output dir
-    $ebJsonPath = "electron-builder.json"
-    $ebJsonRaw = Get-Content $ebJsonPath -Raw
-    $ebJson = $ebJsonRaw | ConvertFrom-Json
-    $originalOutputDir = $ebJson.directories.output
-    $originalWinTarget = $ebJson.win.target
-    $ebJson.directories.output = $freshOutputDir
-
-    if (-not $IncludePortable) {
-        Write-Info "  Windows targets: nsis only (portable skipped for faster release)"
-        $ebJson.win.target = @(
-            [PSCustomObject]@{
-                target = "nsis"
-                arch = @("x64")
-            }
-        )
-    } else {
-        Write-Info "  Windows targets: nsis + portable"
-    }
-
-    $ebJsonContent = $ebJson | ConvertTo-Json -Depth 100
-    $utf8NoBOM2 = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonContent, $utf8NoBOM2)
-
-    try {
-        npm run dist:win
-        $buildExitCode = $LASTEXITCODE
-    } catch {
-        Write-Err "Build threw an exception: $_"
-        $buildExitCode = 1
-    } finally {
-        # ALWAYS restore the original output dir, even if build fails or is interrupted
-        $ebJson.directories.output = $originalOutputDir
-        $ebJson.win.target = $originalWinTarget
-        $ebJsonRestored = $ebJson | ConvertTo-Json -Depth 100
-        [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonRestored, $utf8NoBOM2)
-        Write-Info "  electron-builder.json restored"
-    }
-
-    if ($buildExitCode -ne 0) {
-        Write-Err "Build failed (exit code $buildExitCode)!"
-        Write-Warn "You can manually build later with: npm run dist:win"
-    }
-
-    # ── Validate build output ────────────────────────────────────────
-
-    Write-Host ""
-    Write-Info "Validating build output in: $freshOutputDir"
-
-    $validation = Test-ReleaseBuildOutput -OutputDir $freshOutputDir -TargetVersion $newVersion -WithPortable ([bool]$IncludePortable)
-    $buildOK = $validation.BuildOK
-    $filesToUpload = @($validation.FilesToUpload)
-
-    if (-not $buildOK) {
-        Write-Host ""
-        Write-Err "Build validation FAILED. Installer files will NOT be uploaded."
-    }
-} else {
-    Write-Warn "Build was skipped and no -BuildDir was provided, so no installer files will be uploaded."
 }
 
 # ── GitHub Release ───────────────────────────────────────────────────
