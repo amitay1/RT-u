@@ -90,8 +90,8 @@ export const StatusBar = ({
     completionPercent >= 100 ? "text-emerald-400" : completionPercent >= 75 ? "text-cyan-300" : completionPercent > 0 ? "text-amber-300" : "text-slate-400";
 
   return (
-    <div className="status-ribbon h-12 md:h-14 flex items-center gap-3 px-3 md:px-5 text-sm md:text-base text-muted-foreground flex-shrink-0 overflow-hidden">
-      <div className="flex items-center gap-2 rounded-full border border-border/80 bg-black/10 px-3 py-1.5 flex-shrink-0">
+    <div className="status-ribbon flex h-11 flex-shrink-0 items-center gap-2 overflow-hidden px-2 text-xs text-muted-foreground md:h-12 md:gap-3 md:px-4 md:text-sm">
+      <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-border/80 bg-black/10 px-2.5 py-1.5 md:px-3">
         {isOnline ? (
           <>
             <Wifi className="h-4 w-4 md:h-5 md:w-5 text-success" />
@@ -105,20 +105,20 @@ export const StatusBar = ({
         )}
       </div>
 
-      <Separator orientation="vertical" className="mx-2 h-5 md:h-6 md:mx-4" />
+      <Separator orientation="vertical" className="mx-1 h-5 md:mx-3 md:h-6" />
 
       {autoSaveDisplay && (
         <>
-          <div className="flex items-center gap-2 rounded-full border border-border/80 bg-black/10 px-3 py-1.5">
+          <div className="hidden items-center gap-2 rounded-full border border-border/80 bg-black/10 px-3 py-1.5 lg:flex">
             {autoSaveDisplay.icon}
-            <span className={`${autoSaveDisplay.color} text-base`}>{autoSaveDisplay.text}</span>
+            <span className={`${autoSaveDisplay.color} text-sm`}>{autoSaveDisplay.text}</span>
           </div>
-          <Separator orientation="vertical" className="mx-2 h-5 md:h-6 md:mx-4" />
+          <Separator orientation="vertical" className="mx-1 hidden h-5 lg:block md:mx-3 md:h-6" />
         </>
       )}
 
       <div className="min-w-0 flex-1 flex items-center justify-center">
-        <div className="flex min-w-0 w-full max-w-[720px] items-center gap-3 rounded-full border border-border/80 bg-black/15 px-3 py-1.5 backdrop-blur-xl">
+        <div className="flex min-w-0 w-full max-w-[640px] items-center gap-2 rounded-full border border-border/80 bg-black/15 px-2.5 py-1.5 backdrop-blur-xl md:gap-3 md:px-3">
           {completionPercent === 100 ? (
             <CheckCircle className="h-5 w-5 flex-shrink-0 text-success" />
           ) : (
@@ -126,7 +126,7 @@ export const StatusBar = ({
           )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
-              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="hidden truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground md:block">
                 Completion Dock
               </span>
               <span className={`text-xs font-semibold ${progressToneClass}`}>{progressStateLabel}</span>
@@ -138,7 +138,7 @@ export const StatusBar = ({
                   style={{ width: `${Math.max(0, Math.min(100, completionPercent))}%` }}
                 />
               </div>
-              <span className="shrink-0 font-mono text-sm font-semibold text-foreground">
+              <span className="shrink-0 font-mono text-xs font-semibold text-foreground md:text-sm">
                 {Math.round(completionPercent)}%
               </span>
               <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
@@ -149,7 +149,7 @@ export const StatusBar = ({
         </div>
       </div>
 
-      <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono text-base font-semibold text-primary">
+      <span className="hidden rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono text-sm font-semibold text-primary sm:inline-flex md:text-base">
         {appVersion}
       </span>
     </div>

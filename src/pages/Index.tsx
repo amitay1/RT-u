@@ -530,8 +530,15 @@ const Index = () => {
     </div>
   );
 
-  const workbenchTabTriggerClass = "flex-shrink-0 px-3 py-2";
-  const workbenchTabListClass = "inline-flex h-auto w-max min-w-full flex-nowrap items-center justify-center gap-2 md:gap-3";
+  const workbenchTabTriggerClass = "flex-shrink-0 whitespace-nowrap px-2.5 py-2 text-sm";
+  const workbenchTabListClass = "inline-flex h-auto w-max min-w-full flex-nowrap items-center justify-start gap-1.5 xl:gap-2";
+
+  useEffect(() => {
+    const activeTabElement = document.querySelector<HTMLElement>(
+      '.workbench-tabstrip [role="tab"][data-state="active"]',
+    );
+    activeTabElement?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTab, reportMode]);
 
   // ── Loading / auth guards ──────────────────────────────────────────────
   if (loading) {
@@ -608,9 +615,9 @@ const Index = () => {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 px-2 pb-2 md:px-3 md:pb-3">
-        {/* Mobile: Compact Header with Standard & Class */}
-        <div className="md:hidden border border-border/80 bg-card/90 rounded-[1.35rem] p-3 mb-2">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 px-2 pb-2 md:px-3 md:pb-3">
+        {/* Compact Header with Standard & Class for mobile/tablet layouts */}
+        <div className="lg:hidden border border-border/80 bg-card/90 rounded-[1.35rem] p-3 mb-2">
           <div className="flex flex-col gap-4">
             <div className="flex-1">
               <h3 className="font-semibold text-xs mb-2">Standard</h3>
@@ -631,7 +638,6 @@ const Index = () => {
                 />
               </div>
             )}
-            {renderQuickFillPanel(true)}
           </div>
         </div>
 
@@ -667,7 +673,7 @@ const Index = () => {
                 {reportMode === "Technique" ? (
                   <>
                     <div className="workbench-header">
-                      <div className="workbench-tabstrip workbench-tabstrip-compact w-full overflow-x-auto scrollbar-hide md:overflow-visible sticky top-0 z-10">
+                      <div className="workbench-tabstrip workbench-tabstrip-compact w-full max-w-full overflow-x-auto overscroll-x-contain scrollbar-hide sticky top-0 z-10">
                         <TabsList className={workbenchTabListClass}>
                           <TabsTrigger value="setup" className={workbenchTabTriggerClass}>Setup</TabsTrigger>
                           <TabsTrigger value="scan" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Scan Params</TabsTrigger>
@@ -727,7 +733,7 @@ const Index = () => {
                       </Button>
                       </div>
                       </div>
-                      <div className="workbench-tabstrip workbench-tabstrip-compact w-full overflow-x-auto scrollbar-hide md:overflow-visible sticky top-0 z-10">
+                      <div className="workbench-tabstrip workbench-tabstrip-compact w-full max-w-full overflow-x-auto overscroll-x-contain scrollbar-hide sticky top-0 z-10">
                         <TabsList className={workbenchTabListClass}>
                           <TabsTrigger value="cover" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Cover Page</TabsTrigger>
                           <TabsTrigger value="equipment-report" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Equipment</TabsTrigger>

@@ -636,13 +636,18 @@ All colors MUST be HSL.
   }
 
   .workbench-tabstrip {
+    min-width: 0;
     border-top: 1px solid hsl(var(--border) / 0.75);
     background:
       linear-gradient(180deg, hsl(216 18% 11% / 0.92), hsl(216 18% 10% / 0.88));
+    scroll-padding-inline: 0.75rem;
   }
 
   .workbench-tabstrip [role="tablist"] {
     background: transparent !important;
+    width: max-content;
+    min-width: 100%;
+    justify-content: flex-start;
     padding: 0.55rem !important;
     border-radius: 0 !important;
   }
@@ -655,6 +660,7 @@ All colors MUST be HSL.
     border-radius: 0.95rem !important;
     color: hsl(var(--muted-foreground)) !important;
     font-weight: 600;
+    min-height: 2.5rem;
     transition: all 160ms ease;
     border: 1px solid transparent;
   }
