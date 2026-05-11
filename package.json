@@ -26,6 +26,10 @@
                     "release":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1",
                     "release:minor":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 minor",
                     "release:major":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 major",
+                    "release:dry":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 -DryRun",
+                    "release:all":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 -CommitAll",
+                    "release:upload":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 -UploadOnly",
+                    "release:portable":  "powershell -ExecutionPolicy Bypass -File ./scripts/release.ps1 -IncludePortable",
                     "license:generate":  "node scripts/license-generator.cjs",
                     "license:verify":  "node scripts/license-generator.cjs --verify",
                     "license:examples":  ".\\scripts\\example-licenses.bat"

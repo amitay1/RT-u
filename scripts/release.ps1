@@ -5,12 +5,22 @@
 #   .\scripts\release.ps1 minor              -> v1.0.18 to v1.1.0
 #   .\scripts\release.ps1 major              -> v1.0.18 to v2.0.0
 #   .\scripts\release.ps1 patch "Bug fixes"  -> v1.0.19: Bug fixes
+#   .\scripts\release.ps1 -DryRun            -> show planned actions only
+#   .\scripts\release.ps1 -UploadOnly -Version 1.1.76 -BuildDir .\release-build-20260511-233028
+#   .\scripts\release.ps1 -CommitAll         -> include all current non-ignored changes in the release commit
+#   .\scripts\release.ps1 -IncludePortable   -> also build/upload the optional portable EXE
 
 param(
     [string]$BumpType = "patch",
     [string]$Message = "",
     [switch]$SkipBuild = $false,
-    [switch]$RequireClean = $false
+    [switch]$RequireClean = $false,
+    [switch]$CommitAll = $false,
+    [switch]$DryRun = $false,
+    [switch]$UploadOnly = $false,
+    [string]$Version = "",
+    [string]$BuildDir = "",
+    [switch]$IncludePortable = $false
 )
 
 # Stop on any error by default
@@ -39,7 +49,7 @@ function Format-TransferRate {
 function Get-FileSha256 {
     param([string]$Path)
     try {
-        return (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
     } catch {
         return $null
     }
@@ -133,6 +143,10 @@ function Invoke-GitHubApiRequest {
             Method = $Method
             Headers = (Get-GitHubApiHeaders -Token $Token)
             ErrorAction = "Stop"
+        }
+
+        if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey("UseBasicParsing")) {
+            $requestParams.UseBasicParsing = $true
         }
 
         if ($null -ne $Body) {
@@ -292,14 +306,14 @@ function Test-ReleaseAssetMatchesLocal {
         [string]$KnownLocalHash = $null
     )
 
-    if (-not $Asset -or -not (Test-Path $LocalPath)) {
+    if (-not $Asset -or -not (Test-Path -LiteralPath $LocalPath -PathType Leaf)) {
         return [PSCustomObject]@{
             Matches = $false
             LocalHash = $KnownLocalHash
         }
     }
 
-    $localFile = Get-Item $LocalPath
+    $localFile = Get-Item -LiteralPath $LocalPath
     $localHash = $KnownLocalHash
     $remoteDigest = "$($Asset.digest)" -replace '^sha256:', ''
 
@@ -359,6 +373,99 @@ function Complete-ReleaseUploadProgress {
     Write-Progress -Id 1 -Activity "Uploading release asset" -Completed
     Write-Progress -Id 0 -Activity "Uploading release assets to GitHub" -Completed
 }
+function Resolve-ReleaseBuildDir {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetVersion,
+        [string]$RequestedBuildDir = ""
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($RequestedBuildDir)) {
+        if (Test-Path -LiteralPath $RequestedBuildDir -PathType Container) {
+            return (Resolve-Path -LiteralPath $RequestedBuildDir).Path
+        }
+
+        Write-Err "Build directory not found: $RequestedBuildDir"
+        return $null
+    }
+
+    $candidateDirs = @(Get-ChildItem -Directory -Filter "release-build-*" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+    foreach ($dir in $candidateDirs) {
+        $setupPath = Join-Path $dir.FullName "ScanMaster-Setup-$TargetVersion.exe"
+        $latestYmlPath = Join-Path $dir.FullName "latest.yml"
+        if ((Test-Path -LiteralPath $setupPath -PathType Leaf) -and (Test-Path -LiteralPath $latestYmlPath -PathType Leaf)) {
+            return $dir.FullName
+        }
+    }
+
+    return $null
+}
+function Get-ReleaseUploadFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$OutputDir,
+        [Parameter(Mandatory = $true)]
+        [string]$TargetVersion,
+        [bool]$WithPortable = $false
+    )
+
+    $files = @(
+        [PSCustomObject]@{ Path = (Join-Path $OutputDir "ScanMaster-Setup-$TargetVersion.exe");          Name = "Setup EXE"; Required = $true; MinSizeMB = 50 },
+        [PSCustomObject]@{ Path = (Join-Path $OutputDir "ScanMaster-Setup-$TargetVersion.exe.blockmap"); Name = "Blockmap"; Required = $true; MinSizeMB = 0 },
+        [PSCustomObject]@{ Path = (Join-Path $OutputDir "latest.yml");                                  Name = "latest.yml"; Required = $true; MinSizeMB = 0 }
+    )
+
+    if ($WithPortable) {
+        $files += [PSCustomObject]@{ Path = (Join-Path $OutputDir "ScanMaster-Portable-$TargetVersion.exe"); Name = "Portable EXE"; Required = $true; MinSizeMB = 50 }
+    }
+
+    return $files
+}
+function Test-ReleaseBuildOutput {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$OutputDir,
+        [Parameter(Mandatory = $true)]
+        [string]$TargetVersion,
+        [bool]$WithPortable = $false
+    )
+
+    $buildOK = $true
+    $filesToUpload = @(Get-ReleaseUploadFiles -OutputDir $OutputDir -TargetVersion $TargetVersion -WithPortable $WithPortable)
+
+    foreach ($file in $filesToUpload) {
+        if (Test-Path -LiteralPath $file.Path -PathType Leaf) {
+            $fileInfo = Get-Item -LiteralPath $file.Path
+            $sizeMB = $fileInfo.Length / 1MB
+
+            if ($file.MinSizeMB -gt 0 -and $sizeMB -lt $file.MinSizeMB) {
+                Write-Err "  $($file.Name) TOO SMALL: $([math]::Round($sizeMB, 1)) MB (expected >$($file.MinSizeMB) MB)"
+                $buildOK = $false
+            } elseif ($file.Name -eq "latest.yml") {
+                $ymlContent = Get-Content -LiteralPath $file.Path -Raw
+                if ($ymlContent -match "version:\s*$([regex]::Escape($TargetVersion))") {
+                    Write-Success "  latest.yml OK: version $TargetVersion"
+                } else {
+                    Write-Err "  latest.yml has WRONG version (expected $TargetVersion)"
+                    Write-Err "  Content: $($ymlContent.Substring(0, [Math]::Min(200, $ymlContent.Length)))"
+                    $buildOK = $false
+                }
+            } else {
+                Write-Success "  $($file.Name) OK: $([math]::Round($sizeMB, 1)) MB"
+            }
+        } elseif ($file.Required) {
+            Write-Err "  $($file.Name) not found: $($file.Path)"
+            $buildOK = $false
+        } else {
+            Write-Warn "  $($file.Name) not found (optional): $($file.Path)"
+        }
+    }
+
+    return [PSCustomObject]@{
+        BuildOK = $buildOK
+        FilesToUpload = $filesToUpload
+    }
+}
 function Remove-GitHubReleaseAsset {
     param(
         [string]$Repo,
@@ -396,7 +503,7 @@ function Upload-GitHubReleaseAssetWithProgress {
         [long]$OverallTotalBytes
     )
 
-    $localFile = Get-Item $FilePath
+    $localFile = Get-Item -LiteralPath $FilePath
     $uploadUri = "https://uploads.github.com/repos/$Repo/releases/$ReleaseId/assets?name=$([System.Uri]::EscapeDataString($localFile.Name))"
     $request = [System.Net.HttpWebRequest]::Create($uploadUri)
     $request.Method = "POST"
@@ -548,27 +655,39 @@ if (-not (Test-Path "package.json")) {
     exit 1
 }
 
-# 2. Make sure git is clean only when explicitly requested.
-# By default we continue and let the release commit capture current non-ignored changes.
-$gitStatus = git status --porcelain 2>&1
+# 2. Guard against accidentally committing unrelated work.
+$gitStatus = git -c core.quotePath=false status --porcelain 2>&1
 if ($gitStatus) {
     Write-Warn "WARNING: You have uncommitted changes:"
     Write-Host $gitStatus
     Write-Host ""
-    if ($RequireClean) {
-        Write-Err "Aborted. Commit or stash your changes first."
+
+    if ($UploadOnly) {
+        Write-Warn "Upload-only mode: local changes will not be committed."
+        Write-Host ""
+    } elseif ($DryRun) {
+        Write-Warn "Dry-run mode: local changes will not be committed."
+        Write-Host ""
+    } elseif ($RequireClean -or -not $CommitAll) {
+        Write-Err "Aborted to avoid committing unrelated changes."
+        Write-Err "Commit your work first, or run with -CommitAll if you intentionally want the release commit to include all current changes."
         exit 1
+    } else {
+        Write-Warn "CommitAll enabled. The release commit will include all non-ignored changes."
+        Write-Host ""
     }
-    Write-Warn "Continuing with dirty working tree. The release commit will include all non-ignored changes."
-    Write-Host ""
 }
 
 # 3. Make sure we can reach the remote
-Write-Info "Checking remote connectivity..."
-git ls-remote origin HEAD > $null 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Err "Cannot reach remote 'origin'. Check your internet / credentials."
-    exit 1
+if (-not $DryRun) {
+    Write-Info "Checking remote connectivity..."
+    git ls-remote origin HEAD > $null 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Cannot reach remote 'origin'. Check your internet / credentials."
+        exit 1
+    }
+} else {
+    Write-Warn "Dry-run mode: skipping remote connectivity check."
 }
 
 # 4. Check GitHub CLI is available (needed for release)
@@ -587,136 +706,184 @@ $packageJson = Get-Content "package.json" -Raw | ConvertFrom-Json
 $currentVersion = $packageJson.version
 Write-Info "Current version: v$currentVersion"
 
-$versionParts = $currentVersion -split '\.'
-$major = [int]$versionParts[0]
-$minor = [int]$versionParts[1]
-$patch = [int]$versionParts[2]
+if ($UploadOnly) {
+    $newVersion = if ([string]::IsNullOrWhiteSpace($Version)) { $currentVersion } else { $Version.Trim().TrimStart("v") }
+    $commitMessage = "Upload release assets for v$newVersion"
+    $releaseTitle = "v$newVersion"
+    Write-Success "Upload-only target: v$newVersion"
+} else {
+    $versionParts = $currentVersion -split '\.'
+    $major = [int]$versionParts[0]
+    $minor = [int]$versionParts[1]
+    $patch = [int]$versionParts[2]
 
-switch ($BumpType.ToLower()) {
-    "major" { $major++; $minor = 0; $patch = 0 }
-    "minor" { $minor++; $patch = 0 }
-    "patch" { $patch++ }
-    default {
-        Write-Warn "Unknown bump type '$BumpType', using 'patch'"
-        $patch++
+    switch ($BumpType.ToLower()) {
+        "major" { $major++; $minor = 0; $patch = 0 }
+        "minor" { $minor++; $patch = 0 }
+        "patch" { $patch++ }
+        default {
+            Write-Warn "Unknown bump type '$BumpType', using 'patch'"
+            $patch++
+        }
+    }
+
+    $newVersion = "$major.$minor.$patch"
+    Write-Success "New version: v$newVersion"
+
+    # Check if this tag already exists locally or remotely
+    $existingTag = git tag -l "v$newVersion" 2>&1
+    if ($existingTag) {
+        Write-Err "Tag v$newVersion already exists locally! Aborting to prevent duplicate."
+        Write-Err "Use -UploadOnly -Version $newVersion to upload assets for an existing release."
+        exit 1
+    }
+
+    if (-not $DryRun) {
+        $existingRemoteTag = git ls-remote --tags origin "refs/tags/v$newVersion" 2>$null
+        if ($existingRemoteTag) {
+            Write-Err "Tag v$newVersion already exists on origin! Aborting to prevent duplicate."
+            Write-Err "Use -UploadOnly -Version $newVersion to upload assets for an existing release."
+            exit 1
+        }
     }
 }
 
-$newVersion = "$major.$minor.$patch"
-Write-Success "New version: v$newVersion"
-
-# Check if this tag already exists locally or remotely
-$existingTag = git tag -l "v$newVersion" 2>&1
-if ($existingTag) {
-    Write-Err "Tag v$newVersion already exists locally! Aborting to prevent duplicate."
-    Write-Err "If you want to re-release, first delete the tag: git tag -d v$newVersion"
-    exit 1
-}
-
-$existingRemoteTag = git ls-remote --tags origin "refs/tags/v$newVersion" 2>$null
-if ($existingRemoteTag) {
-    Write-Err "Tag v$newVersion already exists on origin! Aborting to prevent duplicate."
-    Write-Err "If you want to re-release, delete the remote tag first: git push origin :refs/tags/v$newVersion"
-    exit 1
-}
-
-# Update package.json (without BOM to prevent build errors)
-$packageJson.version = $newVersion
-$jsonContent = $packageJson | ConvertTo-Json -Depth 100
-$utf8NoBOM = New-Object System.Text.UTF8Encoding $false
-[System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $jsonContent, $utf8NoBOM)
-
 # Create commit message
-if ($Message -eq "") {
-    $commitMessage = "v$newVersion"
-    $releaseTitle = "v$newVersion"
-} else {
+if (-not $UploadOnly -and $Message -ne "") {
     $commitMessage = "v${newVersion}: $Message"
     $releaseTitle = "v${newVersion}: $Message"
+} elseif (-not $UploadOnly) {
+    $commitMessage = "v$newVersion"
+    $releaseTitle = "v$newVersion"
 }
 
 Write-Host ""
 Write-Info "Commit message: $commitMessage"
+Write-Info "Release assets: Setup EXE, Blockmap, latest.yml$(if ($IncludePortable) { ', Portable EXE' } else { ' (portable skipped)' })"
 Write-Host ""
 
-# ── Git: commit, tag, push ───────────────────────────────────────────
-
-Write-Info "Staging changes..."
-git add -A
-
-# Safety check: make sure release artifacts are NOT staged.
-# core.quotePath=false avoids quoted octal paths that Test-Path cannot parse.
-$stagedPaths = @(git -c core.quotePath=false diff --cached --name-only)
-$stagedReleaseFiles = $stagedPaths | Where-Object { $_ -like "release-*" }
-if ($stagedReleaseFiles) {
-    Write-Err "SAFETY: Release build files are staged for commit!"
-    Write-Err "These files should be in .gitignore:"
-    $stagedReleaseFiles | ForEach-Object { Write-Err "  $_" }
-    Write-Err "Unstaging them now..."
-    git reset HEAD -- release-*/ 2>$null
-    git reset HEAD -- release-v*/ 2>$null
+if ($DryRun) {
+    Write-Warn "DRY RUN - no files changed, no build, no commit, no tag, no upload."
+    Write-Info "Would release: v$newVersion"
+    Write-Info "Would build Windows target: $(if ($IncludePortable) { 'nsis + portable' } else { 'nsis only' })"
+    if ($UploadOnly) {
+        Write-Info "Would upload from: $(if ($BuildDir) { $BuildDir } else { 'latest matching release-build-* directory' })"
+    } else {
+        Write-Info "Would stage: $(if ($CommitAll) { 'all non-ignored changes' } else { 'package.json only' })"
+    }
+    exit 0
 }
 
-# Also make sure no file over 90MB is staged (GitHub limit is 100MB)
-$largeFilePaths = @(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)
-$largeFiles = $largeFilePaths | ForEach-Object {
-    $path = $_
-    if (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path -LiteralPath $path -PathType Leaf)) {
-        $size = (Get-Item -LiteralPath $path).Length / 1MB
-        if ($size -gt 90) {
-            [PSCustomObject]@{ Name = $path; SizeMB = [math]::Round($size, 1) }
+if (-not $UploadOnly) {
+    # Update package.json (without BOM to prevent build errors)
+    $packageJson.version = $newVersion
+    $jsonContent = $packageJson | ConvertTo-Json -Depth 100
+    $utf8NoBOM = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $jsonContent, $utf8NoBOM)
+
+    # ── Git: commit, tag, push ───────────────────────────────────────
+
+    Write-Info "Staging changes..."
+    if ($CommitAll) {
+        git add -A
+    } else {
+        git add -- package.json
+    }
+
+    # Safety check: make sure release artifacts are NOT staged.
+    # core.quotePath=false avoids quoted octal paths that Test-Path cannot parse.
+    $stagedPaths = @(git -c core.quotePath=false diff --cached --name-only)
+    $stagedReleaseFiles = $stagedPaths | Where-Object { $_ -like "release-*" }
+    if ($stagedReleaseFiles) {
+        Write-Err "SAFETY: Release build files are staged for commit!"
+        Write-Err "These files should be in .gitignore:"
+        $stagedReleaseFiles | ForEach-Object { Write-Err "  $_" }
+        Write-Err "Unstaging them now..."
+        git reset HEAD -- release-*/ 2>$null
+        git reset HEAD -- release-v*/ 2>$null
+    }
+
+    # Also make sure no file over 90MB is staged (GitHub limit is 100MB)
+    $largeFilePaths = @(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)
+    $largeFiles = $largeFilePaths | ForEach-Object {
+        $path = $_
+        if (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path -LiteralPath $path -PathType Leaf)) {
+            $size = (Get-Item -LiteralPath $path).Length / 1MB
+            if ($size -gt 90) {
+                [PSCustomObject]@{ Name = $path; SizeMB = [math]::Round($size, 1) }
+            }
         }
     }
-}
-if ($largeFiles) {
-    Write-Err "SAFETY: Large files (>90MB) detected in staging – GitHub will reject these!"
-    $largeFiles | ForEach-Object { Write-Err "  $($_.Name) ($($_.SizeMB) MB)" }
-    Write-Err "Aborting. Add these patterns to .gitignore and try again."
-    # Revert the version bump
-    $packageJson.version = $currentVersion
-    $revertJson = $packageJson | ConvertTo-Json -Depth 100
-    [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
-    exit 1
-}
+    if ($largeFiles) {
+        Write-Err "SAFETY: Large files (>90MB) detected in staging - GitHub will reject these!"
+        $largeFiles | ForEach-Object { Write-Err "  $($_.Name) ($($_.SizeMB) MB)" }
+        Write-Err "Aborting. Add these patterns to .gitignore and try again."
+        # Revert the version bump
+        $packageJson.version = $currentVersion
+        $revertJson = $packageJson | ConvertTo-Json -Depth 100
+        [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        exit 1
+    }
 
-Write-Info "Creating commit..."
-git commit -m $commitMessage
-if ($LASTEXITCODE -ne 0) {
-    Write-Err "Git commit failed. Aborting."
-    exit 1
-}
+    Write-Info "Creating commit..."
+    git commit -m $commitMessage
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Git commit failed. Aborting."
+        exit 1
+    }
 
-Write-Info "Creating tag v$newVersion..."
-git tag "v$newVersion"
-if ($LASTEXITCODE -ne 0) {
-    Write-Err "Git tag failed. Aborting."
-    exit 1
-}
+    Write-Info "Creating tag v$newVersion..."
+    git tag "v$newVersion"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Git tag failed. Aborting."
+        exit 1
+    }
 
-Write-Info "Pushing to origin..."
-git push origin main --tags
-if ($LASTEXITCODE -ne 0) {
-    Write-Err "============================================="
-    Write-Err "  Git push FAILED!"
-    Write-Err "  The commit and tag were created locally."
-    Write-Err "  Fix the issue, then retry with:"
-    Write-Err "    git push origin main --tags"
-    Write-Err "============================================="
-    Write-Err ""
-    Write-Err "Common causes:"
-    Write-Err "  - Large files in history (use git filter-repo to clean)"
-    Write-Err "  - Network / auth issues"
-    Write-Err "  - Remote branch is ahead (git pull --rebase first)"
-    exit 1
+    Write-Info "Pushing to origin..."
+    git push origin main --tags
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "============================================="
+        Write-Err "  Git push FAILED!"
+        Write-Err "  The commit and tag were created locally."
+        Write-Err "  Fix the issue, then retry with:"
+        Write-Err "    git push origin main --tags"
+        Write-Err "============================================="
+        Write-Err ""
+        Write-Err "Common causes:"
+        Write-Err "  - Large files in history (use git filter-repo to clean)"
+        Write-Err "  - Network / auth issues"
+        Write-Err "  - Remote branch is ahead (git pull --rebase first)"
+        exit 1
+    }
+    Write-Success "Push successful!"
 }
-Write-Success "Push successful!"
 
 # ── Electron build ───────────────────────────────────────────────────
 
 $freshOutputDir = $null
 $buildOK = $false
+$filesToUpload = @()
 
-if (-not $SkipBuild) {
+if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir))) {
+    $freshOutputDir = Resolve-ReleaseBuildDir -TargetVersion $newVersion -RequestedBuildDir $BuildDir
+    if (-not $freshOutputDir) {
+        Write-Err "Could not find a build directory for v$newVersion."
+        Write-Err "Pass -BuildDir .\release-build-YYYYMMDD-HHMMSS or run a full release build."
+        exit 1
+    }
+
+    Write-Host ""
+    Write-Info "Using existing build output: $freshOutputDir"
+    Write-Info "Validating build output in: $freshOutputDir"
+    $validation = Test-ReleaseBuildOutput -OutputDir $freshOutputDir -TargetVersion $newVersion -WithPortable ([bool]$IncludePortable)
+    $buildOK = $validation.BuildOK
+    $filesToUpload = @($validation.FilesToUpload)
+
+    if (-not $buildOK) {
+        Write-Host ""
+        Write-Err "Build validation FAILED. Installer files will NOT be uploaded."
+    }
+} elseif (-not $SkipBuild) {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Yellow
     Write-Info "Building Electron app for Windows..."
@@ -744,7 +911,21 @@ if (-not $SkipBuild) {
     $ebJsonRaw = Get-Content $ebJsonPath -Raw
     $ebJson = $ebJsonRaw | ConvertFrom-Json
     $originalOutputDir = $ebJson.directories.output
+    $originalWinTarget = $ebJson.win.target
     $ebJson.directories.output = $freshOutputDir
+
+    if (-not $IncludePortable) {
+        Write-Info "  Windows targets: nsis only (portable skipped for faster release)"
+        $ebJson.win.target = @(
+            [PSCustomObject]@{
+                target = "nsis"
+                arch = @("x64")
+            }
+        )
+    } else {
+        Write-Info "  Windows targets: nsis + portable"
+    }
+
     $ebJsonContent = $ebJson | ConvertTo-Json -Depth 100
     $utf8NoBOM2 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonContent, $utf8NoBOM2)
@@ -758,9 +939,10 @@ if (-not $SkipBuild) {
     } finally {
         # ALWAYS restore the original output dir, even if build fails or is interrupted
         $ebJson.directories.output = $originalOutputDir
+        $ebJson.win.target = $originalWinTarget
         $ebJsonRestored = $ebJson | ConvertTo-Json -Depth 100
         [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonRestored, $utf8NoBOM2)
-        Write-Info "  electron-builder.json restored to output: $originalOutputDir"
+        Write-Info "  electron-builder.json restored"
     }
 
     if ($buildExitCode -ne 0) {
@@ -773,67 +955,37 @@ if (-not $SkipBuild) {
     Write-Host ""
     Write-Info "Validating build output in: $freshOutputDir"
 
-    $installerPath = Join-Path $freshOutputDir "ScanMaster-Setup-$newVersion.exe"
-    $portablePath  = Join-Path $freshOutputDir "ScanMaster-Portable-$newVersion.exe"
-    $latestYmlPath = Join-Path $freshOutputDir "latest.yml"
-    $buildOK = $true
-
-    # Check installer exists and is reasonable size (>50MB)
-    if (Test-Path $installerPath) {
-        $installerSize = (Get-Item $installerPath).Length / 1MB
-        if ($installerSize -lt 50) {
-            Write-Err "  INSTALLER TOO SMALL: $([math]::Round($installerSize, 1)) MB (expected >50 MB)"
-            $buildOK = $false
-        } else {
-            Write-Success "  Installer OK: $([math]::Round($installerSize, 1)) MB"
-        }
-    } else {
-        Write-Err "  Installer not found: $installerPath"
-        $buildOK = $false
-    }
-
-    # Check portable exists
-    if (Test-Path $portablePath) {
-        $portableSize = (Get-Item $portablePath).Length / 1MB
-        Write-Success "  Portable OK: $([math]::Round($portableSize, 1)) MB"
-    } else {
-        Write-Warn "  Portable not found (optional): $portablePath"
-    }
-
-    # Check latest.yml exists and has correct version
-    if (Test-Path $latestYmlPath) {
-        $ymlContent = Get-Content $latestYmlPath -Raw
-        if ($ymlContent -match "version:\s*$([regex]::Escape($newVersion))") {
-            Write-Success "  latest.yml OK: version $newVersion"
-        } else {
-            Write-Err "  latest.yml has WRONG version (expected $newVersion)"
-            Write-Err "  Content: $($ymlContent.Substring(0, [Math]::Min(200, $ymlContent.Length)))"
-            $buildOK = $false
-        }
-    } else {
-        Write-Err "  latest.yml not found: $latestYmlPath"
-        $buildOK = $false
-    }
+    $validation = Test-ReleaseBuildOutput -OutputDir $freshOutputDir -TargetVersion $newVersion -WithPortable ([bool]$IncludePortable)
+    $buildOK = $validation.BuildOK
+    $filesToUpload = @($validation.FilesToUpload)
 
     if (-not $buildOK) {
         Write-Host ""
         Write-Err "Build validation FAILED. Installer files will NOT be uploaded."
     }
+} else {
+    Write-Warn "Build was skipped and no -BuildDir was provided, so no installer files will be uploaded."
 }
 
 # ── GitHub Release ───────────────────────────────────────────────────
 
-if ($ghAvailable) {
+$releaseAssetsUploaded = $false
+
+if ($ghAvailable -and $buildOK) {
     Write-Host ""
-    Write-Info "Creating GitHub Release..."
+    Write-Info "Creating or updating GitHub Release..."
 
     $releaseNotes = "## What's New`n`n"
-    if ($Message -ne "") {
+    if ($UploadOnly) {
+        $releaseNotes += "- Upload release assets for v$newVersion`n"
+    } elseif ($Message -ne "") {
         $releaseNotes += "- $Message`n"
     } else {
         $releaseNotes += "- Version bump to v$newVersion`n"
     }
-    $releaseNotes += "`n**Full Changelog**: https://github.com/amitay1/Scan-Master-16-12-25/compare/v$currentVersion...v$newVersion"
+    if (-not $UploadOnly) {
+        $releaseNotes += "`n**Full Changelog**: https://github.com/amitay1/Scan-Master-16-12-25/compare/v$currentVersion...v$newVersion"
+    }
 
     $releaseTag = "v$newVersion"
     $existingRelease = Invoke-GhCli -Arguments @("release", "view", $releaseTag, "--repo", $githubRepo, "--json", "url") -SilentStdErr
@@ -860,20 +1012,13 @@ if ($ghAvailable) {
     }
 
     # Upload installer files only if build validation passed
-    if ($buildOK -and $freshOutputDir -and (Test-Path $freshOutputDir)) {
+    if ($buildOK -and $freshOutputDir -and (Test-Path -LiteralPath $freshOutputDir -PathType Container) -and $filesToUpload.Count -gt 0) {
         Write-Info "Uploading installer files to release..."
-
-        $filesToUpload = @(
-            @{ Path = (Join-Path $freshOutputDir "ScanMaster-Setup-$newVersion.exe");           Name = "Setup EXE" },
-            @{ Path = (Join-Path $freshOutputDir "ScanMaster-Setup-$newVersion.exe.blockmap");  Name = "Blockmap" },
-            @{ Path = (Join-Path $freshOutputDir "ScanMaster-Portable-$newVersion.exe");        Name = "Portable EXE" },
-            @{ Path = (Join-Path $freshOutputDir "latest.yml");                                 Name = "latest.yml" }
-        )
 
         $overallUploadBytesTotal = 0L
         foreach ($candidateFile in $filesToUpload) {
-            if (Test-Path $candidateFile.Path) {
-                $overallUploadBytesTotal += (Get-Item $candidateFile.Path).Length
+            if (Test-Path -LiteralPath $candidateFile.Path -PathType Leaf) {
+                $overallUploadBytesTotal += (Get-Item -LiteralPath $candidateFile.Path).Length
             }
         }
 
@@ -899,8 +1044,8 @@ if ($ghAvailable) {
             $file = $filesToUpload[$fileIndex]
             $progressFileIndex = $fileIndex + 1
 
-            if (Test-Path $file.Path) {
-                $localFile = Get-Item $file.Path
+            if (Test-Path -LiteralPath $file.Path -PathType Leaf) {
+                $localFile = Get-Item -LiteralPath $file.Path
                 $assetName = $localFile.Name
                 $sizeText = Format-FileSize $localFile.Length
                 $localHash = $null
@@ -1060,27 +1205,18 @@ if ($ghAvailable) {
             }
         } else {
             Write-Success "All files uploaded to GitHub Release!"
+            $releaseAssetsUploaded = $true
         }
 
-    } elseif (-not $SkipBuild -and -not $buildOK) {
-        Write-Host ""
-        Write-Err "================================================"
-        Write-Err "  BUILD VALIDATION FAILED - No files uploaded!"
-        Write-Err "  The GitHub release was created but is EMPTY."
-        Write-Err "  Fix the build and run: npm run dist:win"
-        Write-Err "  Then manually upload files with:"
-        Write-Err "    gh release upload v$newVersion <build-dir>/latest.yml --repo $githubRepo --clobber"
-        Write-Err "    gh release upload v$newVersion <build-dir>/ScanMaster-Setup-$newVersion.exe --repo $githubRepo --clobber"
-        Write-Err "    gh release upload v$newVersion <build-dir>/ScanMaster-Setup-$newVersion.exe.blockmap --repo $githubRepo --clobber"
-        Write-Err "    gh release upload v$newVersion <build-dir>/ScanMaster-Portable-$newVersion.exe --repo $githubRepo --clobber"
-        Write-Err "================================================"
-    } elseif ($SkipBuild) {
-        Write-Warn "Build was skipped – no installer files uploaded."
-        Write-Warn "Run the build manually and upload:"
-        Write-Warn "  npm run dist:win"
-        Write-Warn "  gh release upload v$newVersion release-build/latest.yml --repo $githubRepo --clobber"
-        Write-Warn "  gh release upload v$newVersion release-build/ScanMaster-Setup-$newVersion.exe --repo $githubRepo --clobber"
     }
+} elseif ($ghAvailable -and -not $buildOK) {
+    Write-Host ""
+    Write-Err "================================================"
+    Write-Err "  BUILD VALIDATION FAILED - GitHub release was not created/updated."
+    Write-Err "  Fix the build or pass -BuildDir with an existing valid build."
+    Write-Err "  Resume upload with:"
+    Write-Err "    .\scripts\release.ps1 -UploadOnly -Version $newVersion -BuildDir <build-dir>"
+    Write-Err "================================================"
 } else {
     Write-Host ""
     Write-Warn "GitHub CLI (gh) not installed – skipping GitHub Release creation."
@@ -1105,14 +1241,22 @@ if ($oldBuildDirs) {
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
-Write-Success "Released v$newVersion!"
+if ($releaseAssetsUploaded) {
+    if ($UploadOnly) {
+        Write-Success "Uploaded release assets for v$newVersion!"
+    } else {
+        Write-Success "Released v$newVersion!"
+    }
+} else {
+    Write-Err "Release v$newVersion is incomplete."
+}
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
-if ($ghAvailable -and -not $SkipBuild -and $buildOK) {
+if ($releaseAssetsUploaded) {
     Write-Host "Auto-update: Other computers will update when they open the app!" -ForegroundColor Green
 } elseif (-not $buildOK) {
-    Write-Host "WARNING: Build failed – auto-update will NOT work until fixed!" -ForegroundColor Red
+    Write-Host "WARNING: Build/upload validation failed - auto-update will NOT work until fixed." -ForegroundColor Red
 } elseif ($SkipBuild) {
     Write-Host "Build was skipped – remember to build and upload manually." -ForegroundColor Yellow
 } else {
