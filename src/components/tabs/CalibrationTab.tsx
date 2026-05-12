@@ -15,6 +15,7 @@ import { FBHHoleTableWithPreviews } from "../FBHHoleTableWithPreviews";
 import { PWASIMCalibrationBlockDrawing } from "../drawings/PWASIMCalibrationBlockDrawing";
 import { DynamicCalibrationBlockDrawing } from "../drawings/DynamicCalibrationBlockDrawing";
 import { RingSegmentBlockDrawing } from "../drawings/RingSegmentBlockDrawing";
+import { TubeAngleBeamReferenceDrawing } from "@/components/TubeAngleBeamReferenceDrawing";
 // StraightBeamConversionTable columns are now merged inline into FBHHoleTable
 // via the showSensitivityColumns prop (see FBHHoleTableWithPreviews).
 import { AngleBeamCalibrationTable } from "../AngleBeamCalibrationTable";
@@ -42,6 +43,7 @@ import {
 } from "@/utils/beamTypeClassification";
 import { getInspectionThickness } from "@/utils/inspectionThickness";
 import { getActiveMroStage, hasKnownActiveMroContext, isActiveMroStandard } from "@/utils/mroPolicy";
+import { isTubeAngleBeamPartType } from "@/utils/tubeAngleBeamDrawings";
 
 // ============================================================================
 // HELPER FUNCTIONS FOR FBH AUTO-FILL
@@ -1087,6 +1089,7 @@ export const CalibrationTab = ({
   const showStraightBeam = beamRequirement === "both" || beamRequirement === "straight_only";
   const showAngleBeam = beamRequirement === "both" || beamRequirement === "angle_only" || shouldUsePwCalibrationReference;
   const showBeamTabs = showStraightBeam && showAngleBeam;
+  const showTubeAngleBeamReference = isTubeAngleBeamPartType(inspectionSetup.partType);
 
   // For PW procedures, the angle-beam block is the most relevant "reference standard".
   // Auto-switch to the Angle tab the first time we enter a PW standard.
@@ -1097,6 +1100,12 @@ export const CalibrationTab = ({
     }
     prevIsPWStandardRef.current = shouldUsePwCalibrationReference;
   }, [shouldUsePwCalibrationReference]);
+
+  useEffect(() => {
+    if (showTubeAngleBeamReference && activeBeamTab !== "angle") {
+      setActiveBeamTab("angle");
+    }
+  }, [activeBeamTab, showTubeAngleBeamReference]);
 
   // Check specific P&W standard types
   const isPWASIM = standard === 'PWA-SIM';
@@ -1145,6 +1154,35 @@ export const CalibrationTab = ({
   // Render the Angle Beam content (calibration block drawing)
   // Note: partDimensions is memoized at component level to prevent infinite re-renders
   const renderAngleBeamContent = () => {
+    if (showTubeAngleBeamReference) {
+      return (
+        <div className="space-y-4">
+          <TubeAngleBeamReferenceDrawing
+            partType={inspectionSetup.partType}
+            outerDiameter={inspectionSetup.diameter}
+            innerDiameter={inspectionSetup.innerDiameter}
+            wallThickness={inspectionSetup.wallThickness}
+          />
+
+          <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50/30 mt-4">
+            <h4 className="font-bold text-orange-800 text-base mb-3 flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Angle Beam Calibration Table
+            </h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              Define reflector types, sizes and dB corrections for angle beam calibration.
+              Size dB and Sound Path are auto-calculated; Transfer dB is entered manually.
+            </p>
+            <AngleBeamCalibrationTable
+              rows={angleBeamCalibrationRows}
+              onChange={handleAngleBeamCalibrationRowsChange}
+              beamAngleDegrees={45}
+            />
+          </div>
+        </div>
+      );
+    }
+
     // PWA-SIM - Show dedicated multi-reflector calibration block drawing
     if (isPWASIM) {
       return (

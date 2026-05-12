@@ -1,6 +1,6 @@
 // ===================================================================
-// Tube Scan Plan Guide — Normal Beam TCG Calibration
-// PASTE THIS ENTIRE BLOCK INTO ELEVENLABS STUDIO
+// Tube Scan Plan Guide — Normal Beam TCG Calibration  (v3)
+// PASTE THIS BLOCK INTO ELEVENLABS STUDIO
 //
 // Voice:        Adam (pNInz6obpgDQGcFmaJgB)
 // Stability:    0.45
@@ -8,118 +8,147 @@
 // Style:        0.30
 // Speed:        1.0
 // Model:        eleven_multilingual_v2 (or v3 if available)
-// Target:       ~6:00  (~900 words at 150 WPM)
+// Target:       ~8:30  (~1275 words at 150 WPM)
 //
-// Source PDF:   /public/documents/scan-plan-guide.pdf
-// Trigger:      Scan Plan tab → Tube Scan Plan Guide
+// v3 changes from v2:
+//   - New opening order: Intro → Equipment → FBH Standards → Teach In →
+//     Basic Params → Water-path warning → Before/After → Active-Visible-Drag
+//     → Drag-and-80% → Save Point ×3 → Optional Back-wall → Save TCG → Checklist
+//   - Added explicit clips: Intro, Required Equipment, Open ScanMaster → Teach In,
+//     Set Basic Parameters, Save TCG Setup
+//   - Text corrections:
+//       "All three peaks at 80% FSH" → "All FBH responses adjusted to 80% FSH"
+//       "Drift = calibration invalid" → "Deviation requires re-standardization"
+//       "Water path confirmed" → "Water path kept within ±¼ inch"
 // ===================================================================
 
-[matter-of-fact] T-C-G calibration in thirteen steps. The guide is in your hand. The screens are in this video.
+[confident] T-C-G Calibration for Normal Beam Inspection.
 
-Welcome to the Tube Scan Plan Guide. Normal Beam T-C-G Calibration.
+In this video, you will learn how to create, verify, and save a T-C-G setup in ScanMaster.
 
-[confident] In six minutes you'll set up a complete T-C-G calibration. Open the wizard. Place the probe on the Hagit block. Set three F-B-H peaks to eighty per cent. Add a back-wall point. Save.
+Before you start. Prepare six items.
 
-Following the official ScanMaster Scan Plan Guide, step by step.
+The ScanMaster system. A normal beam probe. A calibration block with at least three F-B-H reflectors. The correct material velocity for the material. A stable water path. And access to Teach In mode.
 
-The guide opens with two prerequisites.
+Once everything is ready — open the ScanMaster Wizard.
 
-One. A minimum of three flat-bottom holes — F-B-H — three sixty-fourths inch diameter. Or as required, with different distances between them.
+On the calibration block — three F-B-H standards at different depths. We'll work from near to far.
 
-Two. A calibration block. Either the Hagit block, or a custom block meeting A-M-S Standard E-twenty-one-fifty-four — same as A-S-T-M E-one-twenty-seven — with three F-B-H.
+Standard one — near. Standard two — middle. Standard three — far.
 
-The P-D-F references both standards by name. They're equivalent for this purpose.
+Open the ScanMaster Wizard. From the main menu — click Teach In.
 
-Step three. Open the ScanMaster Wizard. Press Teach In.
+A new screen image appears. The INSTRUMENT window plus the Setup Toolbox dialog.
 
-Step four. A new screen image appears. This is your T-C-G calibration workspace.
+First — set the basic parameters. Four fields.
 
-Step five. To create T-C-G — start from the basic parameters dialog box.
+One. Material velocity. From the material database — select the material you're inspecting.
 
-Step six. Set all the parameters. From the basic ones first.
+Two. Range. Set the range until you see the back wall.
 
-Step seven. Move to the Hagit calibration block. Place the probe.
+Three. Gain. Verify the response from the three sixty-fourths inch F-B-H.
 
-Step eight. Material velocity. This step has three sub-parts.
+Four. Water path. Seventy-six millimetres. Or — closely related — set the distance from transducer face to part surface so the second front reflection does not appear between the first front and first back reflections.
 
-Eight-A. Range. Set the range until you get the back wall.
+[serious] Important.
 
-Eight-B. Gain. Verify response from the three sixty-fourths inch F-B-H.
+Keep the water path consistent — within plus or minus one quarter inch — during standardisation, initial scanning, and final evaluation.
 
-Eight-C. Water path. Set seventy-six millimetres of water path.
+Deviation beyond plus or minus a quarter inch requires re-standardisation.
 
-Or, more precisely — the distance from the transducer face to the part front surface must be such that the second front reflection does not appear between the first front and first back reflections.
+Before we set anything else — understand what T-C-G is solving.
 
-[serious] The guide is explicit about water path.
+Before T-C-G — three identical flat-bottom holes, three different signal heights. Closer means stronger. Farther means weaker.
 
-Water travel must be the same within plus or minus one quarter inch — for standardisation, initial scanning, and final evaluation.
+After T-C-G — all F-B-H responses adjusted to eighty per cent F-S-H. One reference level. One pass-fail criterion. Across depth.
 
-If your water path drifts beyond that, your calibration is invalid.
+That is our goal. Let's build it.
 
-Step nine. Set a minimum three-position calibration block — F-B-H three sixty-fourths inch diameter — according to A-M-S Standard E-twenty-one-fifty-four, A-S-T-M E-one-twenty-seven, or your custom block meeting the same criteria.
+Inside the Setup Toolbox — click the T-C-G tab. The T-C-G table appears.
 
-Step ten. Move to the first position. Standard number one.
+Before any other action — verify three checkboxes on the right side of the T-C-G tab.
 
-Ten-A. On the A-scan, drag the yellow dot onto the response peak. Set the Gain so the F-B-H amplitude reaches eighty per cent F-S-H.
+[serious] Active. Visible. Drag. All three must be checked. If Drag is off — you cannot drag the yellow dots in the next steps.
 
-Ten-B. Save the first point. Click the save button on the toolbar setup.
+Move the probe to the first F-B-H — the near standard.
 
-First T-C-G node locked.
+On the A-scan, drag the yellow dot onto the response peak.
 
-Step eleven. Move to the second calibration standard. Set the response from the F-B-H to eighty per cent F-S-H.
+Adjust the Gain so the F-B-H amplitude reaches eighty per cent F-S-H. As you turn Gain up, the trace rises. Stop when the peak touches the cyan reference line.
 
-Eleven-A. Drag the second yellow dot onto the response peak. Adjust Gain so the response reaches eighty per cent F-S-H.
+Save Point one. Click the save button on the toolbar setup.
 
-Eleven-B. Save the second point. Click the save button on the toolbar.
+Node one — locked.
 
-Second T-C-G node locked.
+Move the probe to the second F-B-H — the middle standard.
 
-Step twelve. Move to the highest calibration standard. Set the response from the F-B-H to eighty per cent F-S-H.
+Drag the second yellow dot onto the new response peak.
 
-Twelve-A. Drag the third yellow dot onto the response peak. Adjust Gain to eighty per cent F-S-H.
+Adjust Gain so this peak also reaches eighty per cent F-S-H.
 
-Twelve-B. Save the third point on the toolbar setup.
+Save Point two.
 
-One detail from the guide. When you have more than three T-C-G segments, scroll boxes appear to the right of the segment list. The currently active segment is indicated by an arrow next to its number.
+Node two — locked.
 
-Step thirteen. If needed — set another T-C-G point on the back-wall response. Adjust the gain to get eighty per cent F-S-H.
+Move the probe to the third F-B-H — the far standard.
 
-Thirteen-A. Click the button on the toolbar to set the first point before the back-wall pulse. Then set the second point after the back-wall pulse.
+Drag the third yellow dot onto the response peak.
 
-Thirteen-B. Create additional points — at least four total — to define the T-C-G curve from the back-wall point.
+Adjust Gain to eighty per cent F-S-H.
 
-This step is optional. Use it when your inspection extends to the full part depth.
+Save Point three.
 
-Step thirteen point one. Saving T-C-G.
+Node three — locked. Three reference points set.
 
-Click save on the setup dialog box, T-C-G section.
+One detail from the guide.
 
-From the middle of the Files tab, under T-C-G, click Save. The U-P-R-D-B Navigator Save dialog appears, with the default file path displayed at the bottom.
+With more than three segments — scroll boxes appear to the right of the segment list. The active segment is marked with an arrow next to its number.
 
-Name your calibration. Click Save.
+If your inspection extends to full part depth — add a T-C-G point on the back-wall response.
 
-Recap. Open the wizard, Teach In. Set basic parameters. Place probe on the Hagit block. Range, Gain, water path of seventy-six millimetres. Three F-B-H peaks each set to eighty per cent F-S-H. Optional back-wall node. Save through the Files tab T-C-G section.
+Click the toolbar button to set the first point before the back-wall pulse. Then the second point after the back-wall pulse.
+
+Create at least four points in total to define the T-C-G curve through the back-wall response.
+
+Optional. Skip this step if your inspection only covers the F-B-H depth range.
+
+Now save the T-C-G setup. Four clicks.
+
+One — click the Files tab in the Setup Toolbox.
+
+Two — under T-C-G, click Save.
+
+Three — the U-P-R-D-B Navigator dialog opens. The default file path is displayed at the bottom.
+
+Four — name the file. We recommend a naming convention that includes the probe type, the F-B-H size, and the date. For example — Normal Beam underscore T-C-G underscore three sixty-fourths F-B-H underscore today's date. Click Save.
+
+T-C-G setup saved.
+
+Quick checklist before you run the inspection.
+
+Teach In opened. Material velocity set. Range set. Water path kept within plus or minus a quarter inch. Three F-B-H peaks at eighty per cent F-S-H. Optional back-wall points added if needed. T-C-G setup saved.
 
 Your T-C-G is ready. Run the inspection.
+
+If you need to recalibrate after a probe change, a material change, or any deviation in water path — return to step three.
+
+The full Scan Plan documentation is available in the Scan Plan tab.
 
 // ===================================================================
 // END OF SCRIPT
 //
-// Pronunciation cheat sheet (in case ElevenLabs mangles any):
-//   T-C-G                → "tee see gee" (letter by letter)
-//   F-B-H                → "eff bee aitch"
-//   F-S-H                → "eff ess aitch"
-//   AMS STD E-twenty-one-fifty-four  → "ay em ess standard ee twenty-one fifty-four"
-//   ASTM E-one-twenty-seven          → "ay ess tee em ee one twenty-seven"
-//   U-P-R-D-B            → "you pee arr dee bee"
-//   3/64                 → "three sixty-fourths"
-//   ¼ inch               → "one quarter inch"
-//   80% FSH              → "eighty per cent eff ess aitch"
-//   Hagit                → "hah-geet" (Hebrew/Israeli name, two syllables)
+// Pronunciation cheat sheet:
+//   T-C-G        → "tee see gee"
+//   F-B-H        → "eff bee aitch"
+//   F-S-H        → "eff ess aitch"
+//   AMS STD E-twenty-one-fifty-four → "ay em ess standard ee twenty-one fifty-four"
+//   ASTM E-one-twenty-seven         → "ay ess tee em ee one twenty-seven"
+//   U-P-R-D-B    → "you pee arr dee bee"
+//   3/64         → "three sixty-fourths"
+//   ¼ inch       → "one quarter inch"
+//   80% FSH      → "eighty per cent eff ess aitch"
+//   Hagit        → "hah-geet" (Hebrew name)
 //
-// If a sentence sounds wrong, RE-GENERATE THAT SENTENCE ONLY
-// (saves credits + keeps tone consistent).
-//
-// File save name:  voiceover-tube-scan-plan.wav
+// File save name:  voiceover-tube-scan-plan-v3.wav
 // Save location:   training-videos/assets/tube-scan-plan/audio/
 // ===================================================================

@@ -12,7 +12,6 @@ import { PartTypeVisualSelector } from "@/components/PartTypeVisualSelector";
 import { Card } from "@/components/ui/card";
 import { FieldWithHelp } from "@/components/FieldWithHelp";
 import { RealTimeTechnicalDrawing } from "@/components/RealTimeTechnicalDrawing";
-import { TubeAngleBeamReferenceDrawing } from "@/components/TubeAngleBeamReferenceDrawing";
 import {
   generateCalibrationRecommendationV2,
   CalibrationRecommendationInput
@@ -1741,13 +1740,6 @@ export const InspectionSetupTab = ({
           </div>
         </Card>
       )}
-
-      <TubeAngleBeamReferenceDrawing
-        partType={data.partType}
-        outerDiameter={data.diameter}
-        innerDiameter={data.innerDiameter}
-        wallThickness={data.wallThickness}
-      />
 
       {inspectionSetupProfile.showMroReferenceLibrary && (isLoadingMroCatalog || mroCatalog || mroAssets.length > 0) && (
         <Card className="workstation-card mt-5 overflow-visible border-0 p-5">

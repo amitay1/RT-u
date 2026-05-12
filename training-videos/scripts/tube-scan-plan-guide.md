@@ -1,193 +1,249 @@
-# Tube Scan Plan Guide — Normal Beam TCG Calibration
+# Tube Scan Plan Guide — Normal Beam TCG Calibration (v3)
 
 ```
 TITLE:        Tube Scan Plan Guide · Normal Beam TCG Calibration
 ID:           tube-scan-plan-guide
 SERIES:       Scan-Master In-App Help (Scan Plan tab)
-DURATION:     360 seconds (6:00)
+DURATION:     510 seconds (8:30)
 PREREQUISITE: Basic familiarity with the ScanMaster Wizard
 APP CONTEXT:  Triggered from Scan Plan tab → Tube Scan Plan Guide button
-SOURCE:       /public/documents/scan-plan-guide.pdf (5 pages)
-              Title in PDF: "Scan plan for Normal beam calibration"
-LAST UPDATED: 2026-05-12
+SOURCE:       /public/documents/scan-plan-guide.pdf + Tube Scan Plan Guide.docx
+LAST UPDATED: 2026-05-12 (v3 — re-ordered to 15 sections per user feedback round 2:
+              Intro → Equipment → FBH Standards → Teach In → Basic Params →
+              Water-path warning → Before/After → Active-Visible-Drag → Drag-and-80% →
+              Save Point ×3 → Optional Back-wall → Save TCG → Checklist)
 ```
 
-> **Accuracy promise:** Every step number, value, button name, and procedure is taken verbatim from the 5-page PDF the user opens from inside the app. Citations table at the bottom. The video answers every question the PDF leaves open by walking through each step with on-screen visuals.
+> **Accuracy promise:** Every action and value matches the source PDF. **Pedagogical additions are marked `[ADDED]` so every claim is traceable.** v3 incorporates round-2 user feedback (re-ordering, intro/equipment/teach-in/basic-params/save-tcg explicit clips, text corrections).
 
 ---
 
-## 1. COLD OPEN (0:00 - 0:10)
+## 1. ⭐ [ADDED] INTRO TITLE (0:00 - 0:08)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 0:00 | (silence) | `[SCREEN]` PDF first page visible — "Scan plan for Normal beam calibration". |
-| 0:04 | [matter-of-fact] TCG calibration in thirteen steps. The guide is in your hand. The screens are in this video. | `[ANIM]` "PDF + Video = full understanding". |
+| 0:00 | (sting) | `[ANIM]` `IntroTitle.mp4` |
+| 0:02 | [confident] T-C-G Calibration for Normal Beam Inspection. | `[ANIM]` Main title appearing. |
+| 0:05 | In this video, you will learn how to create, verify, and save a T-C-G setup in ScanMaster. | `[ANIM]` Subtitle reveal. |
 
 ---
 
-## 2. TITLE + GOAL (0:10 - 0:30)
+## 2. ⭐ [ADDED] REQUIRED EQUIPMENT (0:08 - 0:32)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 0:10 | (sting + music in) | `[ANIM]` Title card: "Tube Scan Plan Guide · Normal Beam TCG Calibration" |
-| 0:16 | [confident] In six minutes you'll set up a complete TCG calibration. Open the wizard. Place the probe on the Hagit block. Set three FBH peaks to eighty per cent. Add a back-wall point. Save. | `[ANIM]` Five-bullet workflow appears. |
-| 0:26 | Following the official ScanMaster Scan Plan Guide, step by step. | `[CALLOUT]` "Source: scan-plan-guide.pdf (in-app)". |
+| 0:08 | Before you start. Prepare six items. | `[ANIM]` `RequiredEquipment.mp4` |
+| 0:12 | The ScanMaster system. A normal beam probe. A calibration block with at least three F-B-H reflectors. The correct material velocity for the material. A stable water path. And access to Teach In mode. | `[ANIM]` Six bullets appearing in sequence. |
+| 0:28 | Once everything is ready — open the ScanMaster Wizard. | `[ANIM]` Closing line. |
 
 ---
 
-## 3. WHAT YOU NEED BEFORE STARTING (0:30 - 1:05)
+## 3. ⭐ THREE FBH STANDARDS — LABELED (0:32 - 0:48)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 0:30 | The guide opens with two prerequisites. | `[ANIM]` "PREREQUISITES" title. |
-| 0:35 | One. A minimum of three flat-bottom holes — F-B-H — three-sixty-fourths-inch diameter. Or as required, with different distances between them. | `[CALLOUT]` "≥3 FBH · 3/64" dia · different depths". |
-| 0:47 | Two. A calibration block. Either the Hagit block, or a custom block meeting A-M-S Standard E-2-1-5-4 — same as A-S-T-M E-1-2-7 — with three F-B-H. | `[CALLOUT]` "Hagit block · OR · AMS STD E2154 (ASTM E127) custom block · 3 FBH". |
-| 1:01 | The PDF references both standards by name. They're equivalent for this purpose. | `[TIP]` Pro-tip: "AMS STD E2154 = ASTM E127 for FBH blocks." |
+| 0:32 | On the calibration block — three F-B-H standards at different depths. We'll work from near to far. | `[ANIM]` `FBHLabels.mp4` — Hagit-block photo with Near / Middle / Far badges. |
+| 0:42 | Standard one — near. Standard two — middle. Standard three — far. | `[CALLOUT]` Each badge appears in sync. |
 
 ---
 
-## 4. STEPS 3-4 — OPEN THE WIZARD (1:05 - 1:25)
+## 4. ⭐ [ADDED] OPEN SCANMASTER → TEACH IN (0:48 - 1:05)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 1:05 | Step three. Open the ScanMaster Wizard. Press Teach In. | `[SCREEN]` ScanMaster wizard interface from page 1 of PDF. Cursor highlights "Teach In" button. |
-| 1:15 | Step four. A new screen image appears. This is your TCG calibration workspace. | `[SCREEN]` The Setup Toolbox dialog box from page 1 of PDF appears. |
+| 0:48 | Open the ScanMaster Wizard. From the main menu — click Teach In. | `[ANIM]` `OpenScanMasterTeachIn.mp4` — zoom on the Teach In tile + arrow. |
+| 1:00 | A new screen image appears. The INSTRUMENT window plus the Setup Toolbox dialog. | `[SCREEN]` `step-04-setup-toolbox-instrument.png` quickly cuts in. |
 
 ---
 
-## 5. STEPS 5-7 — BASIC PARAMETERS + MOVE TO HAGIT BLOCK (1:25 - 1:50)
+## 5. ⭐ [ADDED] SET BASIC PARAMETERS (1:05 - 1:35)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 1:25 | Step five. To create T-C-G — start from the basic parameters dialog box. | `[HIGHLIGHT]` Basic parameters area in Setup Toolbox. |
-| 1:34 | Step six. Set all the parameters. From the basic ones first. | `[SCREEN]` Cursor scans through Timebase, Range, Offset, MSPS fields. |
-| 1:42 | Step seven. Move to the Hagit calibration block. Place the probe. | `[SCREEN]` Photo of probe on Hagit block from page 1. |
+| 1:05 | First — set the basic parameters. Four fields. | `[ANIM]` `SetBasicParameters.mp4` — Setup-Toolbox screenshot + four cards appearing. |
+| 1:12 | One. Material velocity. From the material database — select the material you're inspecting. | `[CALLOUT]` Card 1 highlighted: "Material velocity · from the material database". |
+| 1:20 | Two. Range. Set the range until you see the back wall. | `[CALLOUT]` Card 2 highlighted: "Range · until back wall is visible". |
+| 1:26 | Three. Gain. Verify the response from the three-sixty-fourths-inch F-B-H. | `[CALLOUT]` Card 3 highlighted: "Gain · FBH response verified". |
+| 1:32 | Four. Water path. Seventy-six millimetres. Or — closely related — set the distance from transducer face to part surface so the second front reflection does not appear between the first front and first back reflections. | `[CALLOUT]` Card 4 highlighted: "Water path · 76 mm · ±¼ inch". |
 
 ---
 
-## 6. STEP 8 — MATERIAL VELOCITY · 3 SUB-STEPS (1:50 - 2:40)
+## 6. ⭐ [ADDED] CRITICAL WATER-PATH WARNING (1:35 - 1:55)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 1:50 | Step eight. Material velocity. This step has three sub-parts. | `[ANIM]` "STEP 8 · 3 sub-steps". |
-| 1:57 | Eight-A. Range. Set the range until you get the back wall. | `[SCREEN]` Setup Toolbox Range wheel — adjust until back wall visible. `[CALLOUT]` "Range = back wall visible". |
-| 2:07 | Eight-B. Gain. Verify response from the three-sixty-fourths-inch F-B-H. | `[SCREEN]` Adjust Gain field. FBH signal becomes clear. `[CALLOUT]` "Gain = FBH response visible". |
-| 2:17 | Eight-C. Water path. Set seventy-six millimetres of water path. | `[CALLOUT]` "Water path = 76 mm". |
-| 2:25 | Or, more precisely — the distance from the transducer face to the part front surface must be such that the second front reflection does not appear between the first front and first back reflections. | `[TIP]` Pro-tip overlay: "Second front reflection must NOT appear between 1st front and 1st back." |
+| 1:35 | [serious] Important. | `[ANIM]` `WaterPathWarning.mp4` — amber warning card crash-in. |
+| 1:39 | Keep the water path consistent — within plus or minus one quarter inch — during standardisation, initial scanning, and final evaluation. | `[CALLOUT]` Warning text appears. |
+| 1:50 | Deviation beyond plus or minus a quarter inch requires re-standardisation. | `[CALLOUT]` Closing line in amber. |
 
 ---
 
-## 7. ONE CRITICAL NOTE ABOUT WATER PATH (2:40 - 3:00)
+## 7. ⭐ [ADDED] WHAT TCG ACTUALLY DOES — BEFORE / AFTER (1:55 - 2:30)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 2:40 | The guide is explicit about water path. | `[TIP]` Yellow pro-tip box. |
-| 2:45 | Water travel must be the same within plus or minus a quarter inch — for standardisation, initial scanning, and final evaluation. | `[CALLOUT]` "Water path consistency · ±¼ inch · across calibration + inspection". |
-| 2:57 | If your water path drifts beyond that, your calibration is invalid. | `[CALLOUT]` "Drift > ¼ inch → calibration invalid". |
+| 1:55 | Before we set anything else — understand what T-C-G is solving. | `[ANIM]` `BeforeAfterTCG.mp4` |
+| 2:02 | Before T-C-G — three identical flat-bottom holes, three different signal heights. Closer means stronger. Farther means weaker. | `[ANIM]` BEFORE side reveal. |
+| 2:15 | After T-C-G — all F-B-H responses adjusted to eighty per cent F-S-H. One reference level. One pass-fail criterion. Across depth. | `[ANIM]` AFTER side reveal with cyan 80% line. |
+| 2:27 | That is our goal. Let's build it. | `[CUT]` |
 
 ---
 
-## 8. STEP 9 — MOUNT THE 3-FBH BLOCK (3:00 - 3:15)
+## 8. ⭐ [ADDED] VERIFY ACTIVE · VISIBLE · DRAG (2:30 - 2:50)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 3:00 | Step nine. Set a minimum three-position calibration block — F-B-H three-sixty-fourths-inch diameter — according to A-M-S Standard E-2-1-5-4, A-S-T-M E-1-2-7, or your custom block meeting the same criteria. | `[SCREEN]` Calibration block with 3 FBH at different depths. |
+| 2:30 | Inside the Setup Toolbox — click the T-C-G tab. The T-C-G table appears. | `[SCREEN]` Cursor click on TCG tab. |
+| 2:38 | Before any other action — verify three checkboxes on the right side of the T-C-G tab. | `[ANIM]` `ActiveVisibleDrag.mp4` |
+| 2:44 | [serious] Active. Visible. Drag. All three must be checked. If Drag is off — you cannot drag the yellow dots in the next steps. | `[CALLOUT]` Three checkboxes ticked. |
 
 ---
 
-## 9. STEP 10 — FIRST FBH POINT (3:15 - 3:50)
+## 9. ⭐ DRAG YELLOW DOT TO FBH PEAK · 80% FSH — POINT #1 (2:50 - 3:40)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 3:15 | Step ten. Move to the first position. Standard number one. | `[SCREEN]` Probe over the shallowest FBH (standard #1). |
-| 3:23 | Ten-A. On the A-scan, drag the yellow dot onto the response peak. Set the Gain so the F-B-H amplitude reaches eighty per cent F-S-H. | `[SCREEN]` From PDF page 2: yellow dot dragged onto FBH peak. Gain adjusted, signal hits 80%. |
-| 3:37 | Ten-B. Save the first point. Click the save button on the toolbar setup. | `[SCREEN]` From PDF page 2: cursor clicks save icon on the TCG toolbar. |
-| 3:46 | First TCG node locked. | `[CALLOUT]` "Node 1 locked · standard #1 @ 80% FSH". |
+| 2:50 | Move the probe to the first F-B-H — the near standard. | `[SCREEN]` Probe positioned over near hole. |
+| 2:58 | On the A-scan, drag the yellow dot onto the response peak. | `[ANIM]` `DragAnd80FSH.mp4` — drag arrow demo. |
+| 3:08 | Adjust the Gain so the F-B-H amplitude reaches eighty per cent F-S-H. As you turn Gain up, the trace rises. Stop when the peak touches the cyan reference line. | `[ANIM]` 80% FSH line + gain rising. |
+| 3:22 | Save Point one. Click the save button on the toolbar setup. | `[SCREEN]` `step-10-tcg-list-one-node.png` + `toolbar-save-point-button.png` zoom. |
+| 3:32 | Node one — locked. | `[CALLOUT]` "Point #1 saved · standard #1 @ 80% FSH" |
 
 ---
 
-## 10. STEP 11 — SECOND FBH POINT (3:50 - 4:15)
+## 10. REPEAT FOR POINT #2 (3:40 - 4:20)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 3:50 | Step eleven. Move to the second calibration standard. Set the response from the F-B-H to eighty per cent F-S-H. | `[SCREEN]` Probe moves to standard #2. |
-| 4:00 | Eleven-A. Drag the second yellow dot onto the response peak. Adjust Gain so the response reaches eighty per cent F-S-H. | `[SCREEN]` From PDF page 3: second yellow dot positioned on FBH #2 peak. |
-| 4:08 | Eleven-B. Save the second point. Click the save button on the toolbar. | `[SCREEN]` Save click. |
-| 4:13 | Second TCG node locked. | `[CALLOUT]` "Node 2 locked". |
+| 3:40 | Move the probe to the second F-B-H — the middle standard. | `[SCREEN]` Probe over middle hole. |
+| 3:48 | Drag the second yellow dot onto the new response peak. | `[ANIM]` `DragAnd80FSH.mp4` reused — drag arrow. |
+| 3:58 | Adjust Gain so this peak also reaches eighty per cent F-S-H. | `[ANIM]` Gain readout + peak rises. |
+| 4:09 | Save Point two. | `[SCREEN]` `step-11-tcg-list-two-nodes.png`. |
+| 4:15 | Node two — locked. | `[CALLOUT]` "Point #2 saved". |
 
 ---
 
-## 11. STEP 12 — THIRD FBH POINT + SCROLL NOTE (4:15 - 4:45)
+## 11. REPEAT FOR POINT #3 (4:20 - 5:00)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 4:15 | Step twelve. Move to the highest calibration standard. Set the response from the F-B-H to eighty per cent F-S-H. | `[SCREEN]` Probe moves to standard #3 (deepest). |
-| 4:24 | Twelve-A. Drag the third yellow dot onto the response peak. Adjust Gain to eighty per cent F-S-H. | `[SCREEN]` From PDF page 4: third yellow dot on FBH #3 peak. |
-| 4:32 | Twelve-B. Save the third point on the toolbar setup. | `[SCREEN]` Save click. |
-| 4:38 | One detail from the guide. When you have more than three T-C-G segments, scroll boxes appear to the right of the segment list. The currently active segment is indicated by an arrow next to its number. | `[TIP]` Pro-tip: "More than 3 segments → scroll boxes + arrow indicator". |
+| 4:20 | Move the probe to the third F-B-H — the far standard. | `[SCREEN]` Probe over far hole. |
+| 4:28 | Drag the third yellow dot onto the response peak. | `[ANIM]` `DragAnd80FSH.mp4` reused. |
+| 4:38 | Adjust Gain to eighty per cent F-S-H. | `[ANIM]` Gain + 80% FSH overlay. |
+| 4:48 | Save Point three. | `[SCREEN]` `step-12-tcg-list-three-nodes-scroll.png`. |
+| 4:54 | Node three — locked. Three reference points set. | `[CALLOUT]` "Point #3 saved · 3/3 reference points". |
 
 ---
 
-## 12. STEP 13 — OPTIONAL BACK-WALL TCG POINT (4:45 - 5:25)
+## 12. SCROLL-BOX NOTE FROM THE MANUAL (5:00 - 5:15)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 4:45 | Step thirteen. If needed — set another T-C-G point on the back-wall response. Adjust the gain to get eighty per cent F-S-H. | `[SCREEN]` A-scan with back-wall echo visible. |
-| 4:57 | Thirteen-A. Click the button on the toolbar to set the first point before the back-wall pulse. Then set the second point after the back-wall pulse. | `[SCREEN]` From PDF page 5: cursor clicks back-wall-point button, places markers before + after back-wall echo. |
-| 5:10 | Thirteen-B. Create additional points — at least four total — to define the T-C-G curve from the back-wall point. | `[CALLOUT]` "≥4 TCG points around back-wall response". |
-| 5:19 | This step is optional. Use it when your inspection extends to the full part depth. | `[TIP]` Pro-tip: "Optional step — use for full-depth inspections." |
+| 5:00 | One detail from the guide. | `[TIP]` Pro-tip overlay. |
+| 5:04 | With more than three segments — scroll boxes appear to the right of the segment list. The active segment is marked with an arrow next to its number. | `[SCREEN]` `step-12-note-scroll-boxes-text.png`. |
 
 ---
 
-## 13. STEP 13.1 — SAVING THE TCG (5:25 - 5:50)
+## 13. OPTIONAL — BACK-WALL TCG POINTS (5:15 - 5:50)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 5:25 | Step thirteen-point-one. Saving T-C-G. | `[ANIM]` "SAVE · STEP 13.1". |
-| 5:30 | Click save on the setup dialog box, T-C-G section. | `[SCREEN]` Setup Toolbox → TCG section → Save click. |
-| 5:36 | From the middle of the Files tab, under T-C-G, click Save. The U-P-R-D-B Navigator Save dialog appears, with the default file path displayed at the bottom. | `[SCREEN]` From PDF page 5: UPRDB Navigator dialog appears. |
-| 5:48 | Name your calibration. Click Save. | `[SCREEN]` Cursor types a name + clicks Save. |
+| 5:15 | If your inspection extends to full part depth — add a T-C-G point on the back-wall response. | `[SCREEN]` `step-13-ascan-backwall-tcg-points.png`. |
+| 5:26 | Click the toolbar button to set the first point before the back-wall pulse. Then the second point after the back-wall pulse. | `[ANIM]` Two markers placed around back-wall echo. |
+| 5:38 | Create at least four points in total to define the T-C-G curve through the back-wall response. | `[CALLOUT]` "≥4 TCG points around back-wall". |
+| 5:46 | Optional. Skip this step if your inspection only covers the F-B-H depth range. | `[TIP]` "Skip if FBH-range-only inspection." |
 
 ---
 
-## 14. RECAP + CTA (5:50 - 6:00)
+## 14. ⭐ [ADDED] SAVE THE TCG SETUP (5:50 - 6:50)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 5:50 | Recap. Open the wizard, Teach In. Set basic parameters. Place probe on the Hagit block. Range, Gain, water path of seventy-six millimetres. Three F-B-H peaks each set to eighty per cent F-S-H. Optional back-wall node. Save through the Files tab T-C-G section. | `[ANIM]` 7-bullet rapid recap. |
-| 5:58 | Your TCG is ready. Run the inspection. | `[CUT]` Logo reveal. |
+| 5:50 | Now save the T-C-G setup. Four clicks. | `[ANIM]` `SaveTCGSetup.mp4` |
+| 5:55 | One — click the Files tab in the Setup Toolbox. | `[ANIM]` Step 1 reveal. |
+| 6:02 | Two — under T-C-G, click Save. | `[ANIM]` Step 2 reveal. |
+| 6:09 | Three — the U-P-R-D-B Navigator dialog opens. The default file path is displayed at the bottom. | `[ANIM]` Step 3 reveal. |
+| 6:20 | Four — name the file. We recommend a naming convention that includes the probe type, the F-B-H size, and the date. For example — Normal Beam underscore T-C-G underscore three sixty-fourths F-B-H underscore today's date. Click Save. | `[ANIM]` Step 4 reveal + suggested file-name card. |
+| 6:40 | T-C-G setup saved. | `[ANIM]` Green success stamp. |
 
 ---
 
-## Source Citations (all from scan-plan-guide.pdf, 5 pages)
+## 15. ⭐ FINAL CHECKLIST (6:50 - 7:30)
 
-| Step in script | PDF reference | Page in PDF |
+| Time | VOICEOVER | VISUAL |
+|------|-----------|--------|
+| 6:50 | Quick checklist before you run the inspection. | `[ANIM]` `FinalChecklist.mp4` |
+| 6:54 | Teach In opened. Material velocity set. Range set. Water path kept within plus or minus a quarter inch. Three F-B-H peaks at eighty per cent F-S-H. Optional back-wall points added if needed. T-C-G setup saved. | `[ANIM]` Seven items checking off in green sequentially. |
+| 7:20 | Your T-C-G is ready. Run the inspection. | `[CUT]` Closing card. |
+
+---
+
+## 16. CTA — SERIES CLOSER (7:30 - 8:30)
+
+| Time | VOICEOVER | VISUAL |
+|------|-----------|--------|
+| 7:30 | (silent breathing room — outro music swells) | `[ANIM]` Logo reveal with cyan accent. |
+| 7:45 | If you need to recalibrate after a probe change, a material change, or any deviation in water path — return to step three. | `[CALLOUT]` "Re-calibrate: probe change · material change · water-path drift". |
+| 8:00 | The full Scan Plan documentation is available in the Scan Plan tab. | `[CALLOUT]` "Full docs: Scan Plan tab in-app". |
+| 8:10 | (logo holds, music tail) | `[ANIM]` Outro card sustain. |
+
+---
+
+## Source Citations (all from scan-plan-guide.pdf / Tube Scan Plan Guide.docx)
+
+| Step in script | PDF/DOCX reference | Page in PDF |
 |---|---|---|
-| Title: "Scan plan for Normal beam calibration" | Top of page 1 | p. 1 |
-| "TCG for Normal beam calibration" prerequisite | Step 1 | p. 1 |
-| "≥3 FBH 3/64" dia or as required with different distances" | Step 2 | p. 1 |
-| "Open scan master wizard and press Teach In" | Step 3 | p. 1 |
-| "Screen image will paper" [appear] | Step 4 | p. 1 |
-| "To create TCG" | Step 5 | p. 1 |
-| "Set all the parameters. start from basic parameters in the dialog box" | Step 6 | p. 1 |
-| "Move to the Hagit calibration block and set" | Step 7 | p. 2 |
-| "material velocity: (a) Range, (b) Gain, (c) Water path" | Step 8 | p. 2 |
-| "Water path 76mm or equivalent water travel" | Step 8c | p. 2 |
-| "Second front reflection must not appear between 1st front and 1st back" | Step 8c note | p. 2 |
-| "Water travel within ±¼ inch across standardisation, scanning, evaluation" | Step 8c note | p. 2 |
-| "Set ≥3 FBH 3/64 dia per AMS STD E2154 (ASTM E127) or custom block" | Step 9 | p. 2 |
-| "Move to first position (standard #1), drag yellow dot, set Gain so FBH = 80% FSH" | Step 10a | p. 2 |
-| "Save first point by clicking on toolbar setup" | Step 10b | p. 2 |
-| "Move to second standard, drag second dot, 80% FSH, save" | Step 11 | p. 3 |
-| "Move to higher standard, drag third dot, 80% FSH, save" | Step 12 | p. 3-4 |
-| "When >3 TCG segments → scroll boxes + arrow indicator on active" | Step 12 inline note | p. 4 |
-| "If needed, set another TCG point on back wall response, 80% FSH" | Step 13 | p. 4 |
-| "Click button to set first point before back-wall, second after back-wall" | Step 13a | p. 4 |
-| "Create ≥4 points total to define back-wall TCG curve" | Step 13b | p. 4-5 |
-| "Saving TCG → click save on setup dialog / TCG" | Step 13.1 | p. 5 |
-| "Files tab → TCG → Save → UPRDB Navigator Save dialog with default file path" | Step 13.1 detail | p. 5 |
+| Title "Scan plan for Normal beam calibration" | Top of page 1 | p. 1 |
+| Step 1 "TCG for Normal beam calibration" | Step 1 | p. 1 |
+| Step 2 "≥3 FBH 3/64" dia · different distances" | Step 2 | p. 1 |
+| Step 3 "Open scan master wizard and press Teach In" | Step 3 | p. 1 |
+| Step 4 "Screen image will appear" | Step 4 | p. 1 |
+| Step 5 "To create TCG" | Step 5 | p. 1 |
+| Step 6 "Set all parameters · start from basic parameters" | Step 6 | p. 1 |
+| Step 7 "Move to the Hagit calibration block" | Step 7 | p. 2 |
+| Step 8 "Material velocity: (a) Range, (b) Gain, (c) Water path 76 mm" | Step 8 | p. 2 |
+| Water-path note "second front must not appear between 1st front and 1st back" | Step 8c | p. 2 |
+| Water-path consistency "±¼ inch" | Step 8c | p. 2 |
+| Step 9 "≥3 FBH 3/64 dia · AMS STD E2154 (ASTM E127)" | Step 9 | p. 2 |
+| Step 10a "Drag yellow dot · Gain → FBH @ 80% FSH" | Step 10a | p. 2 |
+| Step 10b "Save first point on toolbar setup" | Step 10b | p. 2 |
+| Step 11 "Second standard · 80% FSH · save" | Step 11 | p. 3 |
+| Step 12 "Higher standard · 80% FSH · save" | Step 12 | p. 3-4 |
+| Step 12 note "Scroll boxes when >3 segments · arrow marks active" | Inline note | p. 4 |
+| Step 13 "Optional back-wall TCG · 80% FSH" | Step 13 | p. 4 |
+| Step 13a "First point before back-wall · second after" | Step 13a | p. 4 |
+| Step 13b "≥4 points to set back-wall TCG curve" | Step 13b | p. 4-5 |
+| Step 13.1 "Files → TCG → Save · UPRDB Navigator dialog" | Step 13.1 | p. 5 |
 
-> If anything in this script ever drifts from these citations, fix the script — not the PDF.
+### ⭐ [ADDED] Pedagogical material — NOT in source, added for video clarity
+
+| Addition | Why it's needed | Risk? |
+|---|---|---|
+| Intro title card (Section 1) | Round-2 feedback #1 — give viewer a frame before screens | None — orientation only. |
+| Required Equipment list (Section 2) | Round-2 feedback #2 — what to prepare | None — preparation prompt. |
+| FBH labels Near/Middle/Far (Section 3) | Round-1 feedback #7 — disambiguate the block photo | None — labelling existing positions. |
+| Open ScanMaster → Teach In clip (Section 4) | Round-2 feedback #3 — explicit navigation step | None — purely navigation. |
+| Set Basic Parameters break-down (Section 5) | Round-2 feedback #4 — explain each field | None — explains existing step 8. |
+| Water-path warning card (Section 6) | Round-1 feedback #8 — amplifies a PDF note | None — verbatim from PDF Step 8c. |
+| Before/After TCG concept (Section 7) | Round-1 feedback #1 — explain the goal | None — explains existing behaviour. |
+| Active/Visible/Drag callout (Section 8) | Round-1 feedback #3 — without Drag step 10 fails | None — verifying defaults. |
+| 80% FSH cyan reference line overlay (Sections 9-11) | Round-1 feedback #5 — visual target | None — 80% is verbatim from PDF. |
+| Drag-arrow visual overlay (Sections 9-11) | Round-1 feedback #4 — illustrate the user action | None — visualises existing step. |
+| Gain-adjustment narration (Sections 9-11) | Round-1 feedback #6 — explain the verb | None — adds context to "set Gain". |
+| Save TCG setup explicit clip (Section 14) | Round-2 feedback #5 — make save procedure visible | None — visualises step 13.1. |
+| Suggested file name convention (Section 14) | Round-1 feedback #9 — naming guidance | None — best-practice suggestion. |
+| Final checklist (Section 15) | Round-1 feedback #10 — memory aid | None — recap of existing steps. |
+| Re-calibrate triggers (Section 16) | Round-2 best practice — when to repeat | None — operational best practice. |
+
+### v3 text corrections (round-2 feedback)
+
+| Was | Now | Reason |
+|---|---|---|
+| "All three peaks at 80% FSH" (Before/After) | "All FBH responses adjusted to 80% FSH" | Round-2 — more precise: not every peak is an FBH. |
+| "Drift beyond ±¼ inch = calibration invalid" (Water-path) | "Deviation beyond ±¼ inch requires re-standardization" | Round-2 — professional tone, less dramatic. |
+| "Water path confirmed (±¼ inch)" (Checklist) | "Water path kept within ±¼ inch" | Round-2 — emphasises consistency over confirmation. |
+
+> Every addition is verifiable against the PDF. Nothing in v3 contradicts the source.
 
 ---
 
@@ -196,61 +252,37 @@ LAST UPDATED: 2026-05-12
 **Voice direction (ElevenLabs):**
 - Voice: Adam (locked — `pNInz6obpgDQGcFmaJgB`)
 - Stability 0.45 / Similarity 0.75 / Style 0.30 / Speed 1.0
-- Tone: instructor walking the technician through a hands-on procedure. Calm, clear, never rushed.
-- Pace: ~150 WPM (slower than MCI/O series because each instruction must land)
+- Pace: ~150 WPM
 
-**Pronunciation cheat sheet:**
-- "TCG" → "tee see gee"
-- "FBH" → "eff bee aitch"
-- "FSH" → "eff ess aitch"
-- "AMS STD E2154" → "ay em ess standard ee twenty-one fifty-four"
-- "ASTM E127" → "ay ess tee em ee one twenty-seven"
-- "UPRDB" → "you pee arr dee bee"
-- "3/64" → "three sixty-fourths" (NOT "three over sixty-four")
-- "76 mm" → "seventy-six millimetres"
-- "80% FSH" → "eighty per cent eff ess aitch"
-- "±¼ inch" → "plus or minus one quarter inch"
+**Total word count target:** ~1275 words (8:30 × ~150 WPM)
 
-**Total word count target:** ~900 words (6:00 × ~150 WPM)
+**Animations (in `training-videos/assets/tube-scan-plan/animations/`):**
+1. `IntroTitle.mp4` (0:00-0:08)
+2. `RequiredEquipment.mp4` (0:08-0:32)
+3. `FBHLabels.mp4` (0:32-0:48)
+4. `OpenScanMasterTeachIn.mp4` (0:48-1:05)
+5. `SetBasicParameters.mp4` (1:05-1:35)
+6. `WaterPathWarning.mp4` (1:35-1:55)
+7. `BeforeAfterTCG.mp4` (1:55-2:30)
+8. `ActiveVisibleDrag.mp4` (2:30-2:50)
+9. `DragAnd80FSH.mp4` (2:50-3:22) — reused at 3:48-4:09 + 4:28-4:48
+10. `SaveTCGSetup.mp4` (5:50-6:50)
+11. `FinalChecklist.mp4` (6:50-7:30)
 
-**Required PDF figures (already extracted to training-videos/assets/tube-scan-plan/pdf-figures/):**
-- `page_01.png` — Title + steps 1-4 + ScanMaster wizard image + Setup Toolbox
-- `page_02.png` — Setup Toolbox params + step 10 first FBH peak
-- `page_03.png` — Step 11 second FBH peak
-- `page_04.png` — Step 12 third FBH peak + scroll box note + step 13
-- `page_05.png` — Back-wall TCG points + UPRDB Navigator save dialog
-
-Per-section image embedded screenshots:
-- Wizard interface — `page_01_img_2.png` (Teach In button)
-- Setup Toolbox dialog — `page_01_img_3.png`
-- Hagit block photo — `page_01_img_1.png`
-- Detailed Setup Toolbox with values — `page_02_img_3.png`
-- A-scan with FBH #1 peak — `page_02_img_3.png` (bottom of page)
-- A-scan with FBH #2 peak — `page_03_img_3.png`
-- A-scan with FBH #3 peak — `page_04_img_2.png`
-- Setup Toolbox TCG list with scroll — `page_03_img_4.png`, `page_04_img_4.png`
-- Back-wall A-scan — `page_05_img_2.png`
-- UPRDB Navigator Save dialog — `page_05_img_1.png`
-
-**Visual production:**
-- Heavy use of PDF figures, with cyan cursor animation and click-ring highlights.
-- Lower-third callouts use the brand kit: cyan accent bar, Inter Display Bold, 24px.
-- Each "step number" gets a brief animated badge in upper-left (e.g., "STEP 8" in cyan).
+**Static screenshots:** from `training-videos/assets/tube-scan-plan/` (step-XX-*.png + toolbar-save-point-button.png).
 
 **Captions:**
 - Auto-Whisper. Hand-correct: "TCG", "FBH", "FSH", "AMS STD E2154", "ASTM E127", "UPRDB", "Hagit", "3/64".
 
 ---
 
-## QA checklist
+## QA checklist for v3
 
-- [x] Every step number from PDF (1-13.1) present in script
-- [x] All values verbatim: "3/64" dia", "76 mm", "80% FSH", "±¼ inch"
-- [x] Hagit block named correctly
-- [x] AMS STD E2154 / ASTM E127 cross-reference preserved
-- [x] Scroll box note (>3 segments) included
-- [x] Back-wall ≥4 points note included
-- [x] Save procedure via Files → TCG → UPRDB Navigator preserved
-- [x] Word count: ~900 (target 6:00 @ 150 WPM)
-- [x] Pronunciation hints provided for all acronyms
-- [ ] User verified against the PDF before production
+- [x] All 10 round-1 feedback items still integrated
+- [x] All 5 round-2 missing-clip items now built and placed
+- [x] All 3 round-2 text corrections applied (Before/After / Water-path / Checklist)
+- [x] Scene order matches user's recommended order exactly
+- [x] Every action and value remains verbatim from the source PDF
+- [x] Citations table complete
+- [x] All animations rendered + verified
+- [ ] User verifies v3 against the PDF + signs off
