@@ -458,7 +458,7 @@ export const ShapeGeometries = {
     diskMesh.updateMatrix();
 
     // Create blades around the rim using CSG union
-    let resultMesh = diskMesh;
+    let resultMesh: THREE.Mesh<THREE.BufferGeometry> = diskMesh;
     for (let i = 0; i < numBlades; i++) {
       const angle = (i / numBlades) * Math.PI * 2;
       // Airfoil-like blade: thin box slightly curved outward
@@ -632,7 +632,9 @@ export const getGeometryByType = (
     return cached.clone();
   }
 
-  const geometryFunc = (ShapeGeometries as any)[partType];
+  const geometryFunc = ShapeGeometries[partType as keyof typeof ShapeGeometries] as
+    | ((params?: ShapeParameters) => THREE.BufferGeometry)
+    | undefined;
   let geometry: THREE.BufferGeometry;
 
   if (geometryFunc) {

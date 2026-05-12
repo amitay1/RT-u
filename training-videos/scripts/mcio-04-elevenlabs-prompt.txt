@@ -1,0 +1,103 @@
+// ===================================================================
+// MCI/O #4 — Receiver + Pulser Basics
+// PASTE THIS INTO ELEVENLABS STUDIO
+//
+// Voice:      Adam (pNInz6obpgDQGcFmaJgB)
+// Settings:   Stability 0.45 / Similarity 0.75 / Style 0.30 / Speed 1.0
+// Target:     ~5:00  (~775 words at 155 WPM)
+// ===================================================================
+
+[matter-of-fact] Five settings here. Get one wrong, your signal is garbage.
+
+Let's tune them right.
+
+Inspection mode. Receiver filter. Amplitude. Damping. Pulser filter. P-R-F. Pulse width. Sub-pulses. Charge time.
+
+Eight settings. Two tabs.
+
+Receiver tab first. Three inspection modes.
+
+Pulse echo — P-E. A single transducer connected to the pulser.
+
+Through transmission — T-T. Two transducers — one transmitter, one receiver.
+
+Dual. A dual transducer connected to the pulser.
+
+One technical note from the manual: Dual mode's timebase range is half that of T-T mode.
+
+Receiver filter. Same tab.
+
+The rule from the manual: pick the filter closest to the centre frequency of your receiving transducer.
+
+Click the value, drag the knob — your choice. The selected filter turns from blue to red.
+
+Now Pulser tab.
+
+Amplitude. Scale of one to eight. One is minimum, eight is maximum.
+
+The manual recommends amplitude of five or greater. Less instrument gain is then required for a particular sensitivity, reducing the signal-to-noise ratio.
+
+Damping Resistance. Controls the pulser's capacity to limit noise. Also one to eight.
+
+Click the value or drag the knob. Selected value turns blue to red.
+
+Two simple rules, big impact on every signal you'll ever see.
+
+The Pulser also has a filter. A low-pass pre-amp filter designed to improve near-surface resolution. Two values.
+
+One — low pass under one point five megahertz.
+
+Two — low pass under three megahertz. The manual notes this displays increased near-surface resolution ability.
+
+P-R-F. Pulse Repetition Frequency. The pace of the pulses.
+
+Current P-R-F appears in the field. Minimum and maximum are displayed at the lower edge.
+
+Three ways to set it. Combo boxes, type a value, or drag the gray knob.
+
+One important rule. Your value must stay between the displayed minimum and maximum.
+
+If you have more than one pulser, check the Ext checkbox. An external device then synchronises the pulse timing.
+
+Pulse width. The duration of the pulse, in nanoseconds.
+
+The manual's recommendation: set pulse width to twenty-five per cent of the transducer's frequency.
+
+Combo boxes, type, or knob.
+
+[serious] A warning. Increasing pulse width demands more electrical energy and charge time. If exceeded, an error appears in the Messages area and the system auto-adjusts to the nearest safe value.
+
+Sub-pulses. The R-P-P 3 pulser delivers up to four sub-pulses within one P-R-F cycle.
+
+Use case from the manual: highly attenuative materials. Sub-pulses increase the forcing frequency of the transducer, delivering higher ultrasonic energy into the part.
+
+Middle of the Pulser tab, under Pulses, pick from the dropdown.
+
+Charge time. Two ways to set it — automatic or manual. The automatic option is recommended.
+
+Automatic. Check the Auto checkbox at the bottom right of the Pulser tab. The system sets charge time to optimum based on amplitude, pulse width, and sub-pulses.
+
+Manual. Clear the Auto checkbox. Combo boxes or type a value in microseconds.
+
+Out of range? The value defaults to the last acceptable value. Re-enter.
+
+One final note from the manual. If you ever see "P-R-F value out of power limit" in the Messages area —
+
+— lower one or more of: sub-pulses, pulse width, or P-R-F itself.
+
+Recap.
+
+Three modes. Filter at probe centre frequency. Amplitude five or higher. Pulse width about twenty-five per cent of probe frequency. Sub-pulses for attenuative materials. Charge time on auto.
+
+Next — total gain, prescale, baseline.
+
+// ===================================================================
+// Pronunciation cheat sheet:
+//   P-E             → "pee ee"
+//   T-T             → "tee tee"
+//   P-R-F           → "pee arr eff"
+//   R-P-P 3         → "arr pee pee three"
+//   Ext             → "ext" (one syllable, not "ee-ex-tee")
+//   DampRes         → "damping resistance" (DON'T say "damp-res")
+//   MHz             → "megahertz"
+// ===================================================================

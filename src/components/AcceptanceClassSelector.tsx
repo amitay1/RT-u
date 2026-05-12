@@ -339,7 +339,7 @@ export const AcceptanceClassSelector = ({
                 "text-xs font-medium px-2 py-0.5 rounded-full",
                 selectedColors.badge
               )}>
-                {stringencyLabels[selectedOption.stringency].en}
+                {stringencyLabels[selectedOption.stringency]}
               </span>
             </div>
 

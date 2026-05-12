@@ -102,10 +102,10 @@ function useUpdateStatus() {
 
     // Check if update was already downloaded
     electron.getUpdateInfo?.().then((info) => {
-      if (info?.updateDownloaded) {
+      if (info?.updateDownloaded && info.updateVersion) {
         setState('ready');
         setVersion(info.updateVersion);
-      } else if (info?.updateAvailable) {
+      } else if (info?.updateAvailable && info.updateVersion) {
         setState('available');
         setVersion(info.updateVersion);
       }

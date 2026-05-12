@@ -1,0 +1,11 @@
+# This file is used internally by FFMPEG.
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/1582710563_2537670210_223132457.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_3362742451_3859646463.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_4273802566_646190338.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_2689224811_1076633588.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_4273802566_1686218325.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_3235588023_2949239517.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_4273802566_3655188939.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_2696543272_2191551926.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_1218579536_2454194310.mp4'
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/mcio-01/media/videos/scenes/1080p60/partial_movie_files/Scene07/3363424782_3757903190_61257058.mp4'

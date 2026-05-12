@@ -301,7 +301,7 @@ export function PWASIMCalibrationBlockDrawing({
           {PWA_SIM_CONFIG.reflectors.filter(r => r.type === 'FBH').map((reflector, index) => {
             const spacing = scaledLength / 5;
             const x = spacing * (index + 1);
-            const holeRadius = Math.max(reflector.diameterMm * scale * 4, 4);
+            const holeRadius = Math.max((reflector.diameterMm ?? 1) * scale * 4, 4);
 
             return (
               <g key={reflector.id}>
@@ -405,7 +405,7 @@ export function PWASIMCalibrationBlockDrawing({
             const x = spacing * (index + 1);
             const depthRatio = reflector.depthPercent / 100;
             const scaledDepth = depthRatio * scaledThickness;
-            const holeWidth = Math.max(reflector.diameterMm * scale * 2, 3);
+            const holeWidth = Math.max((reflector.diameterMm ?? 1) * scale * 2, 3);
 
             return (
               <g key={`section-${reflector.id}`}>

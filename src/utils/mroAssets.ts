@@ -3,6 +3,7 @@ import {
   inferMroStandardFromPartNumber,
   isActiveMroStandard,
 } from "@/utils/mroPolicy";
+import type { StandardType } from "@/types/techniqueSheet";
 
 export interface RawMroAssetEntry {
   name: string;
@@ -80,7 +81,7 @@ export function inferMroPartNumbers(name: string): string[] {
 export function inferMroStandards(name: string): string[] {
   const partNumberStandards = inferMroPartNumbers(name)
     .map((partNumber) => inferMroStandardFromPartNumber(partNumber))
-    .filter((standard): standard is string => Boolean(standard));
+    .filter((standard): standard is StandardType => Boolean(standard));
 
   return dedupe([
     ...STANDARD_PATTERNS.filter(({ regex }) => regex.test(name)).map(({ standard }) => standard),

@@ -392,7 +392,7 @@ const THICKNESS_MULTIPLIERS = {
 function getSurfaceFinishFromStandard(standard: string): { ra: number; note: string } {
   // MIL-STD-2154 calibration requirements
   if (standard === 'AMS-STD-2154E' || standard === 'MIL-STD-2154') {
-    const calReq = milStd2154Data.requirements?.calibration;
+    const calReq = milStd2154Data.requirements?.calibration as { surfaceFinish?: string } | undefined;
     return {
       ra: 3.2, // 125 μin standard
       note: calReq?.surfaceFinish || '125 μin (3.2 μm) Ra max',

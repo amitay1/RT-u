@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -34,7 +33,7 @@ import { ScanPlanTab } from "@/components/tabs/ScanPlanTab";
 import { NdipReferenceTab } from "@/components/tabs/NdipReferenceTab";
 import { Collapsible3DPanel } from "@/components/ui/ResizablePanel";
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
-import type { StandardType, MaterialType } from "@/types/techniqueSheet";
+import type { StandardType, MaterialType, AcceptanceClass } from "@/types/techniqueSheet";
 import { getResolutionValues } from "@/utils/frequencyUtils";
 import { deriveCalibrationScanDirectionInfo } from "@/utils/mroPolicy";
 import { useAuth } from "@/hooks/useAuth";
@@ -69,6 +68,22 @@ import { useSheetPersistence } from "@/hooks/useSheetPersistence";
 import { useExportWorkflow } from "@/hooks/useExportWorkflow";
 import { useStandardAutoFill } from "@/hooks/useStandardAutoFill";
 import { useCompletionScore } from "@/hooks/useCompletionScore";
+
+type UpdateInstallElectron = NonNullable<Window["electron"]> & {
+  onPrepareForUpdateInstall?: (callback: (payload: {
+    requestId: string;
+    reason: UpdateRecoveryRecord["reason"];
+    version?: string;
+  }) => void) => void;
+  removePrepareForUpdateInstall?: (callback: (payload: {
+    requestId: string;
+    reason: UpdateRecoveryRecord["reason"];
+    version?: string;
+  }) => void) => void;
+  confirmUpdateInstallReady?: (requestId: string) => Promise<{ acknowledged: boolean }>;
+};
+
+const getUpdateInstallElectron = () => window.electron as UpdateInstallElectron | undefined;
 
 const Index = () => {
   const navigate = useNavigate();
@@ -156,12 +171,25 @@ const Index = () => {
     inspectionSetupB, equipmentB, calibrationB,
     scanParametersB, acceptanceCriteriaB, documentationB,
   });
+  const {
+    currentSheetName,
+    handleSave: persistSave,
+    handleSaveAs: persistSaveAs,
+    handleOpenSavedCards: openSavedCards,
+    handleLoadLocalCard: loadLocalCard,
+    handleLoadSheet: loadSavedSheet,
+    handleSaveDialogConfirm: confirmSaveDialog,
+    saveCurrentCardSilently,
+    setCurrentLocalCardId,
+    setCurrentSheetName,
+  } = persistence;
 
   // ── Hook 3: Export workflow ────────────────────────────────────────────
   const exportWorkflow = useExportWorkflow({
     activeTab, setActiveTab, reportMode, currentData,
     isSplitMode, activePart, inspectionSetup, inspectionSetupB,
   });
+  const { handleExportPDF: prepareExportPDF } = exportWorkflow;
 
   const currentDraftData = useMemo(() => buildCardData(), [buildCardData]);
   const currentCardSnapshot = useMemo(() => JSON.stringify(currentDraftData), [currentDraftData]);
@@ -184,7 +212,7 @@ const Index = () => {
   // Load draft on mount
   useEffect(() => {
     loadDraftFromLocalStorage();
-  }, []);
+  }, [loadDraftFromLocalStorage]);
 
   useEffect(() => {
     if (!sheetState.hasHydratedInitialDraft || hasInitializedSavedSnapshotRef.current) {
@@ -207,7 +235,8 @@ const Index = () => {
   }, [sheetState.hasHydratedInitialDraft]);
 
   useEffect(() => {
-    if (!window.electron?.onPrepareForUpdateInstall) {
+    const updateInstallElectron = getUpdateInstallElectron();
+    if (!updateInstallElectron?.onPrepareForUpdateInstall) {
       return;
     }
 
@@ -217,7 +246,7 @@ const Index = () => {
       version?: string;
     }) => {
       const cardName =
-        persistence.currentSheetName ||
+        currentSheetName ||
         currentData.inspectionSetup.partName ||
         currentData.inspectionSetup.partNumber ||
         "Unsaved card";
@@ -232,16 +261,16 @@ const Index = () => {
         reportMode,
       });
 
-      await window.electron?.confirmUpdateInstallReady?.(payload.requestId);
+      await updateInstallElectron.confirmUpdateInstallReady?.(payload.requestId);
     };
 
-    window.electron.onPrepareForUpdateInstall(handlePrepareForUpdateInstall);
+    updateInstallElectron.onPrepareForUpdateInstall(handlePrepareForUpdateInstall);
     return () => {
-      window.electron?.removePrepareForUpdateInstall?.(handlePrepareForUpdateInstall);
+      updateInstallElectron.removePrepareForUpdateInstall?.(handlePrepareForUpdateInstall);
     };
   }, [
     currentDraftData,
-    persistence.currentSheetName,
+    currentSheetName,
     currentData.inspectionSetup.partName,
     currentData.inspectionSetup.partNumber,
     activeTab,
@@ -270,32 +299,32 @@ const Index = () => {
   }, [confirmAppClose]);
 
   const handleSaveCard = useCallback(async () => {
-    const result = await persistence.handleSave();
+    const result = await persistSave();
     if (result?.saved) {
       markCurrentAsSaved();
     }
-  }, [persistence.handleSave, markCurrentAsSaved]);
+  }, [persistSave, markCurrentAsSaved]);
 
   const handleSaveDialogConfirm = useCallback(async () => {
-    const result = await persistence.handleSaveDialogConfirm();
+    const result = await confirmSaveDialog();
     if (result?.saved) {
       markCurrentAsSaved();
     }
-  }, [persistence.handleSaveDialogConfirm, markCurrentAsSaved]);
+  }, [confirmSaveDialog, markCurrentAsSaved]);
 
   const handleLoadLocalSavedCard = useCallback((card: SavedCard) => {
-    const loadedCard = persistence.handleLoadLocalCard(card);
+    const loadedCard = loadLocalCard(card);
     if (loadedCard?.data) {
       setLastSavedSnapshot(JSON.stringify(loadedCard.data));
     }
-  }, [persistence.handleLoadLocalCard]);
+  }, [loadLocalCard]);
 
   const handleLoadSavedSheet = useCallback(async (sheetId: string) => {
-    const loadedSheet = await persistence.handleLoadSheet(sheetId);
+    const loadedSheet = await loadSavedSheet(sheetId);
     if (loadedSheet?.data) {
       setLastSavedSnapshot(JSON.stringify(loadedSheet.data));
     }
-  }, [persistence.handleLoadSheet]);
+  }, [loadSavedSheet]);
 
   const handleCloseRequest = useCallback(async () => {
     if (suppressClosePromptRef.current) {
@@ -327,7 +356,7 @@ const Index = () => {
     setIsClosingAfterSave(true);
 
     try {
-      const result = await persistence.saveCurrentCardSilently();
+      const result = await saveCurrentCardSilently();
       if (!result?.saved) {
         toast.error("Unable to save the latest changes before closing.");
         return;
@@ -338,7 +367,7 @@ const Index = () => {
     } finally {
       setIsClosingAfterSave(false);
     }
-  }, [persistence.saveCurrentCardSilently, markCurrentAsSaved, continueClosing]);
+  }, [saveCurrentCardSilently, markCurrentAsSaved, continueClosing]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -371,11 +400,11 @@ const Index = () => {
 
   const handleNewProject = useCallback(() => {
     if (confirm("Start a new project? Unsaved changes will be lost.")) {
-      persistence.setCurrentLocalCardId(null);
-      persistence.setCurrentSheetName("");
+      setCurrentLocalCardId(null);
+      setCurrentSheetName("");
       window.location.reload();
     }
-  }, []);
+  }, [setCurrentLocalCardId, setCurrentSheetName]);
 
   useEffect(() => {
     const handleKeyboard = (e: KeyboardEvent) => {
@@ -384,7 +413,7 @@ const Index = () => {
           case "s":
             e.preventDefault();
             if (e.shiftKey) {
-              persistence.handleSaveAs();
+              persistSaveAs();
             } else {
               void handleSaveCard();
             }
@@ -403,7 +432,7 @@ const Index = () => {
 
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
-  }, [handleNewProject, handleSaveCard, persistence.handleSaveAs]);
+  }, [handleNewProject, handleSaveCard, persistSaveAs]);
 
   const handleValidate = useCallback(() => {
     const missing = [];
@@ -476,11 +505,11 @@ const Index = () => {
   }, [user, loading, navigate]);
 
   const handleExportPDF = useCallback(async () => {
-    const result = await exportWorkflow.handleExportPDF();
+    const result = await prepareExportPDF();
     if (result.shouldOpenDialog) {
       setExportDialogOpen(true);
     }
-  }, [exportWorkflow.handleExportPDF]);
+  }, [prepareExportPDF]);
 
   const quickFillAccentClasses = {
     cyan: "border-cyan-200 bg-cyan-50/70 hover:border-cyan-300 hover:bg-cyan-100/70 text-cyan-950",
@@ -582,8 +611,8 @@ const Index = () => {
         <div className="hidden md:block">
           <MenuBar
             onSave={handleSaveCard}
-            onSaveAs={persistence.handleSaveAs}
-            onOpenSavedCards={persistence.handleOpenSavedCards}
+            onSaveAs={persistSaveAs}
+            onOpenSavedCards={openSavedCards}
             onExport={() => setExportDialogOpen(true)}
             onNew={handleNewProject}
             onSignOut={signOut}
@@ -608,7 +637,7 @@ const Index = () => {
         activePart={activePart}
         onActivePartChange={setActivePart}
         onCopyAToB={copyPartAToB}
-        onOpenSavedCards={persistence.handleOpenSavedCards}
+        onOpenSavedCards={openSavedCards}
         onLoadLocalCard={handleLoadLocalSavedCard}
         onOpenQuickFill={() => setQuickFillDialogOpen(true)}
         partType={currentData.inspectionSetup.partType}
@@ -760,7 +789,7 @@ const Index = () => {
                         <InspectionSetupTab
                           data={currentData.inspectionSetup}
                           onChange={currentData.setInspectionSetup}
-                          acceptanceClass={currentData.acceptanceCriteria.acceptanceClass}
+                          acceptanceClass={currentData.acceptanceCriteria.acceptanceClass as AcceptanceClass | ""}
                           standardType={standard}
                           scanDetails={currentData.scanDetails}
                           onCalibrationRecommendation={(blockType, reasoning) => {
@@ -770,9 +799,10 @@ const Index = () => {
                               standard,
                             );
                             if (currentCalibration.standardType !== blockType) {
+                              const recommendedBlockType = blockType as typeof currentCalibration.standardType;
                               currentData.setCalibration({
                                 ...currentCalibration,
-                                standardType: blockType as any,
+                                standardType: recommendedBlockType,
                                 autoRecommendedReason: reasoning,
                               });
                               logInfo(`Auto-selected calibration block: ${blockType}`, {

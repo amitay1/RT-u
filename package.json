@@ -6,11 +6,12 @@
                    "email":  "amitay1@gmail.com"
                },
     "private":  true,
-    "version":  "1.1.79",
+    "version":  "1.1.80",
     "type":  "module",
     "scripts":  {
                     "dev":  "tsx watch --clear-screen=false --ignore \u0027**/*.timestamp-*.mjs\u0027 server/index.ts",
                     "build":  "vite build",
+                    "typecheck":  "tsc -p tsconfig.app.json --noEmit",
                     "start":  "NODE_ENV=production tsx server/index.ts",
                     "db:push":  "drizzle-kit push",
                     "test":  "vitest run",

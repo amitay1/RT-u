@@ -1,0 +1,2 @@
+# This file is used internally by FFMPEG.
+file 'file:C:/Users/Amita/Downloads/Scan-Master-16-12-25-main/Scan-Master-16-12-25-main/training-videos/animations/video-01/media/videos/ambient_background/480p15/partial_movie_files/AmbientBackground/4069682170_2472384577_1748144173.mp4'

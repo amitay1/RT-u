@@ -1,0 +1,22 @@
+# ElevenLabs Brand Voice — LOCKED
+
+VOICE NAME:     Adam
+VOICE ID:       pNInz6obpgDQGcFmaJgB
+VOICE TYPE:     Pre-made (ElevenLabs default library)
+GENDER:         Male
+AGE:            Middle-aged
+ACCENT:         American
+TONE:           Authoritative, warm, professional
+
+# Locked generation settings (do not change between videos):
+STABILITY:      0.45
+SIMILARITY:     0.75
+STYLE:          0.30
+SPEED:          1.0
+USE_SPEAKER_BOOST: true
+MODEL:          eleven_multilingual_v2
+
+# Notes:
+# - This voice is now permanent for all 28 videos. NEVER swap voices mid-series.
+# - If a sentence sounds off, re-generate THE SENTENCE ONLY, not the entire file.
+# - For the [directional] tags in scripts, use the v3 model when available.

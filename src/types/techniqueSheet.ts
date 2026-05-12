@@ -224,7 +224,7 @@ export interface EquipmentData {
   wedgeModelApplicable?: boolean;
   wedgeTypeApplicable?: boolean;
   delayLineApplicable?: boolean;
-  bandwidth?: 'low' | 'medium' | 'high';
+  bandwidth?: 'low' | 'medium' | 'high' | 'narrow' | 'wide';
   focusSize?: string;
   velocity?: number;             // Acoustic velocity (m/s)
   ndipTransducerSerialNumber?: string;
@@ -308,7 +308,7 @@ export interface ScanParametersData {
 }
 
 export interface AcceptanceCriteriaData {
-  acceptanceClass: AcceptanceClass | "";
+  acceptanceClass: string;
   singleDiscontinuity: string;
   multipleDiscontinuities: string;
   linearDiscontinuity: string;

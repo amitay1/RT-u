@@ -1,0 +1,105 @@
+// ===================================================================
+// MCI/O #3 — Material Database & Velocity Calculation
+// PASTE THIS INTO ELEVENLABS STUDIO
+//
+// Voice:      Adam (pNInz6obpgDQGcFmaJgB)
+// Settings:   Stability 0.45 / Similarity 0.75 / Style 0.30 / Speed 1.0
+// Target:     ~4:30  (~700 words at 155 WPM)
+// ===================================================================
+
+[matter-of-fact] Your material isn't in the list. You need to add it.
+
+Or your velocity is wrong. You need to fix it.
+
+Both, here.
+
+[confident] Welcome to MCI/O Training. You'll add a new material, edit an existing one, delete one, and calculate a velocity from a known sample thickness.
+
+All from the Material dialog boxes inside the Timebase tab.
+
+From the right side of the Timebase tab, under Material, click Edit.
+
+The New Material dialog box appears.
+
+Every material in the current database, with velocity columns in millimetres per microsecond and inches per microsecond.
+
+Adding a material. Five steps.
+
+One. Select the material that you want to be listed immediately before the new one, then click New.
+
+Two. A blank row appears after the material you selected. In the Material column, enter the name of the new material.
+
+Three. In the blank row, double-click a field under one of the velocity columns. A velocity field and combo buttons appear.
+
+Four. Use the combo buttons or type a value, then press Enter. The other velocity column auto-calculates.
+
+Five. From the bottom of the dialog, click Save.
+
+Editing — two paths.
+
+To change the name. Double-click the Material column field. A cursor appears. Type your changes.
+
+To change the velocity. Double-click a velocity column field. The value highlights blue, combo buttons appear. Type or click the new value, press Enter. The other column auto-calculates.
+
+Click Save to commit.
+
+Deleting. From the right side of the Timebase tab, under Material, click Edit.
+
+Select the material to delete. Click Delete. The row disappears.
+
+Click Save. The material is gone from the database.
+
+The real magic. Calculate a material's velocity from a known sample thickness.
+
+From the right side of the Timebase tab, under Material, click Cal. The Material Velocity slash Thickness Calibration dialog opens.
+
+At the top, select the Velocity radio button. The Velocity field at the bottom becomes disabled — the system will calculate it.
+
+Set six fields.
+
+Gate number — first and second gates used for the calculation.
+
+Offset — only when using a single gate, leave zero for two-gate calibration.
+
+Mult, short for Multiple — the number of multiple signals between the gate pair.
+
+Average — the number of pulses to average. Standard calibration is one.
+
+Material — pick from the database.
+
+Thickness — the measured thickness of the sample.
+
+Click Cal. The calculated material velocity appears in the Velocity field.
+
+Click Save to write the new velocity back to the database.
+
+The mirror operation. Calculate thickness from a known velocity.
+
+Same dialog. Same six fields. But at the top, select the Thickness radio button. The Thickness field disables.
+
+Click Cal. Thickness appears.
+
+One technique to get the most accurate calibration.
+
+When distinct multiple signals are available — for example, multiple backwall echoes — increase the range between them.
+
+Calibrating between a first and third backwall produces a more accurate result than between a first and second.
+
+Quick recap.
+
+Add, edit, and delete materials from the Material dialog box.
+
+Calibrate velocity or thickness with the Material Velocity slash Thickness Calibration dialog.
+
+Widen your gate spread for better calibration resolution.
+
+Next — receiver and pulser basics. Picking the right inspection mode, frequency, and pulse settings.
+
+// ===================================================================
+// Pronunciation cheat sheet:
+//   mm/μs           → "millimetres per microsecond"
+//   inch/μs         → "inches per microsecond"
+//   Cal             → "cal" (one syllable, like calorie)
+//   Mult            → "mult" (one syllable)
+//   slash           → spoken word: "slash"
+// ===================================================================

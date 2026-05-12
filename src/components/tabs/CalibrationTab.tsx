@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CalibrationData, InspectionSetupData, AcceptanceClass, CalibrationBlockType, StandardType, CalibrationSensitivityRow, StraightBeamConversionRow } from "@/types/techniqueSheet";
+import { CalibrationData, InspectionSetupData, CalibrationBlockType, StandardType, CalibrationSensitivityRow, StraightBeamConversionRow } from "@/types/techniqueSheet";
 import { Target, Info, Sparkles, AlertTriangle, Plus, X, Upload, ChevronDown, ChevronUp } from "lucide-react";
 import { CalibrationCatalog } from "../CalibrationCatalog";
 import { toast } from "sonner";
@@ -144,7 +144,7 @@ interface CalibrationTabProps {
   data: CalibrationData;
   onChange: (data: CalibrationData) => void;
   inspectionSetup: InspectionSetupData;
-  acceptanceClass: AcceptanceClass | "";
+  acceptanceClass: string;
   standard?: StandardType;
 }
 
@@ -437,14 +437,7 @@ export const CalibrationTab = ({
 
   const effectiveInspectionThickness = useMemo(
     () => getInspectionThickness(inspectionSetup, 0),
-    [
-      inspectionSetup.partType,
-      inspectionSetup.partThickness,
-      inspectionSetup.wallThickness,
-      inspectionSetup.isHollow,
-      inspectionSetup.diameter,
-      inspectionSetup.innerDiameter,
-    ]
+    [inspectionSetup]
   );
 
   // Memoize partDimensions for DynamicCalibrationBlockDrawing to prevent
@@ -477,22 +470,24 @@ export const CalibrationTab = ({
   );
 
   const autoCalculatedBlockType = useMemo<CalculatedBlockType>(() => {
+    const outerDiameter = Number(inspectionSetup.diameter);
+    const innerDiameter = Number(inspectionSetup.innerDiameter);
     const hasOD = hasPositiveNumber(inspectionSetup.diameter);
     const hasID = hasPositiveNumber(inspectionSetup.innerDiameter);
     const hasExplicitWall = hasPositiveNumber(inspectionSetup.wallThickness);
-    const hasDerivedWall = hasOD && hasID && inspectionSetup.diameter > inspectionSetup.innerDiameter;
+    const hasDerivedWall = hasOD && hasID && outerDiameter > innerDiameter;
 
     if (["tube", "pipe", "hollow_cylinder", "ring", "sleeve", "ring_forging"].includes(mappedPartGeometry)) {
       const wall = hasExplicitWall
-        ? inspectionSetup.wallThickness
+        ? Number(inspectionSetup.wallThickness)
         : hasDerivedWall
-          ? (inspectionSetup.diameter - inspectionSetup.innerDiameter) / 2
+          ? (outerDiameter - innerDiameter) / 2
           : Number.NaN;
       return Number.isFinite(wall) && wall < 25 ? "cylinder_notched" : "cylinder_fbh";
     }
 
     if (["cylinder", "round_bar", "shaft", "solid_round"].includes(mappedPartGeometry)) {
-      return hasOD && inspectionSetup.diameter < 50 ? "curved_fbh" : "flat_fbh";
+      return hasOD && outerDiameter < 50 ? "curved_fbh" : "flat_fbh";
     }
 
     if (["sphere", "cone", "pyramid", "custom"].includes(mappedPartGeometry)) {
@@ -561,10 +556,12 @@ export const CalibrationTab = ({
   const missingCalibrationModelInputs = useMemo(() => {
     const missing: string[] = [];
 
+    const outerDiameter = Number(inspectionSetup.diameter);
+    const innerDiameter = Number(inspectionSetup.innerDiameter);
     const hasOD = hasPositiveNumber(inspectionSetup.diameter);
     const hasID = hasPositiveNumber(inspectionSetup.innerDiameter);
     const hasExplicitWall = hasPositiveNumber(inspectionSetup.wallThickness);
-    const hasDerivedWall = hasOD && hasID && inspectionSetup.diameter > inspectionSetup.innerDiameter;
+    const hasDerivedWall = hasOD && hasID && outerDiameter > innerDiameter;
     const hasThickness = effectiveInspectionThickness > 0;
 
     if (!inspectionSetup.partType) missing.push("Part Type");
@@ -631,8 +628,8 @@ export const CalibrationTab = ({
     [missingCalibrationModelInputs]
   );
 
-  const updateField = (field: keyof CalibrationData, value: any) => {
-    onChange({ ...data, [field]: value });
+  const updateField = (field: keyof CalibrationData, value: unknown) => {
+    onChange({ ...data, [field]: value } as CalibrationData);
   };
 
   const selectedReferenceMaterial = useMemo(() => {

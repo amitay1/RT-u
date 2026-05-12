@@ -1,7 +1,5 @@
 /// <reference types="vite/client" />
 
-declare const __APP_VERSION__: string;
-
 // Electron IPC Bridge Types
 interface ElectronAPI {
   getAppVersion: () => Promise<string>;
@@ -18,8 +16,8 @@ interface ElectronAPI {
     currentVersion?: string;
   }>;
   openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>;
-  onUpdateStatus: (callback: (event: any, status: UpdateStatusEvent) => void) => void;
-  removeUpdateListener: (callback: (event: any, status: UpdateStatusEvent) => void) => void;
+  onUpdateStatus: (callback: (event: unknown, status: UpdateStatusEvent) => void) => void;
+  removeUpdateListener: (callback: (event: unknown, status: UpdateStatusEvent) => void) => void;
   confirmAppClose?: () => Promise<{ success: boolean }>;
   onAppCloseRequested?: (callback: () => void) => void;
   removeAppCloseRequested?: (callback: () => void) => void;
@@ -42,6 +40,8 @@ interface PrepareForUpdateInstallPayload {
 }
 
 declare global {
+  const __APP_VERSION__: string;
+
   interface Window {
     electron?: ElectronAPI;
     electronAPI?: ElectronAPI;

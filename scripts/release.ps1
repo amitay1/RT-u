@@ -816,13 +816,24 @@ if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir
     Write-Host ""
 
     $buildExitCode = 0
-    Write-Info "Running unit tests..."
-    npm run test
+    Write-Info "Running TypeScript typecheck..."
+    npm run typecheck
     if ($LASTEXITCODE -ne 0) {
-        Write-Err "Unit tests failed. Release assets will NOT be created or uploaded."
+        Write-Err "TypeScript typecheck failed. Release assets will NOT be created or uploaded."
         $buildExitCode = 1
     } else {
-        Write-Success "Unit tests passed."
+        Write-Success "TypeScript typecheck passed."
+    }
+
+    if ($buildExitCode -eq 0) {
+        Write-Info "Running unit tests..."
+        npm run test
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Unit tests failed. Release assets will NOT be created or uploaded."
+            $buildExitCode = 1
+        } else {
+            Write-Success "Unit tests passed."
+        }
     }
 
     # Try to close ScanMaster if running
@@ -925,7 +936,7 @@ if (-not $UploadOnly) {
     if (-not $buildOK) {
         Write-Host ""
         Write-Err "Release validation failed. Git commit/tag/push will NOT run."
-        Write-Err "No users will receive this version until tests, build, smoke, and asset validation pass."
+        Write-Err "No users will receive this version until typecheck, tests, build, smoke, and asset validation pass."
 
         # Revert only the automatic version bump; keep the user's real source changes intact.
         $packageJson.version = $currentVersion

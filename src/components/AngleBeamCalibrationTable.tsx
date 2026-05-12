@@ -52,6 +52,7 @@ const CURRENT_REFLECTOR_USED_OPTIONS: { value: CurrentReflectorUsed; label: stri
 ];
 
 const REFLECTOR_SIZE_REQUIRED_OPTIONS = ["1/64", "2/64", "3/64", "4/64", "5/64"] as const;
+type ReflectorSizeRequired = (typeof REFLECTOR_SIZE_REQUIRED_OPTIONS)[number];
 
 const FRACTION_TO_DECIMAL: Record<string, number> = {
   "1/64": 1 / 64,
@@ -61,8 +62,12 @@ const FRACTION_TO_DECIMAL: Record<string, number> = {
   "5/64": 5 / 64,
 };
 
-function normalizeReflectorSize(value: string | number | undefined): string {
-  if (typeof value === "string" && FRACTION_TO_DECIMAL[value]) return value;
+function isReflectorSizeRequired(value: string): value is ReflectorSizeRequired {
+  return REFLECTOR_SIZE_REQUIRED_OPTIONS.includes(value as ReflectorSizeRequired);
+}
+
+function normalizeReflectorSize(value: string | number | undefined): ReflectorSizeRequired {
+  if (typeof value === "string" && isReflectorSizeRequired(value)) return value;
 
   const numeric = typeof value === "number"
     ? value
@@ -70,7 +75,7 @@ function normalizeReflectorSize(value: string | number | undefined): string {
 
   if (!Number.isFinite(numeric) || numeric <= 0) return "3/64";
 
-  let closest = REFLECTOR_SIZE_REQUIRED_OPTIONS[0];
+  let closest: ReflectorSizeRequired = REFLECTOR_SIZE_REQUIRED_OPTIONS[0];
   let closestDiff = Math.abs(FRACTION_TO_DECIMAL[closest] - numeric);
   for (const option of REFLECTOR_SIZE_REQUIRED_OPTIONS) {
     const diff = Math.abs(FRACTION_TO_DECIMAL[option] - numeric);
@@ -525,6 +530,3 @@ export function AngleBeamCalibrationTable({
     </div>
   );
 }
-
-export { DEFAULT_ANGLE_BEAM_CALIBRATION_ROWS };
-export type { AngleBeamCalibrationRow };

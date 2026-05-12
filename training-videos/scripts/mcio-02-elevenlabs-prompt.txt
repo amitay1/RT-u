@@ -1,0 +1,92 @@
+// ===================================================================
+// MCI/O #2 — Setting Your First Timebase
+// PASTE THIS INTO ELEVENLABS STUDIO
+//
+// Voice:      Adam (pNInz6obpgDQGcFmaJgB)
+// Stability:  0.45  |  Similarity: 0.75  |  Style: 0.30  |  Speed: 1.0
+// Target:     ~4:30  (~700 words at 155 WPM)
+// ===================================================================
+
+[matter-of-fact] Wrong timebase. Every measurement after this is wrong.
+
+Let's set it correctly.
+
+[confident] Welcome to MCI/O Training. In four and a half minutes you'll pick the right units, set range and delay, choose absolute or relative mode, and lock the sampling frequency.
+
+All from the Timebase tab.
+
+[serious] Before you touch any timebase parameter, the manual is explicit.
+
+Zoom delay and zoom range must both be at their minimum values.
+
+If you skip this, your range and delay adjustments behave unpredictably.
+
+The Timebase axis can be shown in five units.
+
+Samples — short, Smpls. The axis indicates the number of samples in the A-scan waveform.
+
+Time — microseconds.
+
+Depth. Timebase units are set based on the material velocity of the material being inspected.
+
+Vertical depth, or Vdpth. Used for shear or longitudinal wave inspections at non-zero refraction angles. The timebase is calculated from velocity, time, and the cosine of the beam angle.
+
+Horizontal depth, or Hdpth. Same wave types, but used when you want the distance from the transducer to the indication.
+
+To pick units, lower-middle of the Timebase tab, dropdown under Units.
+
+Three values you adjust manually. Range, Delay, Offset.
+
+Each click of the combo boxes changes the value by an increment you control.
+
+Delay. Distance from the timebase trigger to the start of your range.
+
+Range. The visible window after delay.
+
+Both display their minimum and maximum permitted values at the bottom of their wheels.
+
+Offset. Shifts the zero of the timebase units, negative or positive.
+
+Two modes for the timebase itself.
+
+Absolute — Abs — the range begins after the delay. The leftmost unit is the delay value.
+
+Relative — Rel — the range includes the delay. The leftmost unit is zero.
+
+Lower-left of the tab, under Mode, pick the radio button you want.
+
+Sampling frequency is the number of samples captured in one P-R-F cycle. Expressed in mega-samples per second — M-S-P-S.
+
+The rule from the manual: sampling frequency should be at least four times the probe centre frequency.
+
+Default and recommended value: one hundred.
+
+Middle of the Timebase tab, under MSPS, pick from the dropdown or type a value.
+
+The big mistake. Adjusting timebase parameters while zoom delay or zoom range are above minimum.
+
+The manual is explicit about this. Both must be at minimum. Always.
+
+Quick recap.
+
+Always minimise zoom delay and zoom range first.
+
+Five unit options: Samples, Time, Depth, Vertical depth, Horizontal depth.
+
+Adjust Range, Delay, Offset with increment-controlled combo boxes or wheels.
+
+Pick Absolute or Relative mode.
+
+Sampling frequency: at least four times probe centre frequency. Default one hundred.
+
+Next — material database and how to calculate material velocity from a known sample thickness.
+
+// ===================================================================
+// Pronunciation cheat sheet:
+//   P-R-F           → "pee arr eff"
+//   M-S-P-S         → "em ess pee ess"
+//   Smpls           → "samples"
+//   Vdpth           → "vertical depth" (don't pronounce "Vdpth")
+//   Hdpth           → "horizontal depth"
+//   Abs / Rel       → "abs" / "rel" (one syllable each)
+// ===================================================================

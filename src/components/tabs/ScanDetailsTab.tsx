@@ -290,7 +290,7 @@ export const ScanDetailsTab = ({
     onChange({ ...data, scanDetails: newScanDetails });
   };
 
-  const updateScanDetail = (index: number, field: string, value: string | number | boolean | GateSettings) => {
+  const updateScanDetail = (index: number, field: string, value: string | number | boolean | GateSettings | undefined) => {
     const newScanDetails = [...scanDetails];
     const updatedDetail: ExtendedScanDetail = { ...newScanDetails[index], [field]: value };
 

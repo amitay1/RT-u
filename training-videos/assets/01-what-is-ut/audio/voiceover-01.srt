@@ -1,0 +1,308 @@
+1
+00:00:00,000 --> 00:00:02,000
+One missed defect.
+
+2
+00:00:02,000 --> 00:00:04,000
+One Million Lives.
+
+3
+00:00:04,000 --> 00:00:06,000
+How do you find what you can't see?
+
+4
+00:00:06,000 --> 00:00:08,000
+Welcome to ScanMaster Training.
+
+5
+00:00:08,000 --> 00:00:13,000
+In the next three minutes, you'll understand the entire field of ultrasonic testing
+
+6
+00:00:13,000 --> 00:00:15,000
+without touching the software yet.
+
+7
+00:00:15,000 --> 00:00:17,000
+This is Video one.
+
+8
+00:00:17,000 --> 00:00:18,000
+No prerequisites.
+
+9
+00:00:18,000 --> 00:00:20,000
+Let's start.
+
+10
+00:00:20,000 --> 00:00:23,000
+Ultrasonic Testing, U-T for short,
+
+11
+00:00:23,000 --> 00:00:27,000
+is how engineers see inside solid metal.
+
+12
+00:00:27,000 --> 00:00:29,000
+Think of it like sonar for a submarine.
+
+13
+00:00:29,000 --> 00:00:35,000
+But instead of the ocean, we're scanning a jet engine, a pipeline, or a steel plate.
+
+14
+00:00:35,000 --> 00:00:37,000
+Sound waves go in.
+
+15
+00:00:37,000 --> 00:00:38,000
+Echoes come back.
+
+16
+00:00:38,000 --> 00:00:43,000
+The Echoes tell us if there's a crack, avoid, or just clean material.
+
+17
+00:00:43,000 --> 00:00:47,000
+Every U-T inspection has exactly four players.
+
+18
+00:00:47,000 --> 00:00:48,000
+Let's meet them.
+
+19
+00:00:48,000 --> 00:00:49,000
+One.
+
+20
+00:00:49,000 --> 00:00:50,000
+The Pulsar.
+
+21
+00:00:50,000 --> 00:00:54,000
+A small electronic box that fires high voltage pulses.
+
+22
+00:00:54,000 --> 00:00:57,000
+In ScanMaster, this is the RPP3.
+
+23
+00:00:57,000 --> 00:00:58,000
+Two.
+
+24
+00:00:58,000 --> 00:00:59,000
+The Transducer.
+
+25
+00:00:59,000 --> 00:01:04,000
+The probe that converts those electric pulses into actual sound waves
+
+26
+00:01:04,000 --> 00:01:07,000
+and listens for the Echoes coming back.
+
+27
+00:01:07,000 --> 00:01:08,000
+Three.
+
+28
+00:01:08,000 --> 00:01:10,000
+The Part Under Test.
+
+29
+00:01:10,000 --> 00:01:13,000
+Could be a plate, a tube, a forging.
+
+30
+00:01:13,000 --> 00:01:15,000
+Anything you need to verify.
+
+31
+00:01:15,000 --> 00:01:16,000
+And four.
+
+32
+00:01:16,000 --> 00:01:18,000
+The Receiver and Display.
+
+33
+00:01:18,000 --> 00:01:21,000
+In ScanMaster, the UPR100 board
+
+34
+00:01:21,000 --> 00:01:25,000
+and the MCIO software you're learning to use.
+
+35
+00:01:25,000 --> 00:01:29,000
+These four players working together give you the A-scan.
+
+36
+00:01:29,000 --> 00:01:32,000
+The most important graph you'll ever read.
+
+37
+00:01:32,000 --> 00:01:35,000
+U-T matters because it's non-destructive.
+
+38
+00:01:35,000 --> 00:01:36,000
+The part stays whole.
+
+39
+00:01:36,000 --> 00:01:38,000
+It goes back into service.
+
+40
+00:01:38,000 --> 00:01:43,000
+And you've proven it's safe to fly, to pressurize, to carry load.
+
+41
+00:01:43,000 --> 00:01:50,000
+Every aerospace primary structure, every nuclear pressure vessel, every offshore weld,
+
+42
+00:01:50,000 --> 00:01:52,000
+checked this way.
+
+43
+00:01:52,000 --> 00:01:56,000
+Every inspection you'll ever run follows the same five steps.
+
+44
+00:01:56,000 --> 00:01:58,000
+Memorize this list.
+
+45
+00:01:58,000 --> 00:02:01,000
+It's the spine of every video that follows.
+
+46
+00:02:01,000 --> 00:02:02,000
+Step one.
+
+47
+00:02:02,000 --> 00:02:05,000
+Set up the time base and the material.
+
+48
+00:02:05,000 --> 00:02:08,000
+Tell the system what you're scanning and how deep to look.
+
+49
+00:02:08,000 --> 00:02:10,000
+Step two.
+
+50
+00:02:10,000 --> 00:02:12,000
+Configure the pulsar and the receiver.
+
+51
+00:02:12,000 --> 00:02:16,000
+Pick the right frequency, the right voltage, the right filter.
+
+52
+00:02:16,000 --> 00:02:17,000
+Step three.
+
+53
+00:02:17,000 --> 00:02:19,000
+Tune the gain.
+
+54
+00:02:19,000 --> 00:02:22,000
+And if your part is thick, add TCG.
+
+55
+00:02:22,000 --> 00:02:24,000
+Time corrected gain.
+
+56
+00:02:24,000 --> 00:02:26,000
+Step four.
+
+57
+00:02:26,000 --> 00:02:28,000
+Place gates over the signals that matter.
+
+58
+00:02:28,000 --> 00:02:32,000
+Gates are how you decide what's a pass and what's a fail.
+
+59
+00:02:32,000 --> 00:02:34,000
+Step five.
+
+60
+00:02:34,000 --> 00:02:35,000
+Save the setup.
+
+61
+00:02:35,000 --> 00:02:36,000
+Run the scan.
+
+62
+00:02:36,000 --> 00:02:38,000
+Review the result.
+
+63
+00:02:38,000 --> 00:02:40,000
+One mistake beginners make.
+
+64
+00:02:40,000 --> 00:02:42,000
+They jump straight to the gates.
+
+65
+00:02:42,000 --> 00:02:46,000
+But if your time base is wrong, your material velocity is wrong.
+
+66
+00:02:46,000 --> 00:02:48,000
+Or your gain is wrong.
+
+67
+00:02:48,000 --> 00:02:51,000
+Then every gate you place is measuring nonsense.
+
+68
+00:02:51,000 --> 00:02:53,000
+The order matters.
+
+69
+00:02:53,000 --> 00:02:54,000
+Quick recap.
+
+70
+00:02:54,000 --> 00:02:57,000
+UT is sonar for solids.
+
+71
+00:02:57,000 --> 00:02:58,000
+Four players.
+
+72
+00:02:58,000 --> 00:03:01,000
+Pulsar, transducer, part, and receiver.
+
+73
+00:03:01,000 --> 00:03:03,000
+Five steps.
+
+74
+00:03:03,000 --> 00:03:04,000
+Always in order.
+
+75
+00:03:04,000 --> 00:03:05,000
+Next up.
+
+76
+00:03:05,000 --> 00:03:07,000
+Meet the ScanMaster system.
+
+77
+00:03:07,000 --> 00:03:12,000
+We'll open the software and tour every tab you'll be using.
+

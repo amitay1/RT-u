@@ -43,6 +43,7 @@ export interface PulsarParameters {
 // ============================================================================
 
 export interface ScanDetail {
+  id?: string;
   scanningDirection: string;
   waveMode: string;
   frequency: string;

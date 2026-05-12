@@ -1,0 +1,73 @@
+// PASTE THIS INTO ELEVENLABS DIRECTLY
+// Voice: Adam (pNInz6obpgDQGcFmaJgB)
+// Stability 0.45 | Similarity 0.75 | Style 0.30 | Speed 1.0
+// Model: eleven_multilingual_v2 (or v3 if available)
+
+[serious] One missed defect. One million lives.
+
+How do you find what you can't see?
+
+[confident] Welcome to ScanMaster Training. In the next three minutes, you'll understand the entire field of ultrasonic testing — without touching the software yet.
+
+This is video one. No prerequisites. Let's start.
+
+Ultrasonic testing — U-T for short — is how engineers see inside solid metal.
+
+Think of it like sonar for a submarine, but instead of the ocean, we're scanning a jet engine, a pipeline, or a steel plate.
+
+Sound waves go in. Echoes come back. The echoes tell us if there's a crack, a void, or just clean material.
+
+Every UT inspection has exactly four players. Let's meet them.
+
+One: the pulser. A small electronic box that fires high-voltage pulses. In ScanMaster, this is the R-P-P-3.
+
+Two: the transducer. The probe that converts those electric pulses into actual sound waves — and listens for the echoes coming back.
+
+Three: the part under test. Could be a plate, a tube, a forging — anything you need to verify.
+
+And four: the receiver and display — in ScanMaster, the U-P-R 100 board and the M-C-I-O software you're learning to use.
+
+These four players, working together, give you the A-scan — the most important graph you'll ever read.
+
+[confident] U-T matters because it's non-destructive.
+
+The part stays whole. It goes back into service. And you've proven it's safe to fly, to pressurize, to carry load.
+
+Every aerospace primary structure, every nuclear pressure vessel, every offshore weld — all checked this way.
+
+Every inspection you'll ever run follows the same five steps. Memorize this list — it's the spine of every video that follows.
+
+Step one: set up the timebase and the material. Tell the system what you're scanning and how deep to look.
+
+Step two: configure the pulser and the receiver. Pick the right frequency, the right voltage, the right filter.
+
+Step three: tune the gain — and if your part is thick, add T-C-G — Time Corrected Gain.
+
+Step four: place gates over the signals that matter. Gates are how you decide what's a pass and what's a fail.
+
+Step five: save the setup, run the scan, review the result.
+
+One mistake beginners make: they jump straight to the gates.
+
+But if your timebase is wrong, your material velocity is wrong, or your gain is wrong —
+
+[serious] — then every gate you place is measuring nonsense. The order matters.
+
+Quick recap.
+
+U-T is sonar for solids.
+
+Four players: pulser, transducer, part, and receiver.
+
+Five steps, always in order.
+
+Next up — Meet the ScanMaster System. We'll open the software and tour every tab you'll be using.
+
+// END OF SCRIPT
+// Expected output: ~3 minutes of voiceover (~480 words at 160 WPM)
+// File save name: voiceover-01.wav
+// Save to: training-videos/assets/01-what-is-ut/audio/
+// PASTE THIS INTO ELEVENLABS DIRECTLY
+// Voice: Adam (pNInz6obpgDQGcFmaJgB)
+// Stability 0.45 | Similarity 0.75 | Style 0.30 | Speed 1.0
+// Model: eleven_multilingual_v2 (or v3 if available)

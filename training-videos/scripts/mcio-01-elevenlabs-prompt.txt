@@ -1,0 +1,115 @@
+// ===================================================================
+// MCI/O #1 — Getting Started: Your First Session
+// PASTE THIS ENTIRE BLOCK INTO ELEVENLABS STUDIO
+//
+// Voice:        Adam (pNInz6obpgDQGcFmaJgB)
+// Stability:    0.45
+// Similarity:   0.75
+// Style:        0.30
+// Speed:        1.0
+// Model:        eleven_multilingual_v2  (or v3 if available)
+// Target:       ~3:30  (~550 words at 155 WPM)
+//
+// Notes for ElevenLabs v3 directional tags:
+//   [matter-of-fact] = neutral instructor tone (default for this video)
+//   [confident]      = slightly more authoritative
+//   [serious]        = used for the manual note
+// ===================================================================
+
+[matter-of-fact] You opened MCI/O. Two windows. No tutorial.
+
+Let's read them like the manual does.
+
+[confident] Welcome to MCI/O Training. In the next three and a half minutes you'll log in, name every element of the main window, tour the Setup Toolbox, and exit safely.
+
+Exactly as the manual prescribes.
+
+The MCI/O Instrument application sets all U-T parameters.
+
+It is used both to calibrate the system, and to configure individual U-T setups according to scanning specifications.
+
+It runs on Windows 2000 or higher.
+
+It works with a U-P-R 100 U-T board and an R-P-P 3 pulser.
+
+Depending on your applications, it can drive one or more ultrasonic programmable receiver cards, and one or more Sensoray 826 cards.
+
+Open it like this. From the Windows desktop, double-click the MCI/O icon.
+
+The Logon window appears, superimposed on the MCI/O splash screen.
+
+Enter your user name and password, then click O-K.
+
+Two windows appear. The INSTRUMENT window and the Setup Toolbox dialog box. The application is ready for use.
+
+Eight elements. Memorise them.
+
+One — the Toolbar. One-click shortcuts to selected actions and display modes.
+
+Two — the Status Display area. Shows selected parameters set by the Online Info Configuration function.
+
+Three — the Full Screen Height display. The amplitude axis. Units can be percentage, decibels, volts, or A-slash-D bits.
+
+Four — the A-Scan Display area. The signals you receive during a scan.
+
+Five — the Gain slider. Drag the mouse pointer to adjust total or receiver gain.
+
+Six — the Timebase axis. Current range and delay. Drag the white arrows for zoom.
+
+Seven — the Status bar. Selected U-T setup parameters.
+
+Eight — the Messages area. Error messages and software status.
+
+Now the Setup Toolbox. This is where you configure ultrasonic parameters. Its toolbar has five buttons.
+
+The first opens this manual. The second opens the Channel dialog box to add another channel's A-Scan window. The third hides the tabs. The fourth shows them. The fifth begins the closing process.
+
+Below the toolbar — twelve tabs. We'll dedicate a video to each. Quick scan:
+
+Timebase. Zoom-slash-Trig. Pulser. Gain. Receiver. Display. Gates. T-C-G. Files. Global. I-O. Analog Input.
+
+Exiting follows a specific sequence.
+
+One. From the top right corner of the Setup Toolbox dialog box, click the close button. An exit warning appears in the Messages area of the INSTRUMENT window.
+
+Two. To quit, click O-K. An overwrite warning window appears.
+
+Three. To save the parameters from this session as the default Global Setup, click Yes. To keep the previous default, click No.
+
+The session ends.
+
+[serious] One note. In the Global tab, the Hardware Status frame shows the hardware installed on the back plane.
+
+Those checkboxes are pre-programmed. You cannot change them. By design.
+
+Quick recap.
+
+Two windows: INSTRUMENT and Setup Toolbox.
+
+Eight elements in the INSTRUMENT window, five toolbar buttons and twelve tabs in the Setup Toolbox.
+
+Three-step exit, with a Global Setup save decision.
+
+Next — your first Timebase. We'll open the Timebase tab and configure a real material velocity.
+
+// ===================================================================
+// END OF SCRIPT
+//
+// Expected output: ~3:30 minutes of voiceover
+// File save name:  voiceover-final.wav
+// Save location:   training-videos/assets/mcio-01/audio/
+//
+// Pronunciation cheat sheet (in case ElevenLabs mangles any):
+//   U-T          → "you tee" (letter by letter)
+//   U-P-R 100    → "you pee arr one hundred"
+//   R-P-P 3      → "arr pee pee three"
+//   T-C-G        → "tee see gee"
+//   I-O          → "eye oh" (NOT "yo")
+//   M-C-I-O      → "em see eye oh"
+//   O-K          → "okay" or "oh kay"
+//   A-slash-D    → "ay slash dee"
+//   Zoom-slash-Trig → "zoom slash trig"
+//
+// If any sentence sounds wrong, RE-GENERATE THAT SENTENCE ONLY
+// (don't re-generate the whole thing — saves credits + keeps tone consistent).
+// ===================================================================

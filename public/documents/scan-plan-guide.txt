@@ -1,0 +1,92 @@
+Scan plan for Normal beam calibration
+
+   1. TCG for Normal beam calibration
+   2. To create TCG calibration it needed for a minimum three FBH 3/64"
+
+         dia or as required with different distance?
+
+                                                123
+
+   3. Open scan master wizard and press Teach In
+
+   4. Screen image will paper
+5. To create TCG -
+6. Set all the parameters. start from basic parameters in the dialog box
+7. Move to the Hagit calibration block and set:
+8. material velocity-
+
+         a) Range- Set the range until you get the back wall
+         b) Gain- verified respond from 3/64" FBH
+         c) Water path- set the distance of 76mm water path or
+
+             according to the distance from the face of the transducer to
+             the front surface of a part shall be such that the second front
+             reflection from the test material does not appear between the
+             first front and first back reflections. This distance (water
+             travel) must be the same within ±1/4 inch for standardization,
+             initial scanning, and final evaluation.
+
+9. Set a minimum tree calibration block with FBH 3/64 dia according to
+
+AMS STD E2154(ASTM E127) or other custom calibration block
+
+with tree FBH.
+
+10.  Move to the first position (standard no 1)
+
+     a. Drag the yellow dot set on the respond peak and set with the
+
+     Gain the amplitude responds from FBH to 80% FSH.
+
+     b. Save the first point by clicking  on the toolbar setup.
+
+FBH respond
+from standard
+number 1#
+11.  Move to the second calibration standard and set the respond
+
+from the FBH to 80% FSH
+
+     a. Drag the second yellow dot set on the respond peak and set
+
+     with the Gain the amplitude responds from FBH to 80% FSH
+
+     b. Save the second point by clicking  on the toolbar
+         setup
+
+     FBH respond
+     from standard
+     number 2#
+12.  Move to the higher calibration standard and set the respond
+
+from the FBH to 80% FSH
+
+     a. Drag the third yellow dot and set on the respond peak and
+
+     set with the Gain the amplitude responds from FBH to 80%
+
+     FSH
+
+     b. Save the third point by clicking  on the toolbar setup
+
+     FBH respond
+     from standard
+     number 3#
+
+13.  If needed set another TCG point on back wall respond and
+
+set the gain to get 80% FSH
+
+     a. Click this bottom    to set the first Point before the
+
+     back-wall. pulse and the second after the beck wall pulse
+
+     b. Create additional points (At least four) in order to set the TCG
+
+     from the back wall point as you can see in the picture below.
+                                    Back wall
+                                    responds
+
+13. Saving TCG
+         13.1 click save on the setup dialog box /TCG
+
