@@ -1,17 +1,20 @@
-# Tube Scan Plan Guide — Normal Beam TCG Calibration (v3)
+# Tube Scan Plan Guide — Normal Beam TCG Calibration (v4)
 
 ```
 TITLE:        Tube Scan Plan Guide · Normal Beam TCG Calibration
 ID:           tube-scan-plan-guide
 SERIES:       Scan-Master In-App Help (Scan Plan tab)
-DURATION:     510 seconds (8:30)
+DURATION:     540 seconds (9:00)
 PREREQUISITE: Basic familiarity with the ScanMaster Wizard
 APP CONTEXT:  Triggered from Scan Plan tab → Tube Scan Plan Guide button
 SOURCE:       /public/documents/scan-plan-guide.pdf + Tube Scan Plan Guide.docx
-LAST UPDATED: 2026-05-12 (v3 — re-ordered to 15 sections per user feedback round 2:
-              Intro → Equipment → FBH Standards → Teach In → Basic Params →
-              Water-path warning → Before/After → Active-Visible-Drag → Drag-and-80% →
-              Save Point ×3 → Optional Back-wall → Save TCG → Checklist)
+LAST UPDATED: 2026-05-12 (v4 — round-3 refinements:
+              • SetBasicParameters: 4-card single row, Water Path now amber-emphasised
+              • RequiredEquipment: FBH bullet now reads "3/64 inch or as required"
+              • SaveTCGSetup: rebuilt with real UPRDB Navigator screenshot
+              • FinalChecklist: "FBH responses set to 80% FSH" (not "peaks")
+              • NEW PointSequence (Set Point #1 / #2 / #3 cards)
+              • NEW OptionalBackWallPoints (dedicated clip with back-wall A-scan))
 ```
 
 > **Accuracy promise:** Every action and value matches the source PDF. **Pedagogical additions are marked `[ADDED]` so every claim is traceable.** v3 incorporates round-2 user feedback (re-ordering, intro/equipment/teach-in/basic-params/save-tcg explicit clips, text corrections).
@@ -64,7 +67,7 @@ LAST UPDATED: 2026-05-12 (v3 — re-ordered to 15 sections per user feedback rou
 | 1:12 | One. Material velocity. From the material database — select the material you're inspecting. | `[CALLOUT]` Card 1 highlighted: "Material velocity · from the material database". |
 | 1:20 | Two. Range. Set the range until you see the back wall. | `[CALLOUT]` Card 2 highlighted: "Range · until back wall is visible". |
 | 1:26 | Three. Gain. Verify the response from the three-sixty-fourths-inch F-B-H. | `[CALLOUT]` Card 3 highlighted: "Gain · FBH response verified". |
-| 1:32 | Four. Water path. Seventy-six millimetres. Or — closely related — set the distance from transducer face to part surface so the second front reflection does not appear between the first front and first back reflections. | `[CALLOUT]` Card 4 highlighted: "Water path · 76 mm · ±¼ inch". |
+| 1:32 | Four. Water path. Set seventy-six millimetres, or set the transducer-to-surface distance so the second front reflection does not appear between the first front and first back reflections. | `[CALLOUT]` Card 4 highlighted: "Water path · 76 mm · ±¼ inch". |
 
 ---
 
@@ -99,15 +102,25 @@ LAST UPDATED: 2026-05-12 (v3 — re-ordered to 15 sections per user feedback rou
 
 ---
 
-## 9. ⭐ DRAG YELLOW DOT TO FBH PEAK · 80% FSH — POINT #1 (2:50 - 3:40)
+## 8.5 ⭐ [ADDED v4] THREE REFERENCE POINTS — PREVIEW (2:50 - 3:10)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 2:50 | Move the probe to the first F-B-H — the near standard. | `[SCREEN]` Probe positioned over near hole. |
-| 2:58 | On the A-scan, drag the yellow dot onto the response peak. | `[ANIM]` `DragAnd80FSH.mp4` — drag arrow demo. |
-| 3:08 | Adjust the Gain so the F-B-H amplitude reaches eighty per cent F-S-H. As you turn Gain up, the trace rises. Stop when the peak touches the cyan reference line. | `[ANIM]` 80% FSH line + gain rising. |
-| 3:22 | Save Point one. Click the save button on the toolbar setup. | `[SCREEN]` `step-10-tcg-list-one-node.png` + `toolbar-save-point-button.png` zoom. |
-| 3:32 | Node one — locked. | `[CALLOUT]` "Point #1 saved · standard #1 @ 80% FSH" |
+| 2:50 | The same action — repeated three times. | `[ANIM]` `PointSequence.mp4` — three Set Point cards. |
+| 2:54 | Set Point one — near F-B-H at eighty per cent F-S-H. Set Point two — middle F-B-H at eighty per cent F-S-H. Set Point three — far F-B-H at eighty per cent F-S-H. | `[CALLOUT]` Three cards lighting up cyan. |
+| 3:05 | Drag yellow dot. Eighty per cent F-S-H. Save. Three times. | `[CALLOUT]` Closing line. |
+
+---
+
+## 9. ⭐ DRAG YELLOW DOT TO FBH PEAK · 80% FSH — POINT #1 (3:10 - 4:00)
+
+| Time | VOICEOVER | VISUAL |
+|------|-----------|--------|
+| 3:10 | Move the probe to the first F-B-H — the near standard. | `[SCREEN]` Probe positioned over near hole. |
+| 3:18 | On the A-scan, drag the yellow dot onto the response peak. | `[ANIM]` `DragAnd80FSH.mp4` — drag arrow demo. |
+| 3:28 | Adjust the Gain so the F-B-H amplitude reaches eighty per cent F-S-H. As you turn Gain up, the trace rises. Stop when the peak touches the cyan reference line. | `[ANIM]` 80% FSH line + gain rising. |
+| 3:45 | Save Point one. Click the save button on the toolbar setup. | `[SCREEN]` `step-10-tcg-list-one-node.png` + `toolbar-save-point-button.png` zoom. |
+| 3:55 | Node one — locked. | `[CALLOUT]` "Point #1 saved · standard #1 @ 80% FSH" |
 
 ---
 
@@ -144,14 +157,15 @@ LAST UPDATED: 2026-05-12 (v3 — re-ordered to 15 sections per user feedback rou
 
 ---
 
-## 13. OPTIONAL — BACK-WALL TCG POINTS (5:15 - 5:50)
+## 13. ⭐ [ADDED v4] OPTIONAL — BACK-WALL TCG POINTS — DEDICATED CLIP (5:15 - 5:50)
 
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
-| 5:15 | If your inspection extends to full part depth — add a T-C-G point on the back-wall response. | `[SCREEN]` `step-13-ascan-backwall-tcg-points.png`. |
-| 5:26 | Click the toolbar button to set the first point before the back-wall pulse. Then the second point after the back-wall pulse. | `[ANIM]` Two markers placed around back-wall echo. |
-| 5:38 | Create at least four points in total to define the T-C-G curve through the back-wall response. | `[CALLOUT]` "≥4 TCG points around back-wall". |
-| 5:46 | Optional. Skip this step if your inspection only covers the F-B-H depth range. | `[TIP]` "Skip if FBH-range-only inspection." |
+| 5:15 | An optional step thirteen — for inspections that extend to full part depth. | `[ANIM]` `OptionalBackWallPoints.mp4` — dedicated clip with the real back-wall A-scan. |
+| 5:22 | Add a T-C-G point on the back-wall response. | `[CALLOUT]` Big heading: "Add Back-Wall TCG Points". |
+| 5:28 | Click the toolbar button to set the first point before the back-wall pulse. Then the second point after the back-wall pulse. | `[CALLOUT]` Bullet 1 reveals. |
+| 5:38 | Create at least four points in total to define the T-C-G curve through the back-wall response. | `[CALLOUT]` Bullet 3 in amber (the "at least 4" rule). |
+| 5:46 | Optional. Skip this step if your inspection only covers the F-B-H depth range. | `[TIP]` Skip line. |
 
 ---
 
@@ -173,7 +187,7 @@ LAST UPDATED: 2026-05-12 (v3 — re-ordered to 15 sections per user feedback rou
 | Time | VOICEOVER | VISUAL |
 |------|-----------|--------|
 | 6:50 | Quick checklist before you run the inspection. | `[ANIM]` `FinalChecklist.mp4` |
-| 6:54 | Teach In opened. Material velocity set. Range set. Water path kept within plus or minus a quarter inch. Three F-B-H peaks at eighty per cent F-S-H. Optional back-wall points added if needed. T-C-G setup saved. | `[ANIM]` Seven items checking off in green sequentially. |
+| 6:54 | Teach In opened. Material velocity set. Range set. Water path kept within plus or minus a quarter inch. Three F-B-H responses set to eighty per cent F-S-H. Optional back-wall points added if needed. T-C-G setup saved. | `[ANIM]` Seven items checking off in green sequentially. |
 | 7:20 | Your T-C-G is ready. Run the inspection. | `[CUT]` Closing card. |
 
 ---
@@ -242,6 +256,17 @@ LAST UPDATED: 2026-05-12 (v3 — re-ordered to 15 sections per user feedback rou
 | "All three peaks at 80% FSH" (Before/After) | "All FBH responses adjusted to 80% FSH" | Round-2 — more precise: not every peak is an FBH. |
 | "Drift beyond ±¼ inch = calibration invalid" (Water-path) | "Deviation beyond ±¼ inch requires re-standardization" | Round-2 — professional tone, less dramatic. |
 | "Water path confirmed (±¼ inch)" (Checklist) | "Water path kept within ±¼ inch" | Round-2 — emphasises consistency over confirmation. |
+
+### v4 refinements (round-3 feedback)
+
+| Change | Reason |
+|---|---|
+| SetBasicParameters → 4-card single row (was 2×2 with overlap) | Round-3 #1 — Water Path card now clearly visible, amber-emphasised |
+| RequiredEquipment FBH bullet → "≥3 FBH reflectors, 3/64 inch or as required" | Round-3 #2 — explicit FBH size |
+| SaveTCGSetup → real screenshot of Files tab + UPRDB Navigator on left, 4-step list on right | Round-3 #3 — visual reference, not just text |
+| FinalChecklist → "Three FBH responses set to 80% FSH" (was "peaks") | Round-3 #4 — FBH-specific wording |
+| **NEW PointSequence scene** — Set Point #1 / #2 / #3 cards before Step 10 | Round-3 #6 — makes the repetition explicit |
+| **NEW OptionalBackWallPoints scene** — dedicated clip with back-wall A-scan + 3 bullet rules | Round-3 #5 — back-wall step now stands as its own moment, not buried in checklist |
 
 > Every addition is verifiable against the PDF. Nothing in v3 contradicts the source.
 

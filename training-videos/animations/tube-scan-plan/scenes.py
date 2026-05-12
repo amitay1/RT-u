@@ -358,7 +358,7 @@ class FinalChecklist(Scene):
             "Material velocity set",
             "Range set",
             "Water path kept within ±¼ inch",
-            "Three FBH peaks at 80% FSH",
+            "Three FBH responses set to 80% FSH",
             "Optional back-wall points added if needed",
             "TCG setup saved",
         ]
@@ -554,7 +554,7 @@ class RequiredEquipment(Scene):
         items = [
             "ScanMaster system",
             "Normal beam probe",
-            "Calibration block with ≥ 3 FBH reflectors",
+            "Calibration block with ≥ 3 FBH reflectors,  3/64 inch  or as required",
             "Correct material velocity",
             "Stable water path",
             "Access to Teach In mode",
@@ -673,9 +673,9 @@ class SetBasicParameters(Scene):
         photo_path = (Path(__file__).resolve().parents[2]
                       / "assets" / "tube-scan-plan" / "step-08-setup-toolbox-highlighted.png")
         try:
-            photo = ImageMobject(str(photo_path)).scale_to_fit_height(3.4).move_to(UP * 0.4)
+            photo = ImageMobject(str(photo_path)).scale_to_fit_height(2.4).move_to(UP * 1.7)
         except Exception:
-            photo = Rectangle(width=10, height=3, color=brand.SURFACE_PANEL, fill_opacity=0.5).move_to(UP * 0.4)
+            photo = Rectangle(width=10, height=2.4, color=brand.SURFACE_PANEL, fill_opacity=0.5).move_to(UP * 1.7)
         self.add(photo)
         self.play(FadeIn(photo, run_time=0.4))
 
@@ -697,13 +697,14 @@ class SetBasicParameters(Scene):
                 .scale(0.32).move_to(box.get_center() + DOWN * 0.35)
             return VGroup(box, n_t, name_t, sub_t)
 
+        # 4 cards in a single row at the bottom half — fits cleanly below the photo
         cards = [
-            param_card("1", "Material velocity", "from the material database"),
-            param_card("2", "Range", "until back wall is visible"),
+            param_card("1", "Material velocity", "from material database"),
+            param_card("2", "Range", "until back wall visible"),
             param_card("3", "Gain", "FBH response verified"),
-            param_card("4", "Water path", "76 mm  ·  ± ¼ inch"),
+            param_card("4", "Water path", "consistent during calibration & scan"),
         ]
-        row = VGroup(*cards).arrange(RIGHT, buff=0.3).move_to(DOWN * 2.2)
+        row = VGroup(*cards).arrange(RIGHT, buff=0.22).move_to(DOWN * 1.6)
 
         for c in cards:
             self.play(FadeIn(c, shift=UP * 0.2), run_time=0.4)
@@ -713,68 +714,207 @@ class SetBasicParameters(Scene):
                 box.animate.set_color(brand.BRAND_CYAN).set_fill(brand.BRAND_CYAN, opacity=0.15),
                 run_time=0.3,
             )
-            self.wait(1.5)
+            self.wait(1.3)
 
-        self.wait(1.2)
+        # Extra emphasis on the 4th card (Water path) — easiest to forget
+        water_box = cards[3][0]
+        water_name = cards[3][2]
+        self.play(
+            water_box.animate.set_color(brand.WARNING_AMBER).set_fill(brand.WARNING_AMBER, opacity=0.18),
+            water_name.animate.set_color(brand.WARNING_AMBER),
+            run_time=0.5,
+        )
+        self.play(
+            Indicate(cards[3], scale_factor=1.08, color=brand.WARNING_AMBER),
+            run_time=0.6,
+        )
+        self.wait(1.5)
         self.play(FadeOut(Group(section_title, photo, row)), run_time=0.4)
 
 
 # ═════════════════════════════════════════════════════════════════
-# Scene 11 [v3] — SAVE TCG SETUP
+# Scene 11 [v4] — SAVE TCG SETUP  (with real screenshot)
 # ═════════════════════════════════════════════════════════════════
 class SaveTCGSetup(Scene):
-    """4-step save sequence + final confirmation."""
+    """4-step save sequence + REAL UPRDB Navigator screenshot + filename + success."""
     def construct(self):
-        section_title = title("Save the TCG Setup", 0.7).to_edge(UP, buff=0.7)
+        section_title = title("Save the TCG Setup", 0.65).to_edge(UP, buff=0.4)
         self.play(FadeIn(section_title), run_time=0.4)
 
-        # 4-step list
+        # Real screenshot of Files tab + UPRDB Navigator on the LEFT side
+        photo_path = (Path(__file__).resolve().parents[2]
+                      / "assets" / "tube-scan-plan" / "step-13-save-tcg-uprdb-navigator.png")
+        try:
+            photo = ImageMobject(str(photo_path)).scale_to_fit_height(5.5).to_edge(LEFT, buff=0.6)
+        except Exception:
+            photo = Rectangle(width=6, height=5.5, color=brand.SURFACE_PANEL, fill_opacity=0.5).to_edge(LEFT, buff=0.6)
+
+        self.play(FadeIn(photo, run_time=0.5))
+
+        # 4-step list on the RIGHT side
         def step_row(num, action):
-            n = Text(num, font=brand.FONT_DISPLAY, color=brand.BRAND_CYAN, weight="BOLD").scale(0.6)
-            t = body_text(action, 0.55, brand.NEUTRAL_LIGHT)
-            return VGroup(n, t).arrange(RIGHT, buff=0.5, aligned_edge=DOWN)
+            n = Text(num, font=brand.FONT_DISPLAY, color=brand.BRAND_CYAN, weight="BOLD").scale(0.55)
+            t = body_text(action, 0.45, brand.NEUTRAL_LIGHT)
+            return VGroup(n, t).arrange(RIGHT, buff=0.35, aligned_edge=DOWN)
 
         steps = [
             step_row("1.", "Click the  Files  tab"),
             step_row("2.", "Under  TCG, click  Save"),
-            step_row("3.", "The  UPRDB Navigator  dialog opens"),
-            step_row("4.", "Name the file  →  click  Save"),
+            step_row("3.", "UPRDB Navigator  opens"),
+            step_row("4.", "Name file  →  click  Save"),
         ]
-        list_grp = VGroup(*steps).arrange(DOWN, aligned_edge=LEFT, buff=0.5).move_to(UP * 0.2)
+        list_grp = VGroup(*steps).arrange(DOWN, aligned_edge=LEFT, buff=0.45).to_edge(RIGHT, buff=0.8).shift(UP * 0.3)
 
         for s in steps:
             self.play(FadeIn(s, shift=RIGHT * 0.3), run_time=0.4)
             self.wait(0.7)
 
-        self.wait(0.8)
+        self.wait(0.6)
 
-        # Suggested file name callout
+        # Filename suggestion card (bottom)
         name_card = RoundedRectangle(
-            width=10.5, height=1.3,
+            width=13, height=1.1,
             corner_radius=0.15,
             color=brand.BRAND_CYAN,
             fill_color=brand.SURFACE_PANEL,
-            fill_opacity=0.9,
+            fill_opacity=0.92,
             stroke_width=2,
-        ).move_to(DOWN * 2.0)
+        ).to_edge(DOWN, buff=0.8)
 
-        name_label = body_text("Suggested file name:", 0.38, brand.NEUTRAL_MUTED)\
-            .move_to(name_card.get_center() + UP * 0.32)
+        name_label = body_text("Suggested file name:", 0.36, brand.NEUTRAL_MUTED)\
+            .move_to(name_card.get_center() + UP * 0.28)
         name_value = Text(
             "NormalBeam_TCG_3-64FBH_YYYY-MM-DD",
             font=brand.FONT_MONO,
             color=brand.BRAND_CYAN,
             weight="BOLD",
-        ).scale(0.5).move_to(name_card.get_center() + DOWN * 0.18)
+        ).scale(0.45).move_to(name_card.get_center() + DOWN * 0.18)
 
         self.play(FadeIn(name_card), run_time=0.4)
         self.play(FadeIn(name_label), FadeIn(name_value), run_time=0.5)
         self.wait(1.2)
 
         # Success confirmation
-        success = title("✓  TCG setup saved", 0.7).set_color(brand.SUCCESS_GREEN)
-        success.to_edge(DOWN, buff=0.4)
+        success = title("TCG setup saved", 0.55).set_color(brand.SUCCESS_GREEN)
+        success.to_edge(DOWN, buff=0.2)
         self.play(FadeIn(success, shift=UP * 0.2), run_time=0.5)
-        self.wait(2.0)
+        self.wait(1.8)
 
-        self.play(FadeOut(VGroup(section_title, list_grp, name_card, name_label, name_value, success)), run_time=0.4)
+        self.play(
+            FadeOut(Group(section_title, photo, list_grp, name_card, name_label, name_value, success)),
+            run_time=0.4,
+        )
+
+
+# ═════════════════════════════════════════════════════════════════
+# Scene 12 [v4] — POINT SEQUENCE  (#1 / #2 / #3 emphasis)
+# ═════════════════════════════════════════════════════════════════
+class PointSequence(Scene):
+    """3 quick badge cards making the repetition explicit: Set Point #1 → #2 → #3."""
+    def construct(self):
+        section_title = title("Three Reference Points", 0.7).to_edge(UP, buff=0.7)
+        sub = body_text("The same action — repeated three times", 0.45, brand.NEUTRAL_MUTED)\
+            .next_to(section_title, DOWN, buff=0.2)
+        self.play(FadeIn(section_title), FadeIn(sub), run_time=0.4)
+
+        def point_card(num, sub_text):
+            box = RoundedRectangle(
+                width=3.6, height=2.4,
+                corner_radius=0.18,
+                color=brand.NEUTRAL_MUTED,
+                fill_color=brand.SURFACE_PANEL,
+                fill_opacity=0.7,
+                stroke_width=2,
+            )
+            tag = Text("SET", font=brand.FONT_BODY, color=brand.BRAND_CYAN, weight="BOLD").scale(0.4)\
+                .move_to(box.get_center() + UP * 0.6)
+            num_t = Text(f"Point {num}", font=brand.FONT_DISPLAY, color=brand.NEUTRAL_LIGHT, weight="BOLD")\
+                .scale(0.85).move_to(box.get_center() + UP * 0.05)
+            sub_t = body_text(sub_text, 0.36, brand.NEUTRAL_MUTED)\
+                .move_to(box.get_center() + DOWN * 0.7)
+            return VGroup(box, tag, num_t, sub_t)
+
+        cards = [
+            point_card("#1", "Near FBH @ 80% FSH"),
+            point_card("#2", "Middle FBH @ 80% FSH"),
+            point_card("#3", "Far FBH @ 80% FSH"),
+        ]
+        row = VGroup(*cards).arrange(RIGHT, buff=0.5).move_to(DOWN * 0.3)
+
+        # Reveal each card with cyan highlight
+        for c in cards:
+            self.play(FadeIn(c, shift=UP * 0.2), run_time=0.45)
+            box = c[0]
+            self.play(
+                box.animate.set_color(brand.BRAND_CYAN).set_fill(brand.BRAND_CYAN, opacity=0.12),
+                run_time=0.3,
+            )
+            self.wait(0.8)
+
+        # Pulse all three at the end
+        self.play(
+            *[Indicate(c[0], scale_factor=1.04, color=brand.BRAND_CYAN) for c in cards],
+            run_time=0.6,
+        )
+
+        # Closing line
+        closer = body_text("Drag yellow dot → 80% FSH → Save  ·  three times.", 0.45, brand.BRAND_CYAN)\
+            .to_edge(DOWN, buff=0.6)
+        self.play(FadeIn(closer, shift=UP * 0.2), run_time=0.4)
+        self.wait(2.5)
+
+        self.play(FadeOut(VGroup(section_title, sub, row, closer)), run_time=0.4)
+
+
+# ═════════════════════════════════════════════════════════════════
+# Scene 13 [v4] — OPTIONAL BACK-WALL POINTS  (dedicated clip)
+# ═════════════════════════════════════════════════════════════════
+class OptionalBackWallPoints(Scene):
+    """Short dedicated clip: 'Optional: Add back-wall TCG points if required'."""
+    def construct(self):
+        # OPTIONAL tag
+        optional_tag = Text(
+            "OPTIONAL  ·  STEP 13",
+            font=brand.FONT_BODY,
+            color=brand.WARNING_AMBER,
+            weight="BOLD",
+        ).scale(0.4).to_edge(UP, buff=0.7)
+        self.play(FadeIn(optional_tag), run_time=0.3)
+
+        # Main heading
+        heading = title("Add Back-Wall TCG Points", 0.7).next_to(optional_tag, DOWN, buff=0.3)
+        sub_heading = body_text("if your inspection extends to full part depth", 0.42, brand.NEUTRAL_MUTED)\
+            .next_to(heading, DOWN, buff=0.2)
+        self.play(FadeIn(heading), FadeIn(sub_heading), run_time=0.4)
+
+        # Real screenshot of back-wall A-scan
+        photo_path = (Path(__file__).resolve().parents[2]
+                      / "assets" / "tube-scan-plan" / "step-13-ascan-backwall-tcg-points.png")
+        try:
+            photo = ImageMobject(str(photo_path)).scale_to_fit_height(4.0).move_to(DOWN * 0.3)
+        except Exception:
+            photo = Rectangle(width=10, height=4, color=brand.SURFACE_PANEL, fill_opacity=0.5).move_to(DOWN * 0.3)
+        self.play(FadeIn(photo), run_time=0.5)
+
+        # Three bullet rules under the photo
+        rules = VGroup(
+            body_text("Click toolbar button → set first point BEFORE the back-wall pulse", 0.36, brand.NEUTRAL_LIGHT),
+            body_text("Set second point AFTER the back-wall pulse", 0.36, brand.NEUTRAL_LIGHT),
+            body_text("Create at least 4 points total to define the back-wall TCG curve", 0.36, brand.WARNING_AMBER),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.18).to_edge(DOWN, buff=0.4)
+
+        for r in rules:
+            self.play(FadeIn(r, shift=RIGHT * 0.2), run_time=0.35)
+            self.wait(0.7)
+
+        self.wait(1.4)
+
+        # Skip note
+        skip = body_text(
+            "Skip this step if your inspection only covers the FBH depth range.",
+            0.36, brand.NEUTRAL_MUTED,
+        ).to_edge(DOWN, buff=0.05)
+        self.play(FadeIn(skip), run_time=0.4)
+        self.wait(1.6)
+
+        self.play(FadeOut(Group(optional_tag, heading, sub_heading, photo, rules, skip)), run_time=0.4)

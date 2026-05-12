@@ -84,7 +84,7 @@ Two `.emf` files (image1.emf, image10.emf) are Microsoft Enhanced Metafile decor
 
 ---
 
-## 🎬 [v3] Pedagogical Manim animations — 11 total
+## 🎬 [v4] Pedagogical Manim animations — 13 total
 
 Built in response to two rounds of user feedback. Source: `training-videos/animations/tube-scan-plan/scenes.py`.
 
@@ -100,11 +100,13 @@ Built in response to two rounds of user feedback. Source: `training-videos/anima
 | 6 | `WaterPathWarning.mp4` | 1:35 - 1:55 | §6 Warning | Amber warning: "Deviation requires re-standardization" |
 | 7 | `BeforeAfterTCG.mp4` | 1:55 - 2:30 | §7 Before/After | Concept comparison: varied amplitudes → all 80% FSH |
 | 8 | `ActiveVisibleDrag.mp4` | 2:30 - 2:50 | §8 Checkboxes | Verify Active · Visible · Drag |
-| 9 | `DragAnd80FSH.mp4` | 2:50 - 3:22 | §9 Point #1 | Yellow dot drag arrow + 80% FSH cyan line |
-| — | `DragAnd80FSH.mp4` (reused) | 3:48 - 4:09 | §10 Point #2 | same |
-| — | `DragAnd80FSH.mp4` (reused) | 4:28 - 4:48 | §11 Point #3 | same |
-| 10 | `SaveTCGSetup.mp4` | 5:50 - 6:50 | §14 Save | 4-step save sequence + filename convention + success stamp |
-| 11 | `FinalChecklist.mp4` | 6:50 - 7:30 | §15 Checklist | 7-item checklist filling in green |
+| 9 | **`PointSequence.mp4` [v4]** | 2:50 - 3:10 | §8.5 Preview | 3 cards: Set Point #1 / #2 / #3 (makes the repetition explicit) |
+| 10 | `DragAnd80FSH.mp4` | 3:10 - 4:00 | §9 Point #1 | Yellow dot drag arrow + 80% FSH cyan line |
+| — | `DragAnd80FSH.mp4` (reused) | 4:08 - 4:29 | §10 Point #2 | same |
+| — | `DragAnd80FSH.mp4` (reused) | 4:48 - 5:08 | §11 Point #3 | same |
+| 11 | **`OptionalBackWallPoints.mp4` [v4]** | 5:15 - 5:50 | §13 Optional | Dedicated back-wall clip — real A-scan + 3 bullet rules |
+| 12 | **`SaveTCGSetup.mp4` [v4 rebuild]** | 5:50 - 6:50 | §14 Save | Real UPRDB Navigator screenshot + 4-step list + filename convention |
+| 13 | `FinalChecklist.mp4` | 6:50 - 7:30 | §15 Checklist | 7-item checklist — now "FBH responses set to 80% FSH" |
 
 **Total animation runtime:** ~140 seconds (2:20). Every screen is covered.
 

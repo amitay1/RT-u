@@ -1,5 +1,5 @@
 // ===================================================================
-// Tube Scan Plan Guide — Normal Beam TCG Calibration  (v3)
+// Tube Scan Plan Guide — Normal Beam TCG Calibration  (v4)
 // PASTE THIS BLOCK INTO ELEVENLABS STUDIO
 //
 // Voice:        Adam (pNInz6obpgDQGcFmaJgB)
@@ -69,6 +69,10 @@ Inside the Setup Toolbox — click the T-C-G tab. The T-C-G table appears.
 Before any other action — verify three checkboxes on the right side of the T-C-G tab.
 
 [serious] Active. Visible. Drag. All three must be checked. If Drag is off — you cannot drag the yellow dots in the next steps.
+
+The same action — repeated three times. Set Point one — near F-B-H at eighty per cent F-S-H. Set Point two — middle F-B-H at eighty per cent F-S-H. Set Point three — far F-B-H at eighty per cent F-S-H.
+
+Drag yellow dot. Eighty per cent F-S-H. Save. Three times.
 
 Move the probe to the first F-B-H — the near standard.
 

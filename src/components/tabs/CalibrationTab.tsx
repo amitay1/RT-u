@@ -1101,11 +1101,13 @@ export const CalibrationTab = ({
     prevIsPWStandardRef.current = shouldUsePwCalibrationReference;
   }, [shouldUsePwCalibrationReference]);
 
+  const prevShowTubeAngleBeamReferenceRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (showTubeAngleBeamReference && activeBeamTab !== "angle") {
+    if (showTubeAngleBeamReference && prevShowTubeAngleBeamReferenceRef.current !== true) {
       setActiveBeamTab("angle");
     }
-  }, [activeBeamTab, showTubeAngleBeamReference]);
+    prevShowTubeAngleBeamReferenceRef.current = showTubeAngleBeamReference;
+  }, [showTubeAngleBeamReference]);
 
   // Check specific P&W standard types
   const isPWASIM = standard === 'PWA-SIM';
