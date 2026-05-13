@@ -22,13 +22,22 @@ import { VideoPlayer } from "@/components/training/VideoPlayer";
 import { getVideoBySlug } from "@/data/videoCatalog";
 
 /**
- * Map a Scan-Plan document id → the companion training video slug.
- * When a mapping exists and the video is `published`, ScanPlanTab renders the
- * video as a collapsible at the top of the corresponding document section.
+ * Map a Scan-Plan document → its companion training video slug.
+ * Matched by basename of `filePath` (without extension) so the same physical
+ * document is recognised across QuickFill presets — e.g. "scan-plan-1",
+ * "tube-plan-guide", "plate-plan-guide" all point at scan-plan-guide.docx
+ * and therefore share the same companion video.
  */
 const DOCUMENT_VIDEO_MAP: Record<string, string> = {
-  "scan-plan-1": "tube-scan-plan-tcg-calibration",
+  "scan-plan-guide": "tube-scan-plan-tcg-calibration",
 };
+
+function videoSlugForDocument(filePath: string): string | undefined {
+  // Strip directories and extension: "/documents/scan-plan-guide.docx" -> "scan-plan-guide"
+  const basename = filePath.split(/[/\\]/).pop() ?? "";
+  const stem = basename.replace(/\.[^.]+$/, "").toLowerCase();
+  return DOCUMENT_VIDEO_MAP[stem];
+}
 
 interface ScanPlanTabProps {
   data: ScanPlanData;
@@ -144,7 +153,7 @@ export const ScanPlanTab = ({ data, onChange }: ScanPlanTabProps) => {
     <div className="flex flex-col gap-3 p-2">
       {activeDocuments.map((doc) => {
         const companionVideo = (() => {
-          const slug = DOCUMENT_VIDEO_MAP[doc.id];
+          const slug = videoSlugForDocument(doc.filePath);
           if (!slug) return null;
           const v = getVideoBySlug(slug);
           return v?.published ? v : null;
