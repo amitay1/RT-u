@@ -28,12 +28,17 @@ export function VideoPlayer({
   const { recordProgress, getProgress } = useVideoProgress();
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Resume from the last watched position.
+  // Resume from the last watched position — but only if the user actually
+  // got meaningfully into the video. Otherwise default to 0 so first-time
+  // viewers (and anyone who just opened/closed the player) get a fresh start.
+  const RESUME_MIN_SECONDS = 30;
   useEffect(() => {
     const saved = getProgress(video.id);
-    if (saved && videoRef.current && saved.watchedSeconds < video.durationSeconds - 5) {
-      videoRef.current.currentTime = saved.watchedSeconds;
-    }
+    if (!videoRef.current) return;
+    const within = saved
+      && saved.watchedSeconds >= RESUME_MIN_SECONDS
+      && saved.watchedSeconds < video.durationSeconds - 5;
+    videoRef.current.currentTime = within ? saved!.watchedSeconds : 0;
   }, [video.id, video.durationSeconds, getProgress]);
 
   const handleTimeUpdate = () => {
