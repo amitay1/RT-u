@@ -149,6 +149,35 @@ async function clickFirstVisible(page, locators, label) {
       }
     });
 
+    // Seed an inspector profile so the Session Profile dialog auto-dismisses.
+    // (The dialog blocks the toolbar and is modal — `allowClose=false` — so
+    // Escape/click-outside don't work in production; only profile selection does.)
+    await page.addInitScript(() => {
+      const now = new Date().toISOString();
+      const profile = {
+        id: "smoke-test-profile",
+        name: "Smoke Tester",
+        initials: "ST",
+        certificationLevel: "Level II",
+        certificationNumber: "SMOKE-001",
+        certifyingOrganization: "ASNT",
+        createdAt: now,
+        updatedAt: now,
+        isDefault: true,
+      };
+      const storage = {
+        profiles: [profile],
+        currentProfileId: profile.id,
+        rememberSelection: true,
+        lastUsedProfileId: profile.id,
+      };
+      try {
+        localStorage.setItem("scanmaster_inspector_profiles", JSON.stringify(storage));
+      } catch {
+        /* ignore */
+      }
+    });
+
     await page.goto(`${server.baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60_000 });
     await page.waitForTimeout(750);
     await page.keyboard.press("Space").catch(() => {});
@@ -161,12 +190,27 @@ async function clickFirstVisible(page, locators, label) {
       return /File|Export|Setup|Scan Params|Technique/i.test(text);
     }, { timeout: 20_000 });
 
+    // ── Dismiss any blocking modal (Session Profile dialog, etc.) ──
+    // The "Choose Session Profile" dialog auto-opens on first launch and
+    // covers the Toolbar. Try, in order: Continue (legacy), Escape, then
+    // any explicit Close affordance. The dialog accepts Escape.
     const profileContinue = page.getByRole("button", { name: /^Continue$/i });
     if (await profileContinue.isVisible().catch(() => false)) {
       await profileContinue.click();
       await page.waitForTimeout(500);
-      await assertNoCrash(page, errors, "closing profile selection");
+    } else {
+      // Modern dialog: "Choose Session Profile" → press Escape to dismiss.
+      await page.keyboard.press("Escape").catch(() => {});
+      await page.waitForTimeout(400);
+
+      // Fallback: explicit Close (✕) button inside any visible dialog.
+      const closeBtn = page.locator('[role="dialog"] button[aria-label*="Close" i], [role="dialog"] button:has-text("Close")').first();
+      if (await closeBtn.isVisible().catch(() => false)) {
+        await closeBtn.click().catch(() => {});
+        await page.waitForTimeout(400);
+      }
     }
+    await assertNoCrash(page, errors, "closing profile selection");
 
     await clickFirstVisible(page, [
       page.getByRole("button", { name: /^Export$/i }),

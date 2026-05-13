@@ -14,9 +14,21 @@ import {
   RefreshCw,
   Maximize2,
   Minimize2,
-  ChevronDown
+  ChevronDown,
+  PlayCircle,
 } from "lucide-react";
 import mammoth from 'mammoth';
+import { VideoPlayer } from "@/components/training/VideoPlayer";
+import { getVideoBySlug } from "@/data/videoCatalog";
+
+/**
+ * Map a Scan-Plan document id → the companion training video slug.
+ * When a mapping exists and the video is `published`, ScanPlanTab renders the
+ * video as a collapsible at the top of the corresponding document section.
+ */
+const DOCUMENT_VIDEO_MAP: Record<string, string> = {
+  "scan-plan-1": "tube-scan-plan-tcg-calibration",
+};
 
 interface ScanPlanTabProps {
   data: ScanPlanData;
@@ -130,10 +142,49 @@ export const ScanPlanTab = ({ data, onChange }: ScanPlanTabProps) => {
 
   return (
     <div className="flex flex-col gap-3 p-2">
-      {activeDocuments.map((doc) => (
-        <Collapsible 
-          key={doc.id} 
-          open={openDocs[doc.id]} 
+      {activeDocuments.map((doc) => {
+        const companionVideo = (() => {
+          const slug = DOCUMENT_VIDEO_MAP[doc.id];
+          if (!slug) return null;
+          const v = getVideoBySlug(slug);
+          return v?.published ? v : null;
+        })();
+
+        return (
+        <div key={doc.id} className="flex flex-col gap-3">
+        {companionVideo && (
+          <Collapsible defaultOpen>
+            <Card className="overflow-hidden border-cyan-400/40 bg-gradient-to-br from-slate-50 to-cyan-50">
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between p-4 bg-cyan-50/80 hover:bg-cyan-100/80 transition-colors cursor-pointer border-b border-cyan-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-cyan-600 rounded-lg">
+                      <PlayCircle className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-lg text-slate-800">
+                        🎬 Video Tutorial — {companionVideo.title}
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        {Math.floor(companionVideo.durationSeconds / 60)}:
+                        {String(companionVideo.durationSeconds % 60).padStart(2, "0")} ·
+                        Companion video for {doc.title}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className="h-6 w-6 text-slate-500 transition-transform duration-300 group-data-[state=closed]:rotate-0 group-data-[state=open]:rotate-180" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4">
+                  <VideoPlayer video={companionVideo} />
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
+        <Collapsible
+          open={openDocs[doc.id]}
           onOpenChange={() => toggleDoc(doc.id)}
         >
           <Card className={`overflow-hidden ${isFullscreen[doc.id] ? 'fixed inset-2 z-50' : ''}`}>
@@ -287,7 +338,9 @@ export const ScanPlanTab = ({ data, onChange }: ScanPlanTabProps) => {
             </CollapsibleContent>
           </Card>
         </Collapsible>
-      ))}
+        </div>
+        );
+      })}
     </div>
   );
 };

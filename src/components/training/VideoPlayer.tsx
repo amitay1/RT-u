@@ -64,8 +64,12 @@ export function VideoPlayer({
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="secondary">Series {video.series}</Badge>
             <span>{video.seriesTitle}</span>
-            <span>·</span>
-            <span>Video {video.id} of 28</span>
+            {video.id <= 28 && (
+              <>
+                <span>·</span>
+                <span>Video {video.id} of 28</span>
+              </>
+            )}
           </div>
           <h2 className="mt-1 text-xl font-semibold leading-tight">{video.title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{video.description}</p>

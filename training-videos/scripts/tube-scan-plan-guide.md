@@ -4,20 +4,21 @@
 TITLE:        Tube Scan Plan Guide · Normal Beam TCG Calibration
 ID:           tube-scan-plan-guide
 SERIES:       Scan-Master In-App Help (Scan Plan tab)
-DURATION:     540 seconds (9:00)
+DURATION:     510 seconds (8:30)
 PREREQUISITE: Basic familiarity with the ScanMaster Wizard
 APP CONTEXT:  Triggered from Scan Plan tab → Tube Scan Plan Guide button
 SOURCE:       /public/documents/scan-plan-guide.pdf + Tube Scan Plan Guide.docx
-LAST UPDATED: 2026-05-12 (v4 — round-3 refinements:
+LAST UPDATED: 2026-05-12 (v4 — round-3 refinements + round-4 QA fixes:
               • SetBasicParameters: 4-card single row, Water Path now amber-emphasised
               • RequiredEquipment: FBH bullet now reads "3/64 inch or as required"
               • SaveTCGSetup: rebuilt with real UPRDB Navigator screenshot
               • FinalChecklist: "FBH responses set to 80% FSH" (not "peaks")
               • NEW PointSequence (Set Point #1 / #2 / #3 cards)
-              • NEW OptionalBackWallPoints (dedicated clip with back-wall A-scan))
+              • NEW OptionalBackWallPoints (dedicated clip with back-wall A-scan)
+              • Round-4 QA: Section 9 timing, checklist "responses", 13 animations, 8:30 duration)
 ```
 
-> **Accuracy promise:** Every action and value matches the source PDF. **Pedagogical additions are marked `[ADDED]` so every claim is traceable.** v3 incorporates round-2 user feedback (re-ordering, intro/equipment/teach-in/basic-params/save-tcg explicit clips, text corrections).
+> **Accuracy promise:** Every action and value matches the source PDF. **Pedagogical additions are marked `[ADDED]` so every claim is traceable.** v4 incorporates feedback notes #5 and higher, including visual target, gain context, save procedure, point sequence, optional back-wall points, and final checklist.
 
 ---
 
@@ -268,7 +269,7 @@ LAST UPDATED: 2026-05-12 (v4 — round-3 refinements:
 | **NEW PointSequence scene** — Set Point #1 / #2 / #3 cards before Step 10 | Round-3 #6 — makes the repetition explicit |
 | **NEW OptionalBackWallPoints scene** — dedicated clip with back-wall A-scan + 3 bullet rules | Round-3 #5 — back-wall step now stands as its own moment, not buried in checklist |
 
-> Every addition is verifiable against the PDF. Nothing in v3 contradicts the source.
+> Every addition is verifiable against the PDF. Nothing in v4 contradicts the source.
 
 ---
 
@@ -281,18 +282,20 @@ LAST UPDATED: 2026-05-12 (v4 — round-3 refinements:
 
 **Total word count target:** ~1275 words (8:30 × ~150 WPM)
 
-**Animations (in `training-videos/assets/tube-scan-plan/animations/`):**
-1. `IntroTitle.mp4` (0:00-0:08)
-2. `RequiredEquipment.mp4` (0:08-0:32)
-3. `FBHLabels.mp4` (0:32-0:48)
-4. `OpenScanMasterTeachIn.mp4` (0:48-1:05)
-5. `SetBasicParameters.mp4` (1:05-1:35)
-6. `WaterPathWarning.mp4` (1:35-1:55)
-7. `BeforeAfterTCG.mp4` (1:55-2:30)
-8. `ActiveVisibleDrag.mp4` (2:30-2:50)
-9. `DragAnd80FSH.mp4` (2:50-3:22) — reused at 3:48-4:09 + 4:28-4:48
-10. `SaveTCGSetup.mp4` (5:50-6:50)
-11. `FinalChecklist.mp4` (6:50-7:30)
+**Animations (13 total — in `training-videos/assets/tube-scan-plan/animations/`):**
+1. `IntroTitle.mp4`              (0:00-0:08)
+2. `RequiredEquipment.mp4`       (0:08-0:32)
+3. `FBHLabels.mp4`               (0:32-0:48)
+4. `OpenScanMasterTeachIn.mp4`   (0:48-1:05)
+5. `SetBasicParameters.mp4`      (1:05-1:35)
+6. `WaterPathWarning.mp4`        (1:35-1:55)
+7. `BeforeAfterTCG.mp4`          (1:55-2:30)
+8. `ActiveVisibleDrag.mp4`       (2:30-2:50)
+9. `PointSequence.mp4`           (2:50-3:10)   ⭐ NEW v4
+10. `DragAnd80FSH.mp4`           (3:10-4:00)  — reused at 4:08-4:29 + 4:48-5:08
+11. `OptionalBackWallPoints.mp4` (5:15-5:50)   ⭐ NEW v4
+12. `SaveTCGSetup.mp4`           (5:50-6:50)  — rebuilt v4 with real UPRDB Navigator screenshot
+13. `FinalChecklist.mp4`         (6:50-7:30)
 
 **Static screenshots:** from `training-videos/assets/tube-scan-plan/` (step-XX-*.png + toolbar-save-point-button.png).
 
@@ -301,13 +304,15 @@ LAST UPDATED: 2026-05-12 (v4 — round-3 refinements:
 
 ---
 
-## QA checklist for v3
+## QA checklist for v4
 
 - [x] All 10 round-1 feedback items still integrated
 - [x] All 5 round-2 missing-clip items now built and placed
 - [x] All 3 round-2 text corrections applied (Before/After / Water-path / Checklist)
+- [x] All 6 round-3 fixes applied (BasicParams 4-card row, Equipment FBH detail, SaveTCG screenshot, Checklist FBH responses, PointSequence + OptionalBackWall scenes)
+- [x] All 6 round-4 QA fixes applied (Section 9 timestamps, Checklist VO "responses", Production-notes 13 animations, Duration 8:30, QA header v4, Water-Path sentence shortened)
 - [x] Scene order matches user's recommended order exactly
 - [x] Every action and value remains verbatim from the source PDF
 - [x] Citations table complete
-- [x] All animations rendered + verified
-- [ ] User verifies v3 against the PDF + signs off
+- [x] All 13 animations rendered + verified
+- [ ] User verifies v4 against the PDF + signs off

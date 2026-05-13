@@ -103,3 +103,13 @@ prn
 PRN
 aux
 AUX
+
+# ── Training-video build artifacts (huge / regeneratable) ──
+# Keep tracked: scripts/, scenes.py, brand.py, build_*.py, IMAGE_INDEX.md, step-XX-*.png
+# Exclude regeneratable intermediates and raw assets:
+training-videos/animations/**/__pycache__/
+training-videos/animations/**/media/
+training-videos/assets/**/audio/
+training-videos/assets/**/tmp_final/
+training-videos/assets/**/tmp_segments/
+training-videos/assets/**/animations/

@@ -86,9 +86,9 @@ Two `.emf` files (image1.emf, image10.emf) are Microsoft Enhanced Metafile decor
 
 ## 🎬 [v4] Pedagogical Manim animations — 13 total
 
-Built in response to two rounds of user feedback. Source: `training-videos/animations/tube-scan-plan/scenes.py`.
+Built in response to the tracked feedback notes, including notes #5 and higher. Source: `training-videos/animations/tube-scan-plan/scenes.py`.
 
-### Used in the order they appear in the video (`tube-scan-plan-guide.md` v3)
+### Used in the order they appear in the video (`tube-scan-plan-guide.md` v4)
 
 | # | Animation | Timestamp | Script Section | What it shows |
 |---|-----------|-----------|----------------|---------------|
@@ -123,3 +123,13 @@ In Descript or ElevenLabs Studio, **drop the `.mp4` files directly onto the time
 | Updated BeforeAfter text: "All FBH responses adjusted to 80% FSH" | Round-2 feedback (FBH-specific) |
 | Updated WaterPath text: "Deviation requires re-standardization" | Round-2 feedback (professional tone) |
 | Updated Checklist text: "Water path kept within ±¼ inch" | Round-2 feedback (consistency over confirmation) |
+
+### v4 changes relevant to feedback notes #5+
+
+| Change | Why |
+|---|---|
+| Added `PointSequence.mp4` before the three point-setting passes | Round-3 #6 — makes the repetition explicit |
+| Added `OptionalBackWallPoints.mp4` as its own clip | Round-3 #5 — back-wall step is no longer buried in the checklist |
+| Rebuilt `SaveTCGSetup.mp4` with real UPRDB Navigator screenshot | Round-2 #5 — save procedure is visible |
+| Kept 80% FSH reference line in `DragAnd80FSH.mp4` | Round-1 #5 — visual target |
+| Kept FBH response wording in `BeforeAfterTCG.mp4` and `FinalChecklist.mp4` | Round-2 wording correction — avoids saying all generic peaks are FBH |
