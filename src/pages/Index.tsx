@@ -191,6 +191,13 @@ const Index = () => {
   });
   const { handleExportPDF: prepareExportPDF } = exportWorkflow;
 
+  const handleExportPDF = useCallback(async () => {
+    const result = await prepareExportPDF();
+    if (result.shouldOpenDialog) {
+      setExportDialogOpen(true);
+    }
+  }, [prepareExportPDF]);
+
   const currentDraftData = useMemo(() => buildCardData(), [buildCardData]);
   const currentCardSnapshot = useMemo(() => JSON.stringify(currentDraftData), [currentDraftData]);
   const isDirty = lastSavedSnapshot !== null && currentCardSnapshot !== lastSavedSnapshot;
@@ -420,7 +427,7 @@ const Index = () => {
             break;
           case "e":
             e.preventDefault();
-            setExportDialogOpen(true);
+            void handleExportPDF();
             break;
           case "n":
             e.preventDefault();
@@ -432,7 +439,7 @@ const Index = () => {
 
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
-  }, [handleNewProject, handleSaveCard, persistSaveAs]);
+  }, [handleExportPDF, handleNewProject, handleSaveCard, persistSaveAs]);
 
   const handleValidate = useCallback(() => {
     const missing = [];
@@ -503,13 +510,6 @@ const Index = () => {
       navigate("/auth");
     }
   }, [user, loading, navigate]);
-
-  const handleExportPDF = useCallback(async () => {
-    const result = await prepareExportPDF();
-    if (result.shouldOpenDialog) {
-      setExportDialogOpen(true);
-    }
-  }, [prepareExportPDF]);
 
   const quickFillAccentClasses = {
     cyan: "border-cyan-200 bg-cyan-50/70 hover:border-cyan-300 hover:bg-cyan-100/70 text-cyan-950",
@@ -613,7 +613,7 @@ const Index = () => {
             onSave={handleSaveCard}
             onSaveAs={persistSaveAs}
             onOpenSavedCards={openSavedCards}
-            onExport={() => setExportDialogOpen(true)}
+            onExport={handleExportPDF}
             onNew={handleNewProject}
             onSignOut={signOut}
             onOpenDrawingEngine={() => navigate("/drawing-test")}
@@ -628,7 +628,7 @@ const Index = () => {
       {/* Toolbar */}
       <Toolbar
         onSave={handleSaveCard}
-        onExport={() => setExportDialogOpen(true)}
+        onExport={handleExportPDF}
         onValidate={handleValidate}
         reportMode={reportMode}
         onReportModeChange={setReportMode}

@@ -306,6 +306,9 @@ class TechniqueSheetPDFBuilder {
 
     // 4. Acceptance
     this.pageMapping.set('acceptance', page++);
+    if (this.hasAcceptanceNotesPage()) {
+      this.pageMapping.set('acceptance-notes', page++);
+    }
 
     // 5. Scan Details
     if (this.data.scanDetails) {
@@ -346,6 +349,17 @@ class TechniqueSheetPDFBuilder {
 
   private hasScanDetailSection(): boolean {
     return Boolean(this.data.scanDetails || this.data.e2375Diagram || this.data.scanDirectionsDrawing);
+  }
+
+  private hasAcceptanceNotesPage(): boolean {
+    return Boolean(
+      this.data.acceptanceCriteria.includeStandardNotesInReport &&
+      (this.data.standard === 'AMS-STD-2154E' || this.data.standard === 'MIL-STD-2154')
+    );
+  }
+
+  private getAcceptanceNotesSectionNumber(): string {
+    return `${this.getMainSectionNumber('acceptance')}.1`;
   }
 
   private getMainSectionOrder(): Array<
@@ -1250,6 +1264,12 @@ class TechniqueSheetPDFBuilder {
       title: this.formatTocNumber(acceptanceSectionNum, acceptanceSectionTitle),
       page: this.pageMapping.get('acceptance') || 6,
     });
+    if (this.hasAcceptanceNotesPage()) {
+      tocItems.push({
+        title: this.formatTocNumber(this.getAcceptanceNotesSectionNumber(), 'Table 6 Ultrasonic Classes Notes'),
+        page: this.pageMapping.get('acceptance-notes') || 7,
+      });
+    }
 
     if (this.hasScanDetailSection()) {
       if (this.data.scanDetails) {
@@ -1812,21 +1832,135 @@ class TechniqueSheetPDFBuilder {
         this.pdf.text('Calibration block diagram could not be loaded.', PAGE.marginLeft, y + 20);
       }
     } else {
-      // Show block info in text form
-      this.pdf.setFontSize(10);
-      this.pdf.setTextColor(...COLORS.lightText);
-      this.pdf.text('No calibration block diagram available.', PAGE.marginLeft, y + 10);
-
-      if (cal.blockDimensions) {
-        this.pdf.text(`Block Dimensions: ${cal.blockDimensions}`, PAGE.marginLeft, y + 20);
-      }
-      if (cal.standardType) {
-        this.pdf.text(`Block Type: ${formatBlockType(cal.standardType)}`, PAGE.marginLeft, y + 30);
-      }
+      y = this.drawFallbackCalibrationDiagram(y);
     }
 
     this.pdf.setTextColor(...COLORS.text);
     this.addFooter();
+  }
+
+  private drawFallbackCalibrationDiagram(startY: number): number {
+    const cal = this.data.calibration;
+    const holes = Array.isArray(cal.fbhHoles) ? cal.fbhHoles.filter(Boolean).slice(0, 3) : [];
+    let y = startY;
+
+    this.pdf.setFontSize(9);
+    this.pdf.setFont('helvetica', 'normal');
+    this.pdf.setTextColor(...COLORS.lightText);
+    this.pdf.text(
+      'Auto-generated fallback view from the FBH calibration table.',
+      PAGE.marginLeft,
+      y + 2,
+      { maxWidth: PAGE.contentWidth }
+    );
+    y += 10;
+
+    const infoRows = buildTableRows([
+      ['Block Type', cal.standardType ? formatBlockType(cal.standardType) : undefined],
+      ['Block Dimensions', cal.blockDimensions],
+      ['Reference Material', cal.referenceMaterial],
+      ['Block Serial Number', cal.blockSerialNumber],
+    ]);
+
+    if (infoRows.length > 0) {
+      autoTable(this.pdf, {
+        startY: y,
+        body: infoRows,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 45 },
+          1: { cellWidth: 'auto' },
+        },
+        margin: { left: PAGE.marginLeft, right: PAGE.marginRight, bottom: PAGE.footerHeight + 5 },
+      });
+      y = this.getTableEndY(y, 8);
+    }
+
+    if (holes.length === 0) {
+      this.pdf.setFontSize(10);
+      this.pdf.setTextColor(...COLORS.lightText);
+      this.pdf.text('No FBH hole rows are configured for a calibration diagram.', PAGE.marginLeft, y + 10);
+      return y + 18;
+    }
+
+    const gap = 10;
+    const cardW = (PAGE.contentWidth - gap * (holes.length - 1)) / holes.length;
+    const cardH = 66;
+
+    holes.forEach((hole, index) => {
+      const x = PAGE.marginLeft + index * (cardW + gap);
+      const cardY = y;
+      const blockX = x + 9;
+      const blockY = cardY + 15;
+      const blockW = Math.min(38, cardW - 18);
+      const blockH = 34;
+      const e = Number(hole.blockHeightE) || Number(cal.metalTravelDistance) || 1;
+      const h = Number(hole.metalTravelH) || e;
+      const reflectorRatio = Math.max(0.12, Math.min(0.92, h / e));
+      const reflectorY = blockY + blockH * reflectorRatio;
+      const holeW = Math.max(4, Math.min(8, blockW * 0.16));
+      const centerX = blockX + blockW / 2;
+
+      this.pdf.setDrawColor(...COLORS.tableBorder);
+      this.pdf.setFillColor(...COLORS.sectionBg);
+      this.pdf.roundedRect(x, cardY, cardW, cardH, 2, 2, 'FD');
+
+      this.pdf.setFontSize(8);
+      this.pdf.setFont('helvetica', 'bold');
+      this.pdf.setTextColor(...COLORS.primary);
+      this.pdf.text(`Hole ${hole.id ?? index + 1}`, x + cardW / 2, cardY + 7, { align: 'center' });
+
+      this.pdf.setDrawColor(60, 60, 60);
+      this.pdf.setFillColor(255, 255, 255);
+      this.pdf.rect(blockX, blockY, blockW, blockH, 'FD');
+
+      this.pdf.setFillColor(230, 230, 230);
+      this.pdf.rect(centerX - holeW / 2, reflectorY, holeW, blockY + blockH - reflectorY, 'F');
+      this.pdf.setDrawColor(30, 30, 30);
+      this.pdf.setLineWidth(0.5);
+      this.pdf.line(centerX - holeW / 2, reflectorY, centerX + holeW / 2, reflectorY);
+      this.pdf.line(blockX, reflectorY, blockX + blockW, reflectorY);
+
+      this.pdf.setFontSize(6.5);
+      this.pdf.setFont('helvetica', 'normal');
+      this.pdf.setTextColor(...COLORS.lightText);
+      this.pdf.text(`FBH ${hole.diameterInch || '-'} (${formatNumber(hole.diameterMm, 2, 'mm')})`, x + cardW / 2, cardY + 56, { align: 'center' });
+      this.pdf.text(`E ${formatNumber(hole.blockHeightE, 1, 'mm')}  H ${formatNumber(hole.metalTravelH, 1, 'mm')}`, x + cardW / 2, cardY + 62, { align: 'center' });
+    });
+
+    y += cardH + 8;
+
+    const holeRows = holes.map((hole) => [
+      String(hole.id ?? '-'),
+      hole.partNumber || '-',
+      hole.deltaType || '-',
+      hole.diameterInch || '-',
+      formatNumber(hole.diameterMm, 2, 'mm'),
+      formatNumber(hole.blockHeightE, 1, 'mm'),
+      formatNumber(hole.metalTravelH, 1, 'mm'),
+    ]);
+
+    autoTable(this.pdf, {
+      startY: y,
+      head: [['#', 'P/N', 'Delta Type', 'Dia FBH (inch)', 'Dia FBH (mm)', 'E (mm)', 'H (mm)']],
+      body: holeRows,
+      theme: 'grid',
+      styles: { fontSize: 7.5, cellPadding: 2 },
+      headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255], fontSize: 7.5 },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 26 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 25 },
+        6: { cellWidth: 25 },
+      },
+      margin: { left: PAGE.marginLeft, right: PAGE.marginRight, bottom: PAGE.footerHeight + 5 },
+    });
+
+    return this.getTableEndY(y);
   }
 
   // =========================================================================
@@ -2230,19 +2364,16 @@ class TechniqueSheetPDFBuilder {
     }
 
     // AMS-STD-2154 / MIL-STD-2154 Table 6 Notes
-    if (
-      acc.includeStandardNotesInReport &&
-      (this.data.standard === 'AMS-STD-2154E' || this.data.standard === 'MIL-STD-2154')
-    ) {
-      // Check if we need a new page
-      if (y > PAGE.height - PAGE.footerHeight - 120) {
-        this.addFooter();
-        this.pdf.addPage();
-        this.addHeader();
-        y = PAGE.contentStart;
-      }
+    if (this.hasAcceptanceNotesPage()) {
+      this.addFooter();
+      this.addNewPage();
+      this.addHeader();
+      y = PAGE.contentStart;
 
-      y = this.addSubsectionTitle('Table 6 - Ultrasonic Classes - Notes', y);
+      y = this.addSectionTitle(
+        this.formatSectionLabel(this.getAcceptanceNotesSectionNumber(), 'TABLE 6 - ULTRASONIC CLASSES NOTES'),
+        y
+      );
 
       const table6Notes: [string, string][] = [
         ['1/', 'Any discontinuity with an indication greater than the response from a reference flat-bottom hole or equivalent notch at the estimated discontinuity depth of the size given (inches diameter) is not acceptable.'],

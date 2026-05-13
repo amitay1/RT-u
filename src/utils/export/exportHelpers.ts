@@ -245,14 +245,14 @@ export function isCone(partType: string | undefined): boolean {
 export function formatTransducerShape(shape: string | undefined): string {
   if (!shape) return '-';
   const shapeMap: Record<string, string> = {
-    'active_element_diameter_3_8_to_1_inch': 'Active Element \u22053/8" to 1"',
+    'active_element_diameter_3_8_to_1_inch': 'Active Element Dia. 3/8" to 1"',
     'rectangular_flat': 'Rectangular Flat',
     'cylindrically_focused_transducers': 'Cylindrically Focused Transducers',
-    'active_element_diameter_1_4_inch': 'Active Element \u22051/4"',
-    'active_element_diameter_3_8_inch': 'Active Element \u22053/8"',
-    'active_element_diameter_1_2_inch': 'Active Element \u22051/2"',
-    'active_element_diameter_3_4_inch': 'Active Element \u22053/4"',
-    'active_element_diameter_1_inch': 'Active Element \u22051"',
+    'active_element_diameter_1_4_inch': 'Active Element Dia. 1/4"',
+    'active_element_diameter_3_8_inch': 'Active Element Dia. 3/8"',
+    'active_element_diameter_1_2_inch': 'Active Element Dia. 1/2"',
+    'active_element_diameter_3_4_inch': 'Active Element Dia. 3/4"',
+    'active_element_diameter_1_inch': 'Active Element Dia. 1"',
     'round': 'Round',
     'square': 'Square',
     'rectangular': 'Rectangular',
