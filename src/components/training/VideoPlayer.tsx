@@ -93,7 +93,10 @@ export function VideoPlayer({
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
             className="h-full w-full"
-            crossOrigin="anonymous"
+            // crossOrigin only needed when external <track> elements are loaded
+            // from a CORS-protected URL. Setting it for the video itself breaks
+            // playback of locally-served files (no Access-Control-Allow-Origin).
+            {...(Object.keys(video.captions).length > 0 ? { crossOrigin: "anonymous" as const } : {})}
           >
             {Object.entries(video.captions).map(([lang, url]) => (
               <track
