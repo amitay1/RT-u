@@ -28,24 +28,43 @@ export function VideoPlayer({
   const { recordProgress, getProgress } = useVideoProgress();
   const [currentTime, setCurrentTime] = useState(0);
 
+  // Latest progress accessor — read via ref so the seek-on-mount effect
+  // below isn't a dependency on the constantly-changing `getProgress`
+  // callback. Otherwise every recordProgress() (fired every ~5s) would
+  // re-run the effect and re-seek the player mid-playback.
+  const getProgressRef = useRef(getProgress);
+  getProgressRef.current = getProgress;
+  const lastRecordedAtRef = useRef(0);
+
   // Resume from the last watched position — but only if the user actually
   // got meaningfully into the video. Otherwise default to 0 so first-time
   // viewers (and anyone who just opened/closed the player) get a fresh start.
+  // Runs once per video change; uses loadedmetadata so we don't fight the
+  // browser's own initial seek to 0.
   const RESUME_MIN_SECONDS = 30;
   useEffect(() => {
-    const saved = getProgress(video.id);
-    if (!videoRef.current) return;
-    const within = saved
-      && saved.watchedSeconds >= RESUME_MIN_SECONDS
-      && saved.watchedSeconds < video.durationSeconds - 5;
-    videoRef.current.currentTime = within ? saved!.watchedSeconds : 0;
-  }, [video.id, video.durationSeconds, getProgress]);
+    const el = videoRef.current;
+    if (!el) return;
+    const applyResume = () => {
+      const saved = getProgressRef.current(video.id);
+      const within = saved
+        && saved.watchedSeconds >= RESUME_MIN_SECONDS
+        && saved.watchedSeconds < video.durationSeconds - 5;
+      if (within) el.currentTime = saved!.watchedSeconds;
+    };
+    if (el.readyState >= 1) applyResume();
+    else el.addEventListener("loadedmetadata", applyResume, { once: true });
+    return () => el.removeEventListener("loadedmetadata", applyResume);
+  }, [video.id, video.durationSeconds]);
 
   const handleTimeUpdate = () => {
     const el = videoRef.current;
     if (!el) return;
     setCurrentTime(el.currentTime);
-    if (Math.floor(el.currentTime) % 5 === 0) {
+    // Throttle: write at most once every 5s (timeupdate fires ~4×/s).
+    const now = performance.now();
+    if (now - lastRecordedAtRef.current >= 5000) {
+      lastRecordedAtRef.current = now;
       recordProgress(video.id, el.currentTime, video.durationSeconds);
     }
   };
