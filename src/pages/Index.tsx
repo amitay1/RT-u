@@ -186,7 +186,7 @@ const Index = () => {
 
   // ── Hook 3: Export workflow ────────────────────────────────────────────
   const exportWorkflow = useExportWorkflow({
-    activeTab, setActiveTab, reportMode, currentData,
+    activeTab, reportMode, currentData,
     isSplitMode, activePart, inspectionSetup, inspectionSetupB,
   });
   const { handleExportPDF: prepareExportPDF } = exportWorkflow;

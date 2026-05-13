@@ -20,7 +20,7 @@
  * Page 12: Approval Signatures
  */
 
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type {
   StandardType,
@@ -39,6 +39,14 @@ import {
   isPwaSimStandard as isPwaSimOemStandard,
   isPwOemStandard,
 } from '@/utils/mroPolicy';
+import { requiresAngleBeam } from '@/utils/beamTypeClassification';
+import { resolveWallThickness } from '@/utils/inspectionThickness';
+import {
+  formatTubeAngleBeamRange,
+  getTubeAngleBeamDrawing,
+  isTubeAngleBeamPartType,
+} from '@/utils/tubeAngleBeamDrawings';
+import { DEFAULT_ANGLE_BEAM_CALIBRATION_ROWS } from '@/data/fbhStandardsData';
 import {
   COLORS,
   PAGE,
@@ -276,11 +284,11 @@ class TechniqueSheetPDFBuilder {
   private calculatePages(): void {
     let pages = 10; // Base pages (cover, toc, setup, equipment, calibration, cal-diagram, scan-params, acceptance, docs, approvals)
 
-    if (this.data.angleBeamDiagram) pages++; // Angle beam calibration block diagram
+    if (this.hasAngleBeamDiagramPage()) pages++; // Angle beam calibration block diagram
     if (this.data.scanDetails) pages++; // Scan details table page
     if (this.data.e2375Diagram) pages++; // E2375 scan directions diagram
     if (this.data.scanDirectionsDrawing) pages++; // Scan directions drawing page
-    if (this.data.capturedDrawing) pages++; // Technical drawing page
+    if (this.hasTechnicalDrawingPage()) pages++; // Technical drawing page
     // Safe check for scan plan documents
     const scanPlanDocs = this.data.scanPlan?.documents || [];
     if (scanPlanDocs.filter(d => d && d.isActive).length > 0) pages++; // Scan plan page
@@ -294,7 +302,7 @@ class TechniqueSheetPDFBuilder {
 
     // 1. Setup (Part Information + Technical Drawing)
     this.pageMapping.set('setup', page++);
-    if (this.data.capturedDrawing) {
+    if (this.hasTechnicalDrawingPage()) {
       this.pageMapping.set('technical-drawing', page++);
     }
 
@@ -327,7 +335,7 @@ class TechniqueSheetPDFBuilder {
     // 7. Reference Standard (Calibration)
     this.pageMapping.set('calibration', page++);
     this.pageMapping.set('calibration-diagram', page++);
-    if (this.data.angleBeamDiagram) {
+    if (this.hasAngleBeamDiagramPage()) {
       this.pageMapping.set('angle-beam-diagram', page++);
     }
 
@@ -349,6 +357,61 @@ class TechniqueSheetPDFBuilder {
 
   private hasScanDetailSection(): boolean {
     return Boolean(this.data.scanDetails || this.data.e2375Diagram || this.data.scanDirectionsDrawing);
+  }
+
+  private hasTechnicalDrawingPage(): boolean {
+    return Boolean(this.data.inspectionSetup.partType || this.data.capturedDrawing);
+  }
+
+  private hasAngleBeamDiagramPage(): boolean {
+    return Boolean(
+      this.data.angleBeamDiagram ||
+      requiresAngleBeam(this.data.inspectionSetup.partType, this.data.inspectionSetup.isHollow) ||
+      this.data.calibration.standardType === 'angle_beam' ||
+      (this.data.calibration.angleBeamCalibrationRows && this.data.calibration.angleBeamCalibrationRows.length > 0)
+    );
+  }
+
+  private getAngleBeamCalibrationRows() {
+    const rows = this.data.calibration.angleBeamCalibrationRows || [];
+    return rows.length > 0 ? rows : (this.hasAngleBeamDiagramPage() ? DEFAULT_ANGLE_BEAM_CALIBRATION_ROWS : []);
+  }
+
+  private getCalibrationFbhHoles() {
+    const cal = this.data.calibration;
+    const structuredHoles = Array.isArray(cal.fbhHoles) ? cal.fbhHoles.filter(Boolean).slice(0, 3) : [];
+    if (structuredHoles.length > 0) return structuredHoles;
+
+    const sizes = String(cal.fbhSizes || '')
+      .split(/[,;\n]+/)
+      .map((size) => size.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+
+    return sizes.map((size, index) => {
+      const travel = Number(cal.metalTravelDistance) || 25;
+      return {
+        id: index + 1,
+        partNumber: this.data.inspectionSetup.partNumber || '-',
+        deltaType: 'ref',
+        diameterInch: size,
+        diameterMm: this.convertInchFractionToMm(size),
+        blockHeightE: travel,
+        metalTravelH: travel,
+      };
+    });
+  }
+
+  private convertInchFractionToMm(value: string): number {
+    const clean = String(value || '').replace(/"/g, '').trim();
+    const fractionMatch = clean.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+    if (fractionMatch) {
+      const numerator = Number(fractionMatch[1]);
+      const denominator = Number(fractionMatch[2]);
+      return denominator ? Number(((numerator / denominator) * 25.4).toFixed(3)) : 0;
+    }
+    const numeric = Number(clean);
+    return Number.isFinite(numeric) ? Number((numeric * 25.4).toFixed(3)) : 0;
   }
 
   private hasAcceptanceNotesPage(): boolean {
@@ -483,7 +546,7 @@ class TechniqueSheetPDFBuilder {
     this.addNewPage();
     this.buildPartInformation();
 
-    if (this.data.capturedDrawing) {
+    if (this.hasTechnicalDrawingPage()) {
       this.addNewPage();
       this.buildTechnicalDrawing();
     }
@@ -527,8 +590,8 @@ class TechniqueSheetPDFBuilder {
     this.addNewPage();
     this.buildCalibrationDiagram();
 
-    // Add angle beam calibration diagram if available (for circular parts)
-    if (this.data.angleBeamDiagram) {
+    // Add angle beam calibration diagram for circular/angle-beam parts.
+    if (this.hasAngleBeamDiagramPage()) {
       this.addNewPage();
       this.buildAngleBeamDiagram();
     }
@@ -1203,21 +1266,99 @@ class TechniqueSheetPDFBuilder {
 
   // Helper method for sketch placeholder
   private drawSketchPlaceholder(y: number, height: number): void {
-    // Placeholder text
-    this.pdf.setFontSize(10);
-    this.pdf.setFont('helvetica', 'italic');
-    this.pdf.setTextColor(...COLORS.lightText);
-    this.pdf.text('Part sketch will be generated from Technical Drawing tab', PAGE.width / 2, y + height / 2 - 5, { align: 'center' });
-    this.pdf.setFontSize(8);
-    this.pdf.text('Or attach custom drawing in Setup', PAGE.width / 2, y + height / 2 + 5, { align: 'center' });
+    this.drawGeneratedTechnicalDrawing(PAGE.marginLeft + 5, y + 5, PAGE.contentWidth - 10, height - 10, true);
+    this.pdf.setTextColor(...COLORS.text);
+  }
 
-    // Dashed border inside
-    this.pdf.setDrawColor(...COLORS.divider);
-    this.pdf.setLineDashPattern([3, 3], 0);
-    this.pdf.rect(PAGE.marginLeft + 5, y + 5, PAGE.contentWidth - 10, height - 10);
-    this.pdf.setLineDashPattern([], 0);
+  private drawGeneratedTechnicalDrawing(x: number, y: number, width: number, height: number, compact = false): void {
+    const setup = this.data.inspectionSetup;
+    const partType = (setup.partType || '').toLowerCase();
+    const od = setup.diameter || 0;
+    const id = setup.innerDiameter || 0;
+    const length = setup.partLength || setup.partWidth || 0;
+    const thickness = setup.partThickness || setup.wallThickness || 0;
+    const title = `TECHNICAL DRAWING - ${formatPartType(partType || 'part').toUpperCase()}`;
+
+    this.pdf.setFillColor(255, 255, 255);
+    this.pdf.rect(x, y, width, height, 'F');
+    this.pdf.setDrawColor(200, 200, 200);
+    this.pdf.setLineWidth(0.3);
+    this.pdf.rect(x, y, width, height);
 
     this.pdf.setTextColor(...COLORS.text);
+    this.pdf.setFont('helvetica', 'bold');
+    this.pdf.setFontSize(compact ? 5.5 : 9);
+    this.pdf.text(title, x + width / 2, y + (compact ? 6 : 10), { align: 'center' });
+
+    const drawingTop = y + (compact ? 12 : 20);
+    const drawingH = height - (compact ? 22 : 38);
+    const leftCx = x + width * 0.32;
+    const rightCx = x + width * 0.70;
+    const midY = drawingTop + drawingH * 0.48;
+
+    this.pdf.setFontSize(compact ? 5 : 8);
+    this.pdf.setFont('helvetica', 'bold');
+    this.pdf.text('FRONT VIEW', leftCx, drawingTop, { align: 'center' });
+    this.pdf.text('SECTION A-A', rightCx, drawingTop, { align: 'center' });
+
+    this.pdf.setDrawColor(80, 80, 80);
+    this.pdf.setLineWidth(compact ? 0.25 : 0.45);
+
+    if (['tube', 'pipe', 'sleeve', 'bushing', 'ring'].includes(partType) || id > 0) {
+      const bodyW = Math.min(width * 0.26, Math.max(28, width * 0.18));
+      const bodyH = Math.min(drawingH * 0.38, Math.max(14, drawingH * 0.25));
+      const bodyX = leftCx - bodyW / 2;
+      const bodyY = midY - bodyH / 2;
+      this.pdf.rect(bodyX, bodyY, bodyW, bodyH);
+      this.pdf.setDrawColor(150, 150, 150);
+      this.pdf.setLineDashPattern([2, 2], 0);
+      this.pdf.line(bodyX, midY, bodyX + bodyW, midY);
+      this.pdf.line(leftCx, bodyY - 4, leftCx, bodyY + bodyH + 4);
+      this.pdf.setLineDashPattern([], 0);
+
+      const outerR = Math.min(width * 0.08, drawingH * 0.22);
+      const innerR = outerR * (id && od ? Math.max(0.25, Math.min(0.85, id / od)) : 0.62);
+      this.pdf.setDrawColor(80, 80, 80);
+      this.pdf.circle(rightCx, midY, outerR);
+      this.pdf.circle(rightCx, midY, innerR);
+      this.pdf.setDrawColor(150, 150, 150);
+      this.pdf.setLineDashPattern([2, 2], 0);
+      this.pdf.line(rightCx - outerR - 5, midY, rightCx + outerR + 5, midY);
+      this.pdf.line(rightCx, midY - outerR - 5, rightCx, midY + outerR + 5);
+      this.pdf.setLineDashPattern([], 0);
+
+      this.pdf.setFont('helvetica', 'normal');
+      this.pdf.setFontSize(compact ? 4.5 : 7);
+      if (od) this.pdf.text(`OD=${formatNumber(od, 1, 'mm')}`, rightCx, midY - outerR - 4, { align: 'center' });
+      if (id) this.pdf.text(`ID=${formatNumber(id, 1, 'mm')}`, rightCx, midY + outerR + 6, { align: 'center' });
+      if (length) this.pdf.text(`L=${formatNumber(length, 1, 'mm')}`, leftCx, bodyY + bodyH + 8, { align: 'center' });
+      if (thickness) this.pdf.text(`t=${formatNumber(thickness, 1, 'mm')}`, rightCx + outerR + 7, midY, { align: 'left' });
+    } else if (['cylinder', 'round_bar', 'shaft'].includes(partType) || od > 0) {
+      const bodyW = Math.min(width * 0.28, 70);
+      const bodyH = Math.min(drawingH * 0.34, 30);
+      this.pdf.rect(leftCx - bodyW / 2, midY - bodyH / 2, bodyW, bodyH);
+      const r = Math.min(width * 0.075, drawingH * 0.2);
+      this.pdf.circle(rightCx, midY, r);
+      this.pdf.setFont('helvetica', 'normal');
+      this.pdf.setFontSize(compact ? 4.5 : 7);
+      if (od) this.pdf.text(`D=${formatNumber(od, 1, 'mm')}`, rightCx, midY + r + 6, { align: 'center' });
+      if (length) this.pdf.text(`L=${formatNumber(length, 1, 'mm')}`, leftCx, midY + bodyH / 2 + 8, { align: 'center' });
+    } else {
+      const bodyW = Math.min(width * 0.34, 80);
+      const bodyH = Math.min(drawingH * 0.38, 42);
+      this.pdf.rect(x + width / 2 - bodyW / 2, midY - bodyH / 2, bodyW, bodyH);
+      this.pdf.setFont('helvetica', 'normal');
+      this.pdf.setFontSize(compact ? 4.5 : 7);
+      if (length) this.pdf.text(`L=${formatNumber(length, 1, 'mm')}`, x + width / 2, midY + bodyH / 2 + 8, { align: 'center' });
+      if (setup.partWidth) this.pdf.text(`W=${formatNumber(setup.partWidth, 1, 'mm')}`, x + width / 2 + bodyW / 2 + 6, midY, { align: 'left' });
+      if (thickness) this.pdf.text(`T=${formatNumber(thickness, 1, 'mm')}`, x + width / 2, midY - bodyH / 2 - 5, { align: 'center' });
+    }
+
+    this.pdf.setFont('helvetica', 'normal');
+    this.pdf.setFontSize(compact ? 4.5 : 7);
+    this.pdf.setTextColor(...COLORS.lightText);
+    this.pdf.text(`P/N: ${setup.partNumber || '-'}`, x + 4, y + height - 4);
+    this.pdf.text(`Scale: NTS`, x + width - 4, y + height - 4, { align: 'right' });
   }
 
   // =========================================================================
@@ -1239,7 +1380,7 @@ class TechniqueSheetPDFBuilder {
       title: this.formatTocNumber(partInfoSectionNum, 'Part Information'),
       page: this.pageMapping.get('setup') || 3,
     });
-    if (this.data.capturedDrawing) {
+    if (this.hasTechnicalDrawingPage()) {
       tocItems.push({
         title: this.formatTocNumber(this.getTechnicalDrawingSectionNumber(), 'Technical Drawing'),
         page: this.pageMapping.get('technical-drawing') || 4,
@@ -1307,7 +1448,7 @@ class TechniqueSheetPDFBuilder {
       title: this.formatTocNumber(this.getCalibrationDiagramSectionNumber(), 'Calibration Block Diagram'),
       page: this.pageMapping.get('calibration-diagram') || 12,
     });
-    if (this.data.angleBeamDiagram) {
+    if (this.hasAngleBeamDiagramPage()) {
       tocItems.push({
         title: this.formatTocNumber(this.getAngleBeamDiagramSectionNumber(), 'Angle Beam Calibration Block'),
         page: this.pageMapping.get('angle-beam-diagram') || 13,
@@ -1726,7 +1867,8 @@ class TechniqueSheetPDFBuilder {
     }
 
     // Angle Beam Calibration Table
-    if (cal.angleBeamCalibrationRows && cal.angleBeamCalibrationRows.length > 0) {
+    const angleBeamRows = this.getAngleBeamCalibrationRows();
+    if (angleBeamRows.length > 0) {
       if (y > PAGE.height - PAGE.footerHeight - 80) {
         this.addFooter();
         this.addNewPage();
@@ -1736,7 +1878,7 @@ class TechniqueSheetPDFBuilder {
 
       y = this.addSubsectionTitle('Angle Beam Calibration Data', y);
 
-      const abRows = cal.angleBeamCalibrationRows.map((row) => [
+      const abRows = angleBeamRows.map((row) => [
         row.reflectorType || '-',
         row.reflectorSizeInch !== undefined
           ? (String(row.reflectorSizeInch).includes('/') ? String(row.reflectorSizeInch) : `${row.reflectorSizeInch}"`)
@@ -1755,8 +1897,20 @@ class TechniqueSheetPDFBuilder {
         head: [['Reflector', 'Size Req. (inch)', 'Current Ref.', 'Ref. Size', 'Size Delta dB', 'Transfer Delta dB', 'Total Delta dB', 'Depth (mm)', 'Sound Path (mm)']],
         body: abRows,
         theme: 'grid',
-        styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255], fontSize: 7 },
+        tableWidth: PAGE.contentWidth,
+        styles: { fontSize: 6.5, cellPadding: 1.4, overflow: 'linebreak', valign: 'middle' },
+        headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255], fontSize: 6.5 },
+        columnStyles: {
+          0: { cellWidth: 16 },
+          1: { cellWidth: 18 },
+          2: { cellWidth: 18 },
+          3: { cellWidth: 34 },
+          4: { cellWidth: 18 },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 18 },
+          8: { cellWidth: 20 },
+        },
         margin: { left: PAGE.marginLeft, right: PAGE.marginRight, bottom: PAGE.footerHeight + 5 },
       });
 
@@ -1841,7 +1995,7 @@ class TechniqueSheetPDFBuilder {
 
   private drawFallbackCalibrationDiagram(startY: number): number {
     const cal = this.data.calibration;
-    const holes = Array.isArray(cal.fbhHoles) ? cal.fbhHoles.filter(Boolean).slice(0, 3) : [];
+    const holes = this.getCalibrationFbhHoles();
     let y = startY;
 
     this.pdf.setFontSize(9);
@@ -1946,14 +2100,15 @@ class TechniqueSheetPDFBuilder {
       head: [['#', 'P/N', 'Delta Type', 'Dia FBH (inch)', 'Dia FBH (mm)', 'E (mm)', 'H (mm)']],
       body: holeRows,
       theme: 'grid',
-      styles: { fontSize: 7.5, cellPadding: 2 },
-      headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255], fontSize: 7.5 },
+      tableWidth: PAGE.contentWidth,
+      styles: { fontSize: 7, cellPadding: 1.4, overflow: 'linebreak', valign: 'middle', minCellWidth: 0 },
+      headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255], fontSize: 7 },
       columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 24 },
-        2: { cellWidth: 26 },
-        3: { cellWidth: 28 },
-        4: { cellWidth: 28 },
+        0: { cellWidth: 8, halign: 'center' },
+        1: { cellWidth: 42 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 30 },
         5: { cellWidth: 25 },
         6: { cellWidth: 25 },
       },
@@ -1978,6 +2133,8 @@ class TechniqueSheetPDFBuilder {
     this.pdf.setTextColor(...COLORS.lightText);
     this.pdf.text('Shear Wave / Circumferential Inspection Reference Block', PAGE.marginLeft, y);
     y += 8;
+
+    let imageRendered = false;
 
     if (this.data.angleBeamDiagram) {
       try {
@@ -2006,19 +2163,190 @@ class TechniqueSheetPDFBuilder {
           undefined,
           'FAST' // High quality - minimal compression
         );
+        imageRendered = true;
       } catch {
-        this.pdf.setFontSize(10);
-        this.pdf.setTextColor(...COLORS.lightText);
-        this.pdf.text('Angle beam calibration block diagram could not be loaded.', PAGE.marginLeft, y + 20);
+        imageRendered = false;
       }
-    } else {
-      this.pdf.setFontSize(10);
-      this.pdf.setTextColor(...COLORS.lightText);
-      this.pdf.text('No angle beam calibration block diagram available.', PAGE.marginLeft, y + 10);
+    }
+
+    if (!imageRendered) {
+      y = this.drawFallbackAngleBeamDiagram(y);
     }
 
     this.pdf.setTextColor(...COLORS.text);
     this.addFooter();
+  }
+
+  private drawFallbackAngleBeamDiagram(startY: number): number {
+    const setup = this.data.inspectionSetup;
+    const cal = this.data.calibration;
+    let y = startY;
+    const partType = setup.partType || '';
+    const wallThickness = resolveWallThickness({
+      partType,
+      partThickness: setup.partThickness,
+      isHollow: setup.isHollow,
+      diameter: setup.diameter,
+      innerDiameter: setup.innerDiameter,
+      wallThickness: setup.wallThickness,
+    });
+    const tubeSelection = isTubeAngleBeamPartType(partType)
+      ? getTubeAngleBeamDrawing(setup.diameter, wallThickness)
+      : null;
+
+    const infoRows = [
+      ['Part Geometry', formatPartType(partType || 'part')],
+      ['Inspection Requirement', 'Angle beam / circumferential shear wave calibration'],
+      ['Outer Diameter', formatNumber(setup.diameter, 1, 'mm')],
+      ['Inner Diameter', formatNumber(setup.innerDiameter, 1, 'mm')],
+      ['Wall Thickness', formatNumber(wallThickness || setup.partThickness, 1, 'mm')],
+      ['Calibration Block Type', formatBlockType(cal.standardType || 'angle_beam')],
+      ['Tube Reference Row', tubeSelection
+        ? `${tubeSelection.requested.blockId} (${formatTubeAngleBeamRange(tubeSelection.requested.diameterRange)}, ${formatTubeAngleBeamRange(tubeSelection.requested.thicknessRange)})`
+        : '-'],
+      ['Displayed Tube Drawing', tubeSelection
+        ? `${tubeSelection.displayed.blockId}${tubeSelection.exactImageAvailable ? '' : ' - closest available bundled drawing'}`
+        : '-'],
+    ];
+
+    autoTable(this.pdf, {
+      startY: y,
+      body: infoRows,
+      theme: 'grid',
+      tableWidth: PAGE.contentWidth,
+      styles: { fontSize: 8, cellPadding: 2.4, overflow: 'linebreak' },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 48, fillColor: COLORS.sectionBg },
+        1: { cellWidth: 132 },
+      },
+      margin: { left: PAGE.marginLeft, right: PAGE.marginRight, bottom: PAGE.footerHeight + 5 },
+    });
+
+    y = this.getTableEndY(y, 8);
+
+    const boxX = PAGE.marginLeft;
+    const boxW = PAGE.contentWidth;
+    const boxH = 86;
+    this.pdf.setFillColor(255, 255, 255);
+    this.pdf.setDrawColor(...COLORS.tableBorder);
+    this.pdf.setLineWidth(0.35);
+    this.pdf.rect(boxX, y, boxW, boxH, 'FD');
+
+    this.pdf.setFont('helvetica', 'bold');
+    this.pdf.setFontSize(8.5);
+    this.pdf.setTextColor(...COLORS.primary);
+    this.pdf.text('GENERATED ANGLE BEAM REFERENCE DIAGRAM', boxX + boxW / 2, y + 8, { align: 'center' });
+
+    const cx = boxX + 47;
+    const cy = y + 47;
+    const outerR = 24;
+    const innerR = Math.max(9, outerR * ((setup.innerDiameter && setup.diameter) ? setup.innerDiameter / setup.diameter : 0.6));
+
+    this.pdf.setDrawColor(60, 60, 60);
+    this.pdf.setLineWidth(0.45);
+    this.pdf.circle(cx, cy, outerR);
+    this.pdf.circle(cx, cy, Math.min(innerR, outerR - 4));
+    this.pdf.setDrawColor(...COLORS.divider);
+    this.pdf.setLineDashPattern([2, 2], 0);
+    this.pdf.line(cx - outerR - 5, cy, cx + outerR + 5, cy);
+    this.pdf.line(cx, cy - outerR - 5, cx, cy + outerR + 5);
+    this.pdf.setLineDashPattern([], 0);
+
+    this.pdf.setDrawColor(...COLORS.warning);
+    this.pdf.setLineWidth(0.8);
+    this.pdf.line(cx - outerR - 16, cy + outerR + 12, cx - 6, cy + 6);
+    this.pdf.line(cx - 6, cy + 6, cx + 17, cy - 17);
+    this.pdf.line(cx + outerR + 16, cy + outerR + 12, cx + 6, cy + 6);
+    this.pdf.line(cx + 6, cy + 6, cx - 17, cy - 17);
+
+    this.pdf.setFillColor(...COLORS.warning);
+    this.pdf.circle(cx - 6, cy + 6, 1.5, 'F');
+    this.pdf.circle(cx + 6, cy + 6, 1.5, 'F');
+
+    this.pdf.setFont('helvetica', 'normal');
+    this.pdf.setFontSize(7);
+    this.pdf.setTextColor(...COLORS.text);
+    this.pdf.text('Tube / circular section', cx, y + 78, { align: 'center' });
+    this.pdf.text('+/-45 deg shear wave paths', cx, y + 83, { align: 'center' });
+
+    const blockX = boxX + 102;
+    const blockY = y + 25;
+    const blockW = 58;
+    const blockH = 35;
+    this.pdf.setDrawColor(70, 70, 70);
+    this.pdf.setLineWidth(0.45);
+    this.pdf.rect(blockX, blockY, blockW, blockH);
+    this.pdf.setDrawColor(...COLORS.accent);
+    this.pdf.line(blockX + 6, blockY + blockH - 4, blockX + 28, blockY + 8);
+    this.pdf.line(blockX + 20, blockY + blockH - 4, blockX + 42, blockY + 8);
+    this.pdf.line(blockX + 34, blockY + blockH - 4, blockX + 52, blockY + 12);
+    this.pdf.setFillColor(...COLORS.accent);
+    [10, 20, 30].forEach((depth, index) => {
+      this.pdf.circle(blockX + 45, blockY + depth, 1.4, 'F');
+      this.pdf.text(`R${index + 1}`, blockX + 49, blockY + depth + 1.5);
+    });
+
+    this.pdf.setFont('helvetica', 'bold');
+    this.pdf.setFontSize(7.5);
+    this.pdf.setTextColor(...COLORS.primary);
+    this.pdf.text('Reference block / SDH reflectors', blockX + blockW / 2, y + 68, { align: 'center' });
+
+    const noteX = boxX + 103;
+    this.pdf.setFont('helvetica', 'normal');
+    this.pdf.setFontSize(7);
+    this.pdf.setTextColor(...COLORS.lightText);
+    this.pdf.text('Fallback generated from entered part geometry and calibration data.', noteX, y + 76, {
+      maxWidth: 72,
+    });
+
+    y += boxH + 8;
+
+    const rows = this.getAngleBeamCalibrationRows();
+    if (rows.length > 0) {
+      y = this.addSubsectionTitle('Angle Beam Reflector Calibration Data', y);
+      autoTable(this.pdf, {
+        startY: y,
+        head: [['#', 'Reflector', 'Req Size', 'Used', 'Used Size', 'Size dB', 'Transfer dB', 'Total dB', 'Depth', 'Sound Path']],
+        body: rows.map((row) => [
+          String(row.id ?? ''),
+          row.reflectorType || '-',
+          row.reflectorSizeInch || '-',
+          row.currentReflectorUsed || '-',
+          row.currentReflectorSize || '-',
+          formatNumber(row.sizeDbCorrection, 1, 'dB'),
+          formatNumber(row.transferDbCorrection, 1, 'dB'),
+          formatNumber(row.totalDb, 1, 'dB'),
+          formatNumber(row.depthMm, 1, 'mm'),
+          formatNumber(row.soundPathMm, 1, 'mm'),
+        ]),
+        theme: 'grid',
+        tableWidth: PAGE.contentWidth,
+        styles: { fontSize: 6.4, cellPadding: 1.4, overflow: 'linebreak', valign: 'middle' },
+        headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255], fontSize: 6.4 },
+        columnStyles: {
+          0: { cellWidth: 7, halign: 'center' },
+          1: { cellWidth: 17 },
+          2: { cellWidth: 16 },
+          3: { cellWidth: 15 },
+          4: { cellWidth: 28 },
+          5: { cellWidth: 16 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 16 },
+          8: { cellWidth: 21 },
+          9: { cellWidth: 26 },
+        },
+        margin: { left: PAGE.marginLeft, right: PAGE.marginRight, bottom: PAGE.footerHeight + 5 },
+      });
+      y = this.getTableEndY(y);
+    } else {
+      this.pdf.setFontSize(8);
+      this.pdf.setTextColor(...COLORS.lightText);
+      this.pdf.text('No angle beam reflector calibration rows were entered.', PAGE.marginLeft, y + 5);
+      y += 12;
+    }
+
+    this.pdf.setTextColor(...COLORS.text);
+    return y;
   }
 
   // =========================================================================
@@ -3026,14 +3354,10 @@ class TechniqueSheetPDFBuilder {
           'FAST' // High quality - minimal compression
         );
       } catch {
-        this.pdf.setFontSize(10);
-        this.pdf.setTextColor(...COLORS.lightText);
-        this.pdf.text('Technical drawing could not be loaded.', PAGE.marginLeft, y + 20);
+        this.drawGeneratedTechnicalDrawing(PAGE.marginLeft + 5, y, PAGE.contentWidth - 10, 150);
       }
     } else {
-      this.pdf.setFontSize(10);
-      this.pdf.setTextColor(...COLORS.lightText);
-      this.pdf.text('No technical drawing available.', PAGE.marginLeft, y + 10);
+      this.drawGeneratedTechnicalDrawing(PAGE.marginLeft + 5, y, PAGE.contentWidth - 10, 150);
     }
 
     this.pdf.setTextColor(...COLORS.text);

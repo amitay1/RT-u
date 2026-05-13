@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
 import { useExportCaptures } from "@/hooks/useExportCaptures";
-import { requiresAngleBeam } from "@/utils/beamTypeClassification";
+import { getBeamRequirement, requiresAngleBeam } from "@/utils/beamTypeClassification";
+import { clearCaptureCache, smartCapture } from "@/utils/export/captureEngine";
 import type { CurrentPartData } from "@/hooks/useTechniqueSheetState";
 import type { InspectionSetupData } from "@/types/techniqueSheet";
 
 interface UseExportWorkflowParams {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
   reportMode: "Technique" | "Report";
   currentData: CurrentPartData;
   isSplitMode: boolean;
@@ -19,7 +19,6 @@ interface UseExportWorkflowParams {
 
 export function useExportWorkflow({
   activeTab,
-  setActiveTab,
   reportMode,
   currentData,
   isSplitMode,
@@ -158,13 +157,10 @@ export function useExportWorkflow({
       return { shouldOpenDialog: true };
     }
 
-    toast.loading("Preparing drawings for export...", { id: "export-prep" });
-    const originalTab = activeTab;
-    const { smartCapture, clearCaptureCache } = await import("@/utils/export/captureEngine");
+    toast.loading("Preparing export...", { id: "export-prep" });
 
     // Clear capture cache to ensure fresh captures (prevents stale cached images)
     clearCaptureCache();
-    const { getBeamRequirement } = await import("@/utils/beamTypeClassification");
 
     let capturedTechnicalDrawing: string | undefined;
     let capturedFBHDiagram: string | undefined;
@@ -173,55 +169,20 @@ export function useExportWorkflow({
 
     try {
       // Step 1: Setup tab – technical drawing
-      console.log("[PDF Export] Step 1: Going to Setup tab for technical drawing...");
-      setActiveTab("setup");
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const drawingResult = await smartCapture([
+        "#technical-drawing-canvas",
+        "canvas#technical-drawing-canvas",
+        '[data-testid="technical-drawing"] canvas',
+        ".technical-drawing-container canvas",
+        ".real-time-drawing canvas",
+        ".real-time-technical-drawing canvas",
+      ], { scale: 3, quality: 1.0, backgroundColor: "white" });
 
-      let drawingCanvas: HTMLCanvasElement | null = null;
-      let retryCount = 0;
-      const maxRetries = 5;
-      while (!drawingCanvas && retryCount < maxRetries) {
-        drawingCanvas = document.getElementById("technical-drawing-canvas") as HTMLCanvasElement;
-        if (drawingCanvas && drawingCanvas.width > 0 && drawingCanvas.height > 0) break;
-        drawingCanvas = null;
-        retryCount++;
-        console.log(`[PDF Export] Canvas not ready, retry ${retryCount}/${maxRetries}...`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      if (drawingCanvas && drawingCanvas.width > 0 && drawingCanvas.height > 0) {
-        try {
-          const scale = 3;
-          const highResCanvas = document.createElement("canvas");
-          highResCanvas.width = drawingCanvas.width * scale;
-          highResCanvas.height = drawingCanvas.height * scale;
-          const ctx = highResCanvas.getContext("2d");
-          if (ctx) {
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillRect(0, 0, highResCanvas.width, highResCanvas.height);
-            ctx.scale(scale, scale);
-            ctx.drawImage(drawingCanvas, 0, 0);
-            const drawingImage = highResCanvas.toDataURL("image/png", 1.0);
-            if (drawingImage && drawingImage.length > 100) {
-              capturedTechnicalDrawing = drawingImage;
-            }
-          }
-        } catch (error) {
-          console.warn("[PDF Export] Could not capture technical drawing:", error);
-        }
+      if (drawingResult.success && drawingResult.data) {
+        capturedTechnicalDrawing = drawingResult.data;
       }
 
       // Step 2: Calibration tab – FBH diagram
-      console.log("[PDF Export] Step 2: Going to Calibration tab for FBH diagram...");
-      setActiveTab("calibration");
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const straightTabTrigger = document.querySelector('[value="straight"]') as HTMLElement;
-      if (straightTabTrigger) {
-        straightTabTrigger.click();
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
       const calibrationResult = await smartCapture([
         // Container with ALL FBH blocks (captures all 3 blocks together)
         "#calibration-blocks-container",
@@ -242,57 +203,12 @@ export function useExportWorkflow({
       const beamRequirement = getBeamRequirement(currentData.inspectionSetup.partType, currentData.inspectionSetup.isHollow);
       const needsAngleBeam = beamRequirement === "both" || beamRequirement === "angle_only";
       if (needsAngleBeam) {
-        const angleTabTrigger = document.querySelector('[value="angle"]') as HTMLElement;
-        if (angleTabTrigger) {
-          angleTabTrigger.click();
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const angleImg = document.querySelector('[data-testid="angle-beam-calibration-block"] img') as HTMLImageElement;
-          if (angleImg && !angleImg.complete) {
-            await new Promise<void>((resolve) => {
-              angleImg.onload = () => resolve();
-              angleImg.onerror = () => resolve();
-              setTimeout(resolve, 3000);
-            });
-          }
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
         const angleBeamSelectors = [
+          '[data-testid="tube-angle-beam-reference-drawing"]',
           '[data-testid="angle-beam-export-capture"]',
           '[data-testid="angle-beam-image-capture"]', ".angle-beam-image-capture",
           ".angle-beam-calibration-image", '[data-testid="angle-beam-calibration-block"]',
         ];
-
-        const waitForAngleBeamTarget = async () => {
-          const start = Date.now();
-          while (Date.now() - start < 5000) {
-            for (const selector of angleBeamSelectors) {
-              const element = document.querySelector(selector);
-              if (!element) continue;
-
-              const nested =
-                element instanceof HTMLCanvasElement || element instanceof SVGElement || element instanceof HTMLImageElement
-                  ? element
-                  : element.querySelector('canvas, svg, img');
-
-              if (nested instanceof HTMLCanvasElement && nested.width > 0 && nested.height > 0) {
-                return;
-              }
-              if (nested instanceof SVGElement) {
-                const box = nested.getBoundingClientRect();
-                if (box.width > 0 && box.height > 0) {
-                  return;
-                }
-              }
-              if (nested instanceof HTMLImageElement && nested.complete && nested.naturalWidth > 0) {
-                return;
-              }
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-        };
-
-        await waitForAngleBeamTarget();
 
         const angleBeamResult = await smartCapture(
           angleBeamSelectors,
@@ -304,20 +220,6 @@ export function useExportWorkflow({
       }
 
       // Step 3: Scan details tab – E2375
-      console.log("[PDF Export] Step 3: Going to Scan Details tab for E2375 diagram...");
-      setActiveTab("scandetails");
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const e2375ImgElement = document.querySelector('[data-testid="e2375-diagram-img"]') as HTMLImageElement;
-      if (e2375ImgElement && !e2375ImgElement.complete) {
-        await new Promise<void>((resolve) => {
-          e2375ImgElement.onload = () => resolve();
-          e2375ImgElement.onerror = () => resolve();
-          setTimeout(resolve, 3000);
-        });
-      }
-      await new Promise(resolve => setTimeout(resolve, 300));
-
       const e2375Result = await smartCapture([
         '[data-testid="scan-direction-svg"]', 'svg[data-testid="scan-direction-svg"]',
         "#scan-direction-svg", "svg.scan-direction-diagram",
@@ -329,14 +231,11 @@ export function useExportWorkflow({
         capturedE2375 = e2375Result.data;
       }
 
-      // Step 4: Return to original tab
-      setActiveTab(originalTab);
-
       console.log("[PDF Export] Capture Summary:");
-      console.log("  - Technical Drawing:", capturedTechnicalDrawing ? "captured" : "NOT captured");
-      console.log("  - FBH Calibration:", capturedFBHDiagram ? "captured" : "NOT captured");
-      console.log("  - Angle Beam:", needsAngleBeam ? (capturedAngleBeam ? "captured" : "NOT captured") : "not required");
-      console.log("  - E2375 Diagram:", capturedE2375 ? "captured" : "NOT captured");
+      console.log("  - Technical Drawing:", capturedTechnicalDrawing ? "captured" : "using PDF fallback");
+      console.log("  - FBH Calibration:", capturedFBHDiagram ? "captured" : "using PDF fallback");
+      console.log("  - Angle Beam:", needsAngleBeam ? (capturedAngleBeam ? "captured" : "not available") : "not required");
+      console.log("  - E2375 Diagram:", capturedE2375 ? "captured" : "not available");
 
       flushSync(() => {
         if (capturedTechnicalDrawing) setCapturedDrawing(capturedTechnicalDrawing);
@@ -347,18 +246,16 @@ export function useExportWorkflow({
 
       await new Promise(resolve => setTimeout(resolve, 100));
       toast.dismiss("export-prep");
-      toast.success("Drawings captured successfully!");
+      toast.success("Export ready");
       return { shouldOpenDialog: true };
     } catch (error) {
       console.error("Error capturing drawings:", error);
       toast.dismiss("export-prep");
-      toast.error("Some drawings could not be captured");
-      setActiveTab(originalTab);
+      toast.warning("Export will use built-in drawing fallbacks");
       return { shouldOpenDialog: true };
     }
   }, [
-    reportMode, activeTab, setActiveTab, currentData,
-    captureCalibrationBlock, captureAngleBeamBlock,
+    reportMode, currentData,
   ]);
 
   return {

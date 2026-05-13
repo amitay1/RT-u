@@ -4,6 +4,7 @@ import {
   type InspectionReportData,
 } from "@/types/inspectionReport";
 import { generatedQuickFillPresets } from "@/data/generatedQuickFillPresets";
+import { DEFAULT_ANGLE_BEAM_CALIBRATION_ROWS } from "@/data/fbhStandardsData";
 import type {
   AcceptanceCriteriaData,
   CalibrationData,
@@ -1897,6 +1898,17 @@ export const quickFillPresets: QuickFillPreset[] = [
       scanParameters: {
         scanMethods: ["immersion"],
         technique: "conventional",
+      },
+      calibration: {
+        standardType: "cylinder_fbh",
+        fbhSizes: '3/64, 5/64, 8/64',
+        blockDimensions: "75 x 75 x 50 mm",
+        fbhHoles: [
+          { id: 1, partNumber: "7075-3-0050", deltaType: "ref", diameterInch: "3/64", diameterMm: 1.19, blockHeightE: 25.4, metalTravelH: 25.4 },
+          { id: 2, partNumber: "7075-5-0100", deltaType: "ref", diameterInch: "5/64", diameterMm: 1.98, blockHeightE: 38.1, metalTravelH: 38.1 },
+          { id: 3, partNumber: "7075-8-0150", deltaType: "ref", diameterInch: "8/64", diameterMm: 3.18, blockHeightE: 50.8, metalTravelH: 50.8 },
+        ],
+        angleBeamCalibrationRows: DEFAULT_ANGLE_BEAM_CALIBRATION_ROWS,
       },
     },
   }),

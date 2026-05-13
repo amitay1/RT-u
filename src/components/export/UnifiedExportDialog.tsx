@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -460,6 +460,10 @@ export const UnifiedExportDialog: React.FC<UnifiedExportDialogProps> = ({
         className="flex max-w-4xl max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden border border-border/70 bg-[linear-gradient(180deg,rgba(10,14,22,0.98),rgba(12,18,28,0.98))] p-0 shadow-[0_32px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)]"
         hideCloseButton
       >
+        <DialogTitle className="sr-only">Export Document</DialogTitle>
+        <DialogDescription className="sr-only">
+          Configure export format, document branding, and compliance checks.
+        </DialogDescription>
         {/* Header */}
         <div className="relative border-b border-white/8 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.24),transparent_42%),linear-gradient(135deg,rgba(12,19,31,0.98),rgba(10,14,22,0.98))] px-4 py-4 sm:px-6 sm:py-5">
           <button
