@@ -25,7 +25,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = join(__dirname, 'config.local.json');
 const REDIRECT_PORT = 7459;
 const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/oauth-callback`;
-const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+// Full Drive access. Required to update a file that was uploaded manually
+// via the Drive web UI; the narrower drive.file scope only covers files
+// created by this OAuth app, and would 404 when patching pre-existing files.
+const SCOPE = 'https://www.googleapis.com/auth/drive';
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 

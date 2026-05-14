@@ -134,6 +134,9 @@ Users who type your access code on the landing page always get the latest build.
 ### "No refresh_token returned"
 Run `auth-setup.mjs` again. If it still fails, visit https://myaccount.google.com/permissions, revoke "Scan-Master Release Uploader", and re-run setup.
 
+### "File not found" / 404 during upload (only happens once)
+You authorized with an older, narrower scope. Re-run `auth-setup.mjs` (it now requests the full `drive` scope) and re-run the upload. The consent screen will show "See, edit, create, and delete all of your Google Drive files" — that's the broader access required to update a file you uploaded manually.
+
 ### Refresh token stopped working after a while
 If your OAuth app is still in **Testing** mode, refresh tokens expire after **7 days of inactivity**. Either release more often, or publish your app (Step 3 → "Publish App") to make tokens permanent. For a hobby/single-user setup, Testing mode is fine — just re-run `auth-setup.mjs` if it expires.
 
