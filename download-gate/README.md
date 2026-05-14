@@ -1,14 +1,32 @@
-# Scan-Master Download Gate (lightweight)
+# Scan-Master Download Gate
 
-Locks the Scan-Master installer behind a single access code. No backend.
-No accounts to manage. Just a Google Drive (or Dropbox) link encrypted with
-AES-GCM, decrypted in the browser when a valid code is entered.
+Locks the Scan-Master installer behind a single access code. The .exe lives in
+Google Drive at a fixed file ID; that URL is AES-GCM encrypted using the access
+code as the key and embedded in the landing page. Without the code, the URL
+cannot be recovered from the page source.
+
+## Two pieces
+
+### 1. The gate itself (`encrypt-url-tool.html`)
+Standalone tool — open in browser, paste a URL + a code, get an encrypted blob
+to paste into the landing page's `index.html` as `ENCRYPTED_DOWNLOAD`. Use this
+if you ever want to rotate the access code or move the file to a new URL.
+
+### 2. The release automation (`drive-uploader/`)
+After a one-time OAuth setup (see [`drive-uploader/SETUP.md`](drive-uploader/SETUP.md)),
+`scripts\release.ps1` will automatically push every new build into Drive as a
+new version of the file behind the gate. No manual "Manage versions" click
+needed. The access code never changes.
 
 ## Files
 
 | File | What it does |
 |---|---|
-| `encrypt-url-tool.html` | Open this in your browser. Pastes the Drive URL + the access code, click **Generate**, copy the encrypted blob. |
+| `encrypt-url-tool.html` | One-off tool for generating the encrypted blob (only needed when rotating the code or moving the file). |
+| `drive-uploader/auth-setup.mjs` | One-time OAuth setup that captures a refresh token. |
+| `drive-uploader/upload.mjs` | Called by `release.ps1` to push a new `.exe` to Drive. |
+| `drive-uploader/SETUP.md` | ~15-minute setup walkthrough. |
+| `drive-uploader/config.local.json` | (auto-generated, git-ignored) Holds OAuth refresh token and the Drive file ID. |
 | (in the landing page) `index.html` -> `ENCRYPTED_DOWNLOAD` | Where the encrypted blob lives. Stays in the public source — but is useless without the code. |
 
 ## How it works (one sentence)

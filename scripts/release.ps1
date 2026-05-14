@@ -9,6 +9,14 @@
 #   .\scripts\release.ps1 -UploadOnly -Version 1.1.76 -BuildDir .\release-build-20260511-233028
 #   .\scripts\release.ps1 -CommitAll         -> include all current non-ignored changes in the release commit
 #   .\scripts\release.ps1 -IncludePortable   -> also build/upload the optional portable EXE
+#
+# Access-gated distribution (default since v1.1.90+):
+#   The .exe is pushed to Google Drive (behind the landing-page access code).
+#   The .exe is NOT uploaded to the public GitHub Release.
+#   Requires one-time setup: see download-gate\drive-uploader\SETUP.md
+#
+#   .\scripts\release.ps1 -SkipDriveUpload      -> release without touching Drive (landing page stays on old version)
+#   .\scripts\release.ps1 -PublishExeToGitHub   -> also upload installer to public GitHub Release (BYPASSES THE GATE)
 
 param(
     [string]$BumpType = "patch",
@@ -20,7 +28,12 @@ param(
     [switch]$UploadOnly = $false,
     [string]$Version = "",
     [string]$BuildDir = "",
-    [switch]$IncludePortable = $false
+    [switch]$IncludePortable = $false,
+    # Drive / access-gate distribution
+    [switch]$SkipDriveUpload = $false,
+    # Legacy: also publish the .exe and .blockmap to the public GitHub Release.
+    # Off by default because public assets bypass the landing-page access code.
+    [switch]$PublishExeToGitHub = $false
 )
 
 # Stop on any error by default
@@ -771,6 +784,16 @@ if ($DryRun) {
     } else {
         Write-Info "Would stage: $(if ($CommitAll) { 'all non-ignored changes' } else { 'package.json only' })"
     }
+    if ($SkipDriveUpload) {
+        Write-Info "Drive upload: SKIPPED via -SkipDriveUpload"
+    } else {
+        Write-Info "Drive upload: would push .exe to Drive (file ID from download-gate\drive-uploader\config.local.json)"
+    }
+    if ($PublishExeToGitHub) {
+        Write-Warn "GitHub Release: would include installer (PUBLIC - bypasses access-code gate)"
+    } else {
+        Write-Info "GitHub Release: metadata only (installer goes to Drive only)"
+    }
     exit 0
 }
 
@@ -930,6 +953,75 @@ if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir
     Write-Warn "Build was skipped and no -BuildDir was provided, so no installer files will be uploaded."
 }
 
+# ── Drive upload (access-gated distribution) ─────────────────────────
+# Pushes the new .exe to Google Drive as a new version of the file behind
+# the access-code gate, BEFORE we commit/tag/push. If Drive fails we don't
+# create a tag that points to a build the landing page can't actually serve.
+
+$driveUploaded = $false
+if ($buildOK -and -not $SkipDriveUpload) {
+    Write-Host ""
+    Write-Info "Pushing installer to Drive (access-gated distribution)..."
+
+    $driveUploaderDir = Join-Path (Get-Location) "download-gate\drive-uploader"
+    $driveConfigPath = Join-Path $driveUploaderDir "config.local.json"
+    $driveUploadScript = Join-Path $driveUploaderDir "upload.mjs"
+
+    if (-not (Test-Path -LiteralPath $driveUploadScript -PathType Leaf)) {
+        Write-Err "  Drive uploader not found at $driveUploadScript"
+        Write-Err "  Pull the latest code or pass -SkipDriveUpload to bypass."
+        if (-not $UploadOnly) {
+            $packageJson.version = $currentVersion
+            $revertJson = $packageJson | ConvertTo-Json -Depth 100
+            [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        }
+        exit 1
+    }
+
+    if (-not (Test-Path -LiteralPath $driveConfigPath -PathType Leaf)) {
+        Write-Err "  Drive uploader is not configured (config.local.json missing)."
+        Write-Err "  Run the one-time setup first:"
+        Write-Err "    node download-gate\drive-uploader\auth-setup.mjs"
+        Write-Err "  See download-gate\drive-uploader\SETUP.md for the full walkthrough."
+        Write-Err "  Or pass -SkipDriveUpload to release without updating the landing page."
+        if (-not $UploadOnly) {
+            $packageJson.version = $currentVersion
+            $revertJson = $packageJson | ConvertTo-Json -Depth 100
+            [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        }
+        exit 1
+    }
+
+    $exePath = Join-Path $freshOutputDir "ScanMaster-Setup-$newVersion.exe"
+    if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
+        Write-Err "  Installer not found at $exePath - cannot push to Drive."
+        if (-not $UploadOnly) {
+            $packageJson.version = $currentVersion
+            $revertJson = $packageJson | ConvertTo-Json -Depth 100
+            [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        }
+        exit 1
+    }
+
+    Write-Info "  Source: $exePath"
+    & node $driveUploadScript $exePath --name "ScanMaster-Setup-$newVersion.exe"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "  Drive upload failed (exit code $LASTEXITCODE)."
+        Write-Err "  The landing page still serves the PREVIOUS version."
+        Write-Err "  Fix the issue, then re-run with -UploadOnly -Version $newVersion -BuildDir $freshOutputDir."
+        if (-not $UploadOnly) {
+            $packageJson.version = $currentVersion
+            $revertJson = $packageJson | ConvertTo-Json -Depth 100
+            [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        }
+        exit 1
+    }
+    $driveUploaded = $true
+    Write-Success "  Drive updated. Anyone with access code SM-2NDE-F3WG now gets v$newVersion."
+} elseif ($SkipDriveUpload) {
+    Write-Warn "Drive upload skipped via -SkipDriveUpload. Landing page will continue serving the previous version."
+}
+
 # ── Git: commit, tag, push ───────────────────────────────────────────
 
 if (-not $UploadOnly) {
@@ -1076,6 +1168,20 @@ if ($ghAvailable -and $buildOK) {
         } else {
             Write-Success "  GitHub Release $releaseTag created!"
         }
+    }
+
+    # Filter out the installer binary unless explicitly publishing publicly.
+    # The .exe and .blockmap go to Drive (gated), not GitHub Releases (public).
+    # latest.yml stays so the release page still shows a manifest for archival.
+    if (-not $PublishExeToGitHub) {
+        $filesToUpload = @($filesToUpload | Where-Object {
+            $name = [System.IO.Path]::GetFileName($_.Path)
+            -not ($name -like "ScanMaster-Setup-*.exe" -or $name -like "ScanMaster-Setup-*.exe.blockmap" -or $name -like "ScanMaster-Portable-*.exe")
+        })
+        Write-Info "  Public GitHub Release will contain only metadata (latest.yml). Installer goes to Drive only."
+    } else {
+        Write-Warn "  -PublishExeToGitHub is SET: installer will be uploaded to the public GitHub Release."
+        Write-Warn "  This makes the .exe downloadable without the access code. The landing-page gate is effectively bypassed."
     }
 
     # Upload installer files only if build validation passed
@@ -1320,14 +1426,18 @@ if ($releaseAssetsUploaded) {
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
-if ($releaseAssetsUploaded) {
+if ($driveUploaded) {
+    Write-Host "Landing page: Anyone using access code SM-2NDE-F3WG now downloads v$newVersion." -ForegroundColor Green
+    Write-Host "  https://amitay1.github.io/Scan-Master-16-12-25/" -ForegroundColor Cyan
+} elseif ($SkipDriveUpload) {
+    Write-Host "Landing page: still serves the previous version (-SkipDriveUpload was set)." -ForegroundColor Yellow
+}
+
+if ($releaseAssetsUploaded -and $PublishExeToGitHub) {
     Write-Host "Auto-update: Other computers will update when they open the app!" -ForegroundColor Green
 } elseif (-not $buildOK) {
-    Write-Host "WARNING: Build/upload validation failed - auto-update will NOT work until fixed." -ForegroundColor Red
+    Write-Host "WARNING: Build/upload validation failed." -ForegroundColor Red
 } elseif ($SkipBuild) {
-    Write-Host "Build was skipped – remember to build and upload manually." -ForegroundColor Yellow
-} else {
-    Write-Host "To update other computers manually, run:" -ForegroundColor Yellow
-    Write-Host "  git pull origin main" -ForegroundColor White
+    Write-Host "Build was skipped - remember to build and upload manually." -ForegroundColor Yellow
 }
 Write-Host ""
