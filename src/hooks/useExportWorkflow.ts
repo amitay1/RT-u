@@ -204,6 +204,8 @@ export function useExportWorkflow({
       const needsAngleBeam = beamRequirement === "both" || beamRequirement === "angle_only";
       if (needsAngleBeam) {
         const angleBeamSelectors = [
+          '[data-testid="tube-angle-beam-reference-image"]',
+          '[data-testid="tube-angle-beam-reference-drawing"] img',
           '[data-testid="tube-angle-beam-reference-drawing"]',
           '[data-testid="angle-beam-export-capture"]',
           '[data-testid="angle-beam-image-capture"]', ".angle-beam-image-capture",

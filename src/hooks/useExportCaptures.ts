@@ -80,6 +80,8 @@ const SCAN_DIRECTIONS_SELECTORS = [
 
 // Angle beam calibration block selectors
 const ANGLE_BEAM_SELECTORS = [
+  '[data-testid="tube-angle-beam-reference-image"]',
+  '[data-testid="tube-angle-beam-reference-drawing"] img',
   '[data-testid="tube-angle-beam-reference-drawing"]',
   '[data-testid="angle-beam-export-capture"]',
   '[data-testid="angle-beam-image-capture"]',  // New - image capture container

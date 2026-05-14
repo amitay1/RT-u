@@ -809,6 +809,20 @@ class TechniqueSheetPDFBuilder {
     }
   }
 
+  private isUsableCapturedDiagram(imageData: string | undefined, minWidth = 180, minHeight = 120): boolean {
+    if (!imageData) return false;
+
+    try {
+      const imgProps = this.pdf.getImageProperties(imageData);
+      const width = Number(imgProps.width) || 0;
+      const height = Number(imgProps.height) || 0;
+
+      return width >= minWidth && height >= minHeight && width * height >= minWidth * minHeight;
+    } catch {
+      return false;
+    }
+  }
+
   private addSectionTitle(title: string, y: number): number {
     // ========== ULTIMATE SECTION HEADER ==========
     const sectionHeight = 12;
@@ -2136,7 +2150,7 @@ class TechniqueSheetPDFBuilder {
 
     let imageRendered = false;
 
-    if (this.data.angleBeamDiagram) {
+    if (this.isUsableCapturedDiagram(this.data.angleBeamDiagram, 220, 160)) {
       try {
         // Calculate proper dimensions from actual image (preserves aspect ratio)
         const maxWidth = PAGE.contentWidth * 0.9;

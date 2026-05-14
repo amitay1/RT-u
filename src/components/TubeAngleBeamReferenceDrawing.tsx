@@ -143,6 +143,7 @@ export function TubeAngleBeamReferenceDrawing({
           <div className="overflow-auto rounded-lg border border-border/70 bg-white p-3">
             <img
               key={`${selection.requested.blockId}-${selection.displayed.blockId}`}
+              data-testid="tube-angle-beam-reference-image"
               src={selection.imageSrc}
               alt={`Tube angle beam calibration block drawing ${selection.displayed.blockId}`}
               className="h-auto w-full min-w-[900px]"

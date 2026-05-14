@@ -26,6 +26,49 @@ export interface CaptureResult {
 // Cache for captured images
 const captureCache = new Map<string, { data: string; timestamp: number }>();
 const CACHE_TTL = 30000; // 30 seconds
+const MIN_CHILD_CAPTURE_AREA = 2500; // Ignore small UI icons inside capture containers
+
+function getRenderedArea(element: Element): number {
+  const rect = element.getBoundingClientRect();
+  return Math.max(0, rect.width) * Math.max(0, rect.height);
+}
+
+function getBestCapturableChild(element: HTMLElement): HTMLCanvasElement | HTMLImageElement | SVGElement | null {
+  const candidates = Array.from(element.querySelectorAll('canvas, img, svg'))
+    .map((child) => {
+      const area = getRenderedArea(child);
+      const priority =
+        child instanceof HTMLImageElement ? 3 :
+        child instanceof HTMLCanvasElement ? 2 :
+        child instanceof SVGElement ? 1 :
+        0;
+
+      return { child, area, priority };
+    })
+    .filter(({ child, area }) => {
+      if (area < MIN_CHILD_CAPTURE_AREA) return false;
+      if (child instanceof HTMLCanvasElement) return child.width > 0 && child.height > 0;
+      if (child instanceof HTMLImageElement) return true;
+      if (child instanceof SVGElement) return true;
+      return false;
+    })
+    .sort((a, b) => {
+      const areaDelta = b.area - a.area;
+      if (areaDelta !== 0) return areaDelta;
+      return b.priority - a.priority;
+    });
+
+  const best = candidates[0]?.child;
+  if (
+    best instanceof HTMLCanvasElement ||
+    best instanceof HTMLImageElement ||
+    best instanceof SVGElement
+  ) {
+    return best;
+  }
+
+  return null;
+}
 
 /**
  * Capture a canvas element to Base64 PNG
@@ -348,22 +391,15 @@ export async function captureElement(
       return { success: false, error: 'Element not found' };
     }
 
-    // Check for canvas inside the element
-    const canvas = element.querySelector('canvas');
-    if (canvas) {
-      return captureCanvas(canvas, options);
+    const bestChild = getBestCapturableChild(element);
+    if (bestChild instanceof HTMLCanvasElement) {
+      return captureCanvas(bestChild, options);
     }
-
-    // Check for SVG inside the element
-    const svg = element.querySelector('svg');
-    if (svg) {
-      return captureSVG(svg, options);
+    if (bestChild instanceof HTMLImageElement) {
+      return captureImage(bestChild, options);
     }
-
-    // Check for image inside the element
-    const img = element.querySelector('img') as HTMLImageElement;
-    if (img && img.complete && img.naturalWidth > 0) {
-      return captureImage(img, options);
+    if (bestChild instanceof SVGElement) {
+      return captureSVG(bestChild, options);
     }
 
     // For other elements, try to find a WebGL canvas (Three.js)
