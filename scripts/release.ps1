@@ -39,6 +39,16 @@ param(
 # Stop on any error by default
 $ErrorActionPreference = "Stop"
 
+# Background jobs spawned during the release (parallel typecheck, tests,
+# electron-builder, smoke, drive upload). On any kind of exit — graceful
+# or aborted — make sure none of them keep running in the background.
+Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+    Get-Job | Where-Object { $_.Name -like "rel-*" -and $_.State -eq "Running" } |
+        ForEach-Object { Stop-Job -Job $_ -ErrorAction SilentlyContinue }
+    Get-Job | Where-Object { $_.Name -like "rel-*" } |
+        ForEach-Object { Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue }
+} | Out-Null
+
 # Colors for output
 function Write-Success { param($msg) Write-Host $msg -ForegroundColor Green }
 function Write-Info { param($msg) Write-Host $msg -ForegroundColor Cyan }
@@ -839,27 +849,57 @@ if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir
     Write-Host ""
 
     $buildExitCode = 0
-    Write-Info "Running TypeScript typecheck..."
-    npm run typecheck
-    if ($LASTEXITCODE -ne 0) {
-        Write-Err "TypeScript typecheck failed. Release assets will NOT be created or uploaded."
+
+    # ── Step 1: typecheck + tests in parallel ────────────────────────
+    # Both are read-only against the source tree, so they're safe to run
+    # concurrently. PowerShell jobs spin up new sessions so we capture
+    # stdout/stderr and the exit code via the job's State + ChildJobs.
+    Write-Info "Running TypeScript typecheck and unit tests in parallel..."
+    $repoRoot = (Get-Location).Path
+    $typecheckJob = Start-Job -Name "rel-typecheck" -ScriptBlock {
+        param($cwd)
+        Set-Location $cwd
+        & npm run typecheck 2>&1
+        exit $LASTEXITCODE
+    } -ArgumentList $repoRoot
+
+    $testJob = Start-Job -Name "rel-tests" -ScriptBlock {
+        param($cwd)
+        Set-Location $cwd
+        & npm run test 2>&1
+        exit $LASTEXITCODE
+    } -ArgumentList $repoRoot
+
+    $null = Wait-Job -Job $typecheckJob, $testJob
+
+    $typecheckOutput = Receive-Job -Job $typecheckJob -ErrorAction SilentlyContinue
+    $testOutput = Receive-Job -Job $testJob -ErrorAction SilentlyContinue
+    # Each script-block ends with `exit $LASTEXITCODE`; a non-zero exit
+    # leaves the job in "Failed" state, success leaves it "Completed".
+    $typecheckExit = if ($typecheckJob.State -eq "Completed") { 0 } else { 1 }
+    $testExit = if ($testJob.State -eq "Completed") { 0 } else { 1 }
+
+    Remove-Job -Job $typecheckJob, $testJob -Force
+
+    if ($typecheckExit -ne 0) {
+        Write-Host ""
+        Write-Err "TypeScript typecheck failed. Output:"
+        $typecheckOutput | ForEach-Object { Write-Host "  $_" }
         $buildExitCode = 1
     } else {
         Write-Success "TypeScript typecheck passed."
     }
 
-    if ($buildExitCode -eq 0) {
-        Write-Info "Running unit tests..."
-        npm run test
-        if ($LASTEXITCODE -ne 0) {
-            Write-Err "Unit tests failed. Release assets will NOT be created or uploaded."
-            $buildExitCode = 1
-        } else {
-            Write-Success "Unit tests passed."
-        }
+    if ($testExit -ne 0) {
+        Write-Host ""
+        Write-Err "Unit tests failed. Output:"
+        $testOutput | ForEach-Object { Write-Host "  $_" }
+        $buildExitCode = 1
+    } else {
+        Write-Success "Unit tests passed."
     }
 
-    # Try to close ScanMaster if running
+    # ── Step 2: kill stale ScanMaster + clean ────────────────────────
     if ($buildExitCode -eq 0) {
         Write-Info "Closing ScanMaster if running..."
         Get-Process | Where-Object { $_.ProcessName -like "*Scan*Master*" -or $_.MainWindowTitle -like "*ScanMaster*" } | Stop-Process -Force -ErrorAction SilentlyContinue
@@ -901,8 +941,62 @@ if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir
         [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonContent, $utf8NoBOM2)
 
         try {
-            npm run dist:win
+            # ── Step 3a: vite build (frontend bundle) ──────────────────
+            # Run this first by itself so dist/ exists before we kick off
+            # the slow electron-builder step and the smoke test in parallel.
+            Write-Info "Running vite build..."
+            npm run build
             $buildExitCode = $LASTEXITCODE
+
+            if ($buildExitCode -eq 0) {
+                # ── Step 3b: electron-builder + smoke test in parallel ─
+                # electron-builder reads dist/ but doesn't mutate it. The
+                # smoke test serves dist/ over a local HTTP server and runs
+                # Playwright. Both are independent so we run them at the
+                # same time and gate the release on both succeeding.
+                Write-Info "Running electron-builder (Windows) and smoke test in parallel..."
+                $builderJob = Start-Job -Name "rel-builder" -ScriptBlock {
+                    param($cwd)
+                    Set-Location $cwd
+                    & npm run dist:win:builder 2>&1
+                    exit $LASTEXITCODE
+                } -ArgumentList $repoRoot
+
+                $smokeJob = Start-Job -Name "rel-smoke" -ScriptBlock {
+                    param($cwd)
+                    Set-Location $cwd
+                    & npm run smoke:release 2>&1
+                    exit $LASTEXITCODE
+                } -ArgumentList $repoRoot
+
+                $null = Wait-Job -Job $builderJob, $smokeJob
+
+                $builderOutput = Receive-Job -Job $builderJob -ErrorAction SilentlyContinue
+                $smokeOutput = Receive-Job -Job $smokeJob -ErrorAction SilentlyContinue
+                $builderExit = if ($builderJob.State -eq "Completed") { 0 } else { 1 }
+                $smokeExit = if ($smokeJob.State -eq "Completed") { 0 } else { 1 }
+                Remove-Job -Job $builderJob, $smokeJob -Force
+
+                if ($builderExit -ne 0) {
+                    Write-Host ""
+                    Write-Err "electron-builder failed. Tail of output:"
+                    $builderOutput | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" }
+                    $buildExitCode = 1
+                } else {
+                    Write-Success "electron-builder completed."
+                }
+
+                if ($smokeExit -ne 0) {
+                    Write-Host ""
+                    Write-Err "Production smoke test failed. Output:"
+                    $smokeOutput | ForEach-Object { Write-Host "  $_" }
+                    $buildExitCode = 1
+                } else {
+                    Write-Success "Smoke test passed."
+                }
+            } else {
+                Write-Err "vite build failed (exit code $buildExitCode)."
+            }
         } catch {
             Write-Err "Build threw an exception: $_"
             $buildExitCode = 1
@@ -913,17 +1007,6 @@ if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir
             $ebJsonRestored = $ebJson | ConvertTo-Json -Depth 100
             [System.IO.File]::WriteAllText((Resolve-Path $ebJsonPath).Path, $ebJsonRestored, $utf8NoBOM2)
             Write-Info "  electron-builder.json restored"
-        }
-    }
-
-    if ($buildExitCode -eq 0) {
-        Write-Info "Running production smoke test..."
-        npm run smoke:release
-        if ($LASTEXITCODE -ne 0) {
-            Write-Err "Production smoke test failed. Release assets will NOT be uploaded."
-            $buildExitCode = 1
-        } else {
-            Write-Success "Production smoke test passed."
         }
     }
 
@@ -954,14 +1037,22 @@ if ($UploadOnly -or ($SkipBuild -and -not [string]::IsNullOrWhiteSpace($BuildDir
 }
 
 # ── Drive upload (access-gated distribution) ─────────────────────────
-# Pushes the new .exe to Google Drive as a new version of the file behind
-# the access-code gate, BEFORE we commit/tag/push. If Drive fails we don't
-# create a tag that points to a build the landing page can't actually serve.
+# Started here as a BACKGROUND JOB and waited on right before the
+# GitHub release upload step. While Drive uploads its ~280MB payload,
+# git commit/tag/push runs in the foreground (cheap, ~5s). Net win:
+# the Drive transfer overlaps the git work instead of blocking it.
+#
+# If Drive fails AFTER the tag has been pushed, we delete the remote
+# tag + GitHub release as a rollback so the landing page never gets
+# stuck pointing at a version that wasn't actually uploaded.
 
 $driveUploaded = $false
+$driveJob = $null
+$driveStartTime = $null
+
 if ($buildOK -and -not $SkipDriveUpload) {
     Write-Host ""
-    Write-Info "Pushing installer to Drive (access-gated distribution)..."
+    Write-Info "Pushing installer to Drive (access-gated distribution) — in background..."
 
     $driveUploaderDir = Join-Path (Get-Location) "download-gate\drive-uploader"
     $driveConfigPath = Join-Path $driveUploaderDir "config.local.json"
@@ -1004,25 +1095,41 @@ if ($buildOK -and -not $SkipDriveUpload) {
     }
 
     Write-Info "  Source: $exePath"
-    & node $driveUploadScript $exePath --name "ScanMaster-Setup-$newVersion.exe"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Err "  Drive upload failed (exit code $LASTEXITCODE)."
-        Write-Err "  The landing page still serves the PREVIOUS version."
-        Write-Err "  Fix the issue, then re-run with -UploadOnly -Version $newVersion -BuildDir $freshOutputDir."
-        if (-not $UploadOnly) {
-            $packageJson.version = $currentVersion
-            $revertJson = $packageJson | ConvertTo-Json -Depth 100
-            [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
-        }
-        exit 1
-    }
-    $driveUploaded = $true
-    Write-Success "  Drive updated. Anyone with access code SM-2NDE-F3WG now gets v$newVersion."
+    $driveStartTime = Get-Date
+    $driveJob = Start-Job -Name "rel-drive-upload" -ScriptBlock {
+        param($cwd, $scriptPath, $exe, $assetName)
+        Set-Location $cwd
+        & node $scriptPath $exe --name $assetName 2>&1
+        exit $LASTEXITCODE
+    } -ArgumentList $repoRoot, $driveUploadScript, $exePath, "ScanMaster-Setup-$newVersion.exe"
+    Write-Info "  Drive upload running in background (job id $($driveJob.Id)). Continuing with git push..."
 } elseif ($SkipDriveUpload) {
     Write-Warn "Drive upload skipped via -SkipDriveUpload. Landing page will continue serving the previous version."
 }
 
 # ── Git: commit, tag, push ───────────────────────────────────────────
+
+# Helper used if Drive upload fails AFTER we've already pushed the tag.
+function Invoke-ReleaseRollback {
+    param(
+        [string]$Tag,
+        [string]$Repo,
+        [string]$Reason
+    )
+    Write-Err ""
+    Write-Err "ROLLBACK: $Reason"
+    Write-Err "Removing tag $Tag from origin and any GitHub release to keep state consistent..."
+
+    # Delete remote tag (best-effort)
+    git push --delete origin $Tag 2>&1 | Out-Null
+    # Delete local tag (best-effort)
+    git tag -d $Tag 2>&1 | Out-Null
+    # Delete GitHub release if it was created (best-effort)
+    if ($ghAvailable) {
+        & gh release delete $Tag --repo $Repo --yes 2>&1 | Out-Null
+    }
+    Write-Err "Local tag, remote tag, and GitHub release have been cleaned up. Fix the issue and re-run release."
+}
 
 if (-not $UploadOnly) {
     if (-not $buildOK) {
@@ -1121,9 +1228,48 @@ if (-not $UploadOnly) {
         Write-Err "  - Large files in history (use git filter-repo to clean)"
         Write-Err "  - Network / auth issues"
         Write-Err "  - Remote branch is ahead (git pull --rebase first)"
+        # If Drive was running in parallel, kill it — we don't want to
+        # silently ship an EXE to Drive for a tag that never landed.
+        if ($driveJob -and $driveJob.State -eq "Running") {
+            Stop-Job -Job $driveJob -ErrorAction SilentlyContinue
+            Remove-Job -Job $driveJob -Force -ErrorAction SilentlyContinue
+        }
         exit 1
     }
     Write-Success "Push successful!"
+}
+
+# ── Wait for parallel Drive upload to finish ─────────────────────────
+# The git push above ran in parallel with Drive. By the time we're here,
+# Drive is usually already done; if not, this Wait-Job is the short tail.
+if ($driveJob) {
+    Write-Info "Waiting for Drive upload to finish..."
+    $null = Wait-Job -Job $driveJob
+    $driveOutput = Receive-Job -Job $driveJob -ErrorAction SilentlyContinue
+    $driveSuccess = $driveJob.State -eq "Completed"
+    Remove-Job -Job $driveJob -Force
+
+    if (-not $driveSuccess) {
+        Write-Err "  Drive upload failed. Tail of output:"
+        $driveOutput | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" }
+        Write-Err "  The landing page still serves the PREVIOUS version."
+
+        if (-not $UploadOnly) {
+            # We already pushed the tag in parallel — roll it back so the
+            # landing page and electron-updater don't try to serve a build
+            # that wasn't actually uploaded to Drive.
+            Invoke-ReleaseRollback -Tag "v$newVersion" -Repo $githubRepo -Reason "Drive upload failed after tag was pushed"
+            $packageJson.version = $currentVersion
+            $revertJson = $packageJson | ConvertTo-Json -Depth 100
+            [System.IO.File]::WriteAllText((Resolve-Path "package.json").Path, $revertJson, $utf8NoBOM)
+        }
+        Write-Err "  Fix the issue, then re-run with -UploadOnly -Version $newVersion -BuildDir $freshOutputDir."
+        exit 1
+    }
+
+    $driveUploaded = $true
+    $driveDuration = (Get-Date) - $driveStartTime
+    Write-Success "  Drive updated in $([math]::Round($driveDuration.TotalSeconds, 1))s. Anyone with the access code now gets v$newVersion."
 }
 
 # ── GitHub Release ───────────────────────────────────────────────────

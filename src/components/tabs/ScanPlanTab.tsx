@@ -30,6 +30,7 @@ import { getVideoBySlug } from "@/data/videoCatalog";
  */
 const DOCUMENT_VIDEO_MAP: Record<string, string> = {
   "scan-plan-guide": "tube-scan-plan-tcg-calibration",
+  "tcg-shear-wave-calibration": "angle-beam-tcg-calibration-shear-wave",
 };
 
 function videoSlugForDocument(filePath: string): string | undefined {
