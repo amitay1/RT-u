@@ -302,8 +302,11 @@ export async function captureSVG(
       clonedSvg.setAttribute('viewBox', `0 0 ${bbox.width} ${bbox.height}`);
     }
 
-    // Inline all styles
-    inlineStyles(clonedSvg);
+    // Inline all styles. Walk the LIVE tree so getComputedStyle returns real
+    // values; copy each computed style onto the matching cloned node.
+    // Detached clones return browser defaults from getComputedStyle, which
+    // silently strips Tailwind / external CSS rules from the captured image.
+    inlineStylesParallel(svg, clonedSvg);
 
     // Convert to data URL
     const svgData = new XMLSerializer().serializeToString(clonedSvg);
@@ -545,6 +548,189 @@ function inlineStyles(element: Element): void {
   Array.from(element.children).forEach(child => inlineStyles(child));
 }
 
+/**
+ * Walk `live` and `clone` in lockstep, copying the computed style of each
+ * live node onto the matching clone. Required because getComputedStyle on a
+ * detached clone returns browser defaults — Tailwind / external CSS rules
+ * vanish from the captured image otherwise.
+ */
+function inlineStylesParallel(live: Element, clone: Element): void {
+  const computed = window.getComputedStyle(live);
+  const relevantStyles = [
+    'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
+    'stroke-dasharray', 'stroke-opacity', 'fill-opacity', 'opacity',
+    'font-family', 'font-size', 'font-weight', 'font-style',
+    'text-anchor', 'dominant-baseline', 'letter-spacing', 'color',
+    'transform', 'transform-origin', 'visibility', 'display',
+  ];
+
+  const styles: string[] = [];
+  for (const prop of relevantStyles) {
+    const value = computed.getPropertyValue(prop);
+    if (value && value !== 'none' && value !== 'normal') {
+      styles.push(`${prop}: ${value}`);
+    }
+  }
+
+  if (styles.length > 0) {
+    const existing = clone.getAttribute('style') || '';
+    clone.setAttribute(
+      'style',
+      existing ? `${existing}; ${styles.join('; ')}` : styles.join('; ')
+    );
+  }
+
+  // Walk both trees together. Stop pairing if the children counts ever
+  // diverge (defensive — cloneNode(true) preserves order).
+  const liveChildren = Array.from(live.children);
+  const cloneChildren = Array.from(clone.children);
+  const len = Math.min(liveChildren.length, cloneChildren.length);
+  for (let i = 0; i < len; i++) {
+    inlineStylesParallel(liveChildren[i], cloneChildren[i]);
+  }
+}
+
+/**
+ * Capture the FBH calibration block container as a composite image.
+ *
+ * The container (`#calibration-blocks-container`) holds N independent SVGs
+ * (one per FBH hole, class `.fbh-straight-beam-drawing`). The generic
+ * `captureElement` path picks only the largest single child, which produces a
+ * single-hole image. This function captures every SVG individually and stitches
+ * them onto one canvas with "Hole #N" labels so the PDF gets the full triplet.
+ */
+export async function captureFBHContainer(
+  containerOrSelector: HTMLElement | string,
+  options: CaptureOptions = {}
+): Promise<CaptureResult> {
+  const {
+    scale = 2.5,
+    backgroundColor = 'white',
+    quality = 1.0,
+    maxWidth = 2400,
+    maxHeight = 1400,
+  } = options;
+
+  try {
+    const container = typeof containerOrSelector === 'string'
+      ? document.querySelector(containerOrSelector) as HTMLElement | null
+      : containerOrSelector;
+
+    if (!container) {
+      return { success: false, error: 'FBH container not found' };
+    }
+
+    const svgs = Array.from(
+      container.querySelectorAll<SVGElement>('.fbh-straight-beam-drawing')
+    ).filter((svg) => {
+      const rect = svg.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+
+    if (svgs.length === 0) {
+      return { success: false, error: 'No rendered FBH SVGs inside container' };
+    }
+
+    // Capture each SVG independently to PNG base64.
+    const captures = await Promise.all(
+      svgs.map((svg) =>
+        captureSVG(svg, {
+          scale,
+          backgroundColor,
+          quality,
+          maxWidth: 1200,
+          maxHeight: 1400,
+        })
+      )
+    );
+
+    const valid = captures.filter(
+      (c) => c.success && c.data && c.width && c.height
+    );
+    if (valid.length === 0) {
+      return { success: false, error: 'All FBH SVG captures failed' };
+    }
+
+    // Load each base64 PNG into an Image so we can composite onto one canvas.
+    const images = await Promise.all(
+      valid.map((c) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('FBH image load failed'));
+          img.src = c.data!;
+        })
+      )
+    );
+
+    // Layout: title strip + row of [hole label + image].
+    const pad = 24;
+    const titleH = 44;
+    const labelH = 32;
+    const gap = 24;
+    const maxImgH = Math.max(...images.map((img) => img.height));
+    const totalW = images.reduce((s, img) => s + img.width, 0) + gap * (images.length - 1) + pad * 2;
+    const totalH = pad + titleH + labelH + maxImgH + pad;
+
+    // Scale-down if it exceeds budget.
+    let canvasW = totalW;
+    let canvasH = totalH;
+    const wRatio = canvasW > maxWidth ? maxWidth / canvasW : 1;
+    const hRatio = canvasH > maxHeight ? maxHeight / canvasH : 1;
+    const fitRatio = Math.min(wRatio, hRatio, 1);
+    canvasW = Math.round(canvasW * fitRatio);
+    canvasH = Math.round(canvasH * fitRatio);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return { success: false, error: 'Failed to get canvas context' };
+    }
+
+    // Background
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+
+    // Scale once for the whole composite so we work in logical coordinates.
+    ctx.save();
+    ctx.scale(fitRatio, fitRatio);
+
+    // Section title
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 24px Arial, Helvetica, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('Calibration Block Previews', totalW / 2, pad);
+
+    // Each SVG: blue badge label + image
+    let x = pad;
+    const labelY = pad + titleH;
+    const imgY = labelY + labelH;
+    images.forEach((img, idx) => {
+      // Label (mirrors the on-screen "Hole #N" badge)
+      ctx.fillStyle = '#1d4ed8';
+      ctx.font = 'bold 20px Arial, Helvetica, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`Hole #${idx + 1}`, x + img.width / 2, labelY + 4);
+
+      // Image
+      const offsetY = imgY + (maxImgH - img.height) / 2;
+      ctx.drawImage(img, x, offsetY);
+      x += img.width + gap;
+    });
+
+    ctx.restore();
+
+    const data = canvas.toDataURL('image/png', quality);
+    return { success: true, data, width: canvasW, height: canvasH };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
 // Clear cache
 export function clearCaptureCache(): void {
   captureCache.clear();
@@ -557,6 +743,7 @@ export default {
   captureElement,
   smartCapture,
   captureAll,
+  captureFBHContainer,
   preCaptureForExport,
   clearCaptureCache,
 };

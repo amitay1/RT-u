@@ -67,6 +67,8 @@ import {
   getPartDimensionRows,
   getMaterialWarning,
   buildTableRows,
+  detectImageFormat,
+  fitImageToBox,
 } from './exportHelpers';
 
 // ============================================================================
@@ -1618,7 +1620,17 @@ class TechniqueSheetPDFBuilder {
       y += 20;
       y = this.addSubsectionTitle('Custom Shape Reference', y);
       try {
-        this.pdf.addImage(setup.customShapeImage, 'PNG', PAGE.marginLeft, y, 80, 60);
+        const boxW = 80;
+        const boxH = 60;
+        const fit = fitImageToBox(this.pdf, setup.customShapeImage, boxW, boxH);
+        this.pdf.addImage(
+          setup.customShapeImage,
+          detectImageFormat(setup.customShapeImage),
+          PAGE.marginLeft + (boxW - fit.width) / 2,
+          y + (boxH - fit.height) / 2,
+          fit.width,
+          fit.height
+        );
         if (setup.customShapeDescription) {
           this.pdf.setFontSize(9);
           this.pdf.text(setup.customShapeDescription, PAGE.marginLeft + 85, y + 10, { maxWidth: 90 });

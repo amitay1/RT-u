@@ -188,6 +188,7 @@ const Index = () => {
   const exportWorkflow = useExportWorkflow({
     activeTab, reportMode, currentData,
     isSplitMode, activePart, inspectionSetup, inspectionSetupB,
+    setActiveTab,
   });
   const { handleExportPDF: prepareExportPDF } = exportWorkflow;
 

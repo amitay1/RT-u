@@ -500,3 +500,58 @@ export function buildTableRows(
         : String(value)
     ]);
 }
+
+/**
+ * jsPDF format hint detected from a base64 data URL prefix.
+ * Falls back to PNG for unknown / non-data-URL strings.
+ *
+ * Why: user uploads (C-scans, A-scans, custom shapes, logos) preserve the
+ * source MIME, so the same field may carry JPEG, PNG, or WebP. Passing the
+ * wrong format hint to jsPDF.addImage produces blank or garbled images.
+ */
+export function detectImageFormat(
+  dataUrl: string | undefined | null
+): 'PNG' | 'JPEG' | 'WEBP' {
+  if (typeof dataUrl !== 'string') return 'PNG';
+  const head = dataUrl.slice(0, 32).toLowerCase();
+  if (head.startsWith('data:image/jpeg') || head.startsWith('data:image/jpg')) {
+    return 'JPEG';
+  }
+  if (head.startsWith('data:image/webp')) return 'WEBP';
+  return 'PNG';
+}
+
+/**
+ * Returns the width/height to use when adding `dataUrl` to the PDF such that
+ * the image fits inside (maxWidth × maxHeight) while preserving its native
+ * aspect ratio. Falls back to the full box if probing fails.
+ *
+ * Why: many callers were hardcoding dimensions like `85 × 50` regardless of
+ * the actual image, which squashed wide C-scans and stretched portraits.
+ */
+export function fitImageToBox(
+  pdf: { getImageProperties: (data: string) => { width: number; height: number } },
+  dataUrl: string,
+  maxWidth: number,
+  maxHeight: number
+): { width: number; height: number } {
+  try {
+    const props = pdf.getImageProperties(dataUrl);
+    if (!props.width || !props.height) {
+      return { width: maxWidth, height: maxHeight };
+    }
+    const ratio = props.width / props.height;
+    if (!isFinite(ratio) || ratio <= 0) {
+      return { width: maxWidth, height: maxHeight };
+    }
+    let w = maxWidth;
+    let h = maxWidth / ratio;
+    if (h > maxHeight) {
+      h = maxHeight;
+      w = maxHeight * ratio;
+    }
+    return { width: w, height: h };
+  } catch {
+    return { width: maxWidth, height: maxHeight };
+  }
+}

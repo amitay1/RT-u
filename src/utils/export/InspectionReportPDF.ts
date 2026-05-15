@@ -9,6 +9,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { InspectionReportData } from '@/types/inspectionReport';
+import { detectImageFormat, fitImageToBox } from './exportHelpers';
 
 // ============================================================================
 // COLORS - Professional TÜV/FRISA style (matching TechniqueSheetPDF)
@@ -151,7 +152,19 @@ export const exportInspectionReportPDF = (
 
       // Add logo image
       try {
-        doc.addImage(companyLogo, 'PNG', logoBoxX + 3, logoBoxY + 3, logoBoxWidth - 6, logoBoxHeight - 6);
+        {
+          const boxW = logoBoxWidth - 6;
+          const boxH = logoBoxHeight - 6;
+          const fit = fitImageToBox(doc, companyLogo, boxW, boxH);
+          doc.addImage(
+            companyLogo,
+            detectImageFormat(companyLogo),
+            logoBoxX + 3 + (boxW - fit.width) / 2,
+            logoBoxY + 3 + (boxH - fit.height) / 2,
+            fit.width,
+            fit.height
+          );
+        }
       } catch {
         // If logo fails, show placeholder text
         doc.setFontSize(7);
@@ -239,7 +252,19 @@ export const exportInspectionReportPDF = (
       doc.roundedRect(logoBoxX, logoBoxY, logoBoxWidth, logoBoxHeight, 1.5, 1.5, 'F');
 
       try {
-        doc.addImage(companyLogo, 'PNG', logoBoxX + 2, logoBoxY + 1.5, logoBoxWidth - 4, logoBoxHeight - 3);
+        {
+          const boxW = logoBoxWidth - 4;
+          const boxH = logoBoxHeight - 3;
+          const fit = fitImageToBox(doc, companyLogo, boxW, boxH);
+          doc.addImage(
+            companyLogo,
+            detectImageFormat(companyLogo),
+            logoBoxX + 2 + (boxW - fit.width) / 2,
+            logoBoxY + 1.5 + (boxH - fit.height) / 2,
+            fit.width,
+            fit.height
+          );
+        }
       } catch {
         doc.setFontSize(6);
         doc.setTextColor(...COLORS.lightText);
@@ -781,8 +806,18 @@ export const exportInspectionReportPDF = (
     doc.text('Scan Image:', PAGE.marginLeft, yPos);
     yPos += 3;
     try {
-      doc.addImage(eq.scanImage, 'PNG', PAGE.marginLeft, yPos, 85, 55);
-      yPos += 58;
+      const boxW = 85;
+      const boxH = 55;
+      const fit = fitImageToBox(doc, eq.scanImage, boxW, boxH);
+      doc.addImage(
+        eq.scanImage,
+        detectImageFormat(eq.scanImage),
+        PAGE.marginLeft + (boxW - fit.width) / 2,
+        yPos,
+        fit.width,
+        fit.height
+      );
+      yPos += boxH + 3;
     } catch {
       doc.setFontSize(7);
       doc.setTextColor(...COLORS.lightText);
@@ -859,7 +894,15 @@ export const exportInspectionReportPDF = (
         yPos = checkPageBreak(imgHeight + 10);
       }
       try {
-        doc.addImage(img, 'PNG', imgX, yPos, imgWidth, imgHeight);
+        const fit = fitImageToBox(doc, img, imgWidth, imgHeight);
+        doc.addImage(
+          img,
+          detectImageFormat(img),
+          imgX + (imgWidth - fit.width) / 2,
+          yPos + (imgHeight - fit.height) / 2,
+          fit.width,
+          fit.height
+        );
       } catch {
         doc.setFontSize(7);
         doc.setTextColor(...COLORS.lightText);
@@ -1209,13 +1252,31 @@ export const exportInspectionReportPDF = (
           doc.setTextColor(...COLORS.secondary);
           doc.text('C-Scan:', PAGE.marginLeft, yPos);
           yPos += 3;
-          doc.addImage(scan.cScanImage, 'PNG', PAGE.marginLeft, yPos, 85, 50);
+          const boxW = 85;
+          const boxH = 50;
+          const cFit = fitImageToBox(doc, scan.cScanImage, boxW, boxH);
+          doc.addImage(
+            scan.cScanImage,
+            detectImageFormat(scan.cScanImage),
+            PAGE.marginLeft + (boxW - cFit.width) / 2,
+            yPos + (boxH - cFit.height) / 2,
+            cFit.width,
+            cFit.height
+          );
 
           if (scan.aScanImage) {
             doc.text('A-Scan:', PAGE.marginLeft + 95, yPos - 3);
-            doc.addImage(scan.aScanImage, 'PNG', PAGE.marginLeft + 95, yPos, 85, 50);
+            const aFit = fitImageToBox(doc, scan.aScanImage, boxW, boxH);
+            doc.addImage(
+              scan.aScanImage,
+              detectImageFormat(scan.aScanImage),
+              PAGE.marginLeft + 95 + (boxW - aFit.width) / 2,
+              yPos + (boxH - aFit.height) / 2,
+              aFit.width,
+              aFit.height
+            );
           }
-          yPos += 55;
+          yPos += boxH + 5;
         } catch {
           doc.setTextColor(...COLORS.lightText);
           doc.text('[Image not available]', PAGE.marginLeft, yPos);
