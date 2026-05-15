@@ -82,10 +82,10 @@
                  },
     "publish":  [
                     {
-                        "provider":  "github",
-                        "owner":  "amitay1",
-                        "repo":  "Scan-Master-16-12-25",
-                        "releaseType":  "release"
+                        "provider":  "generic",
+                        "url":  "https://scan-master-updates.amitay1.workers.dev",
+                        "useMultipleRangeRequest":  false,
+                        "channel":  "latest"
                     }
                 ]
 }

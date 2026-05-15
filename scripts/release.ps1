@@ -31,9 +31,14 @@ param(
     [switch]$IncludePortable = $false,
     # Drive / access-gate distribution
     [switch]$SkipDriveUpload = $false,
-    # Legacy: also publish the .exe and .blockmap to the public GitHub Release.
-    # Off by default because public assets bypass the landing-page access code.
-    [switch]$PublishExeToGitHub = $false
+    # Whether to publish the .exe and .blockmap to the public GitHub Release.
+    # ON by default because electron-updater reads latest.yml from GitHub and
+    # then resolves relative file URLs against the GitHub release base URL —
+    # if the .exe isn't there, every installed client gets a 404 on update
+    # check. The landing-page access code gate still protects the website
+    # download path; only the GitHub URL pattern is publicly resolvable.
+    # Pass `-PublishExeToGitHub:$false` to opt out for a specific release.
+    [switch]$PublishExeToGitHub = $true
 )
 
 # Stop on any error by default
@@ -1571,6 +1576,134 @@ if ($releaseAssetsUploaded) {
 }
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
+
+# ── Post-release verification ────────────────────────────────────────
+# electron-updater reads `latest.yml` and resolves the .exe URL against
+# the GitHub release base. If the .exe isn't actually on GitHub we get
+# a silent 404 storm in production. Verify with a HEAD request now so
+# the release fails LOUDLY instead of after customers hit it.
+# ── Update landing page (gh-pages branch) with the new version ───────
+# The customer-facing landing page (amitay1.github.io/Scan-Master-16-12-25/)
+# embeds the version string in `index.html`. Without this step it never
+# updates and customers using the access code may see a stale version
+# label even though the download itself is current.
+if ($releaseAssetsUploaded -and -not $UploadOnly) {
+    Write-Host ""
+    Write-Info "Updating landing page (gh-pages) with v$newVersion..."
+
+    # Use a temporary git worktree so we don't disturb the user's current
+    # working tree (which has the release commit on `main`).
+    $worktreePath = Join-Path ([System.IO.Path]::GetTempPath()) "scanmaster-ghpages-$([System.IO.Path]::GetRandomFileName())"
+    $worktreeOK = $false
+    try {
+        git worktree add -B gh-pages-update $worktreePath origin/gh-pages 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warn "  Could not check out gh-pages branch. Landing page version not updated."
+        } else {
+            $worktreeOK = $true
+            $landingPagePath = Join-Path $worktreePath "index.html"
+            if (Test-Path -LiteralPath $landingPagePath -PathType Leaf) {
+                $landingContent = Get-Content -LiteralPath $landingPagePath -Raw
+
+                # Replace any v1.X.Y version reference. Targets the nav badge
+                # and the footer line; both follow `v\d+\.\d+\.\d+` shape.
+                $updated = [regex]::Replace($landingContent, 'v\d+\.\d+\.\d+', "v$newVersion")
+
+                if ($updated -ne $landingContent) {
+                    $utf8NoBOM3 = New-Object System.Text.UTF8Encoding $false
+                    [System.IO.File]::WriteAllText($landingPagePath, $updated, $utf8NoBOM3)
+
+                    Push-Location $worktreePath
+                    try {
+                        git add index.html 2>&1 | Out-Null
+                        git -c user.email="release-bot@scanmaster.local" -c user.name="ScanMaster Release Bot" commit -m "Landing page: bump to v$newVersion" 2>&1 | Out-Null
+                        if ($LASTEXITCODE -eq 0) {
+                            git push origin gh-pages-update:gh-pages 2>&1 | Out-Null
+                            if ($LASTEXITCODE -eq 0) {
+                                Write-Success "  Landing page updated to v$newVersion."
+                            } else {
+                                Write-Warn "  Landing page commit created but push failed. Manually push gh-pages."
+                            }
+                        } else {
+                            Write-Warn "  Landing page commit failed."
+                        }
+                    } finally {
+                        Pop-Location
+                    }
+                } else {
+                    Write-Info "  Landing page already references v$newVersion (or no version pattern found)."
+                }
+            } else {
+                Write-Warn "  gh-pages/index.html not found. Skipping landing page update."
+            }
+        }
+    } catch {
+        Write-Warn "  Landing page update threw: $_"
+    } finally {
+        if ($worktreeOK) {
+            git worktree remove --force $worktreePath 2>&1 | Out-Null
+            git branch -D gh-pages-update 2>&1 | Out-Null
+        }
+    }
+}
+
+if ($releaseAssetsUploaded) {
+    # Force modern TLS for the verification request — Windows PowerShell 5.1
+    # defaults to TLS 1.0/1.1 which Cloudflare rejects.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    # Auto-update routes through the Cloudflare Worker, which proxies the
+    # release artifacts from the (private) GitHub repo. Hit the Worker
+    # end-to-end so we catch breakage in either layer: Worker offline,
+    # stale GH_TOKEN secret, missing release asset, etc.
+    $workerBase = "https://scan-master-updates.amitay1.workers.dev"
+    $latestYmlUrl = "$workerBase/latest.yml"
+    $exeUrl = "$workerBase/ScanMaster-Setup-$newVersion.exe"
+
+    Write-Info "Verifying update endpoints (Worker → private GitHub repo)..."
+
+    $latestOk = $false
+    try {
+        $verifyResponse = Invoke-WebRequest -Uri $latestYmlUrl -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+        $body = $verifyResponse.Content
+        if ($verifyResponse.StatusCode -eq 200 -and $body -match "version:\s*$([regex]::Escape($newVersion))") {
+            Write-Success "  latest.yml OK ($latestYmlUrl → version $newVersion)"
+            $latestOk = $true
+        } else {
+            Write-Err "  latest.yml has WRONG content. Worker returned:"
+            Write-Err "    $($body.Substring(0, [Math]::Min(300, $body.Length)))"
+        }
+    } catch {
+        Write-Err "  latest.yml fetch FAILED: $($_.Exception.Message)"
+    }
+
+    $exeOk = $false
+    try {
+        $headResp = Invoke-WebRequest -Uri $exeUrl -Method Head -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+        if ($headResp.StatusCode -eq 200) {
+            $cl = $headResp.Headers.'Content-Length'
+            $sizeMB = if ($cl) { [math]::Round([int64]$cl / 1MB, 1) } else { "?" }
+            Write-Success "  Installer OK ($exeUrl → $sizeMB MB)"
+            $exeOk = $true
+        } else {
+            Write-Err "  Installer HEAD returned status $($headResp.StatusCode)"
+        }
+    } catch {
+        Write-Err "  Installer HEAD FAILED: $($_.Exception.Message)"
+    }
+
+    if (-not $latestOk -or -not $exeOk) {
+        Write-Err ""
+        Write-Err "  electron-updater clients will fail. Possible causes:"
+        Write-Err "    1. Worker GH_TOKEN secret stale → rotate it:"
+        Write-Err "         cd update-worker; npx wrangler secret put GH_TOKEN"
+        Write-Err "    2. GitHub release exists but EXE asset upload failed → re-run:"
+        Write-Err "         .\scripts\release.ps1 -UploadOnly -Version $newVersion -BuildDir $freshOutputDir"
+        Write-Err "    3. Worker not deployed or unreachable → check:"
+        Write-Err "         curl $workerBase/"
+        exit 1
+    }
+}
 
 if ($driveUploaded) {
     Write-Host "Landing page: Anyone using access code SM-2NDE-F3WG now downloads v$newVersion." -ForegroundColor Green

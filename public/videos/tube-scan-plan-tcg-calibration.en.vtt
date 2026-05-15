@@ -1,505 +1,142 @@
 WEBVTT
 
-NOTE Tube Scan Plan Guide — Normal Beam TCG Calibration
+NOTE Tube Scan Plan — Normal Beam TCG Calibration (condensed)
 NOTE Language: English (en)
-NOTE Source: Adam v6 narration via ElevenLabs eleven_v3
+NOTE Source: Rachel narration via ElevenLabs eleven_multilingual_v2
 
 1
-00:00:00.000 --> 00:00:02.620
-TCG calibration for
-normal beam inspection.
+00:00:00.100 --> 00:00:02.500
+TCG Calibration for Normal Beam.
 
 2
-00:00:03.520 --> 00:00:05.660
-In this video, you will
-learn how to create,
+00:00:02.500 --> 00:00:04.300
+A step-by-step tutorial.
 
 3
-00:00:06.000 --> 00:00:09.320
-verify, and save a TCG
-setup in ScanMaster.
+00:00:04.680 --> 00:00:06.000
+Step 1.
 
 4
-00:00:10.520 --> 00:00:12.940
-Before you start, prepare six items,
+00:00:06.000 --> 00:00:09.500
+From the ScanMaster Wizard,
+click Teach In.
 
 5
-00:00:13.680 --> 00:00:16.200
-the ScanMaster System,
-a normal beam probe,
+00:00:09.500 --> 00:00:11.500
+The Setup Toolbox opens.
 
 6
-00:00:16.880 --> 00:00:20.020
-a calibration block with at
-least three FBH reflectors,
+00:00:11.500 --> 00:00:13.070
+Set material velocity, range,
+and water path.
 
 7
-00:00:20.440 --> 00:00:22.400
-the correct material
-velocity for the material,
+00:00:13.470 --> 00:00:14.800
+Step 2.
 
 8
-00:00:23.020 --> 00:00:26.340
-a stable water path, and
-access to Teach In mode.
+00:00:14.800 --> 00:00:17.500
+Open the TCG tab.
 
 9
-00:00:27.180 --> 00:00:29.760
-Once everything is ready,
-open the ScanMaster Wizard.
+00:00:17.500 --> 00:00:20.840
+Verify three checkboxes:
+Active, Visible, and Drag.
 
 10
-00:00:30.920 --> 00:00:34.140
-On the calibration block,
-three FBH standards at
+00:00:21.240 --> 00:00:22.500
+Step 3.
 
 11
-00:00:34.140 --> 00:00:36.420
-different depths will
-work from near to far,
+00:00:22.500 --> 00:00:25.500
+Move the probe to the first F.B.H.,
+the near standard.
 
 12
-00:00:37.180 --> 00:00:41.920
-standard one, near, standard
-two, middle, standard three, far.
-
-13
-00:00:42.840 --> 00:00:44.240
-Open the ScanMaster Wizard.
-
-14
-00:00:44.920 --> 00:00:46.820
-From the main menu, click Teach In.
-
-15
-00:00:47.360 --> 00:00:48.380
-A new screen image appears,
-
-16
-00:00:49.020 --> 00:00:51.520
-the instrument window plus
-the Setup Toolbox dialog.
-
-17
-00:00:52.580 --> 00:00:54.380
-First, set the basic parameters.
-
-18
-00:00:55.080 --> 00:00:57.740
-Four fields. One. Material velocity.
-
-19
-00:00:58.820 --> 00:01:00.000
-From the material database,
-
-20
-00:01:00.260 --> 00:01:03.500
-select the material you're
-inspecting. Two. Range.
-
-21
-00:01:04.280 --> 00:01:07.720
-Set the range until you see the
-back wall. Three. Gain.
-
-22
-00:01:08.420 --> 00:01:13.860
-Verify the response from the
-3/64-inch FBH. Four. Water path.
-
-23
-00:01:14.300 --> 00:01:17.980
-Set 76 millimeters, or set the
-transducer to surface distance,
-
-24
-00:01:18.340 --> 00:01:20.400
-so the second front
-reflection does not appear
-
-25
-00:01:20.400 --> 00:01:23.100
-between the first front
-and first back reflections.
-
-26
-00:01:23.920 --> 00:01:24.620
-Important.
-
-27
-00:01:25.140 --> 00:01:27.720
-Keep the water path
-consistent within plus or
-
-28
-00:01:27.720 --> 00:01:30.460
-minus one quarter inch
-during standardization,
-
-29
-00:01:30.720 --> 00:01:32.860
-initial scanning, and final evaluation.
-
-30
-00:01:33.700 --> 00:01:35.320
-Deviation beyond plus or
-
-31
-00:01:35.320 --> 00:01:38.160
-minus a quarter inch
-requires re-standardization.
-
-32
-00:01:38.980 --> 00:01:42.880
-Before we set anything else,
-understand what TCG is solving.
-
-33
-00:01:43.600 --> 00:01:46.920
-Before TCG, three identical
-flat bottom holes,
-
-34
-00:01:47.400 --> 00:01:48.580
-three different signal heights.
-
-35
-00:01:49.180 --> 00:01:51.680
-Closer means stronger,
-farther means weaker.
-
-36
-00:01:52.360 --> 00:01:57.340
-After TCG, all FBH responses
-adjusted to 80% FSH.
-
-37
-00:01:57.960 --> 00:02:00.640
-One reference level.
-One pass-fail criterion.
-
-38
-00:02:01.420 --> 00:02:02.100
-Across depth.
-
-39
-00:02:02.800 --> 00:02:03.820
-That is our goal.
-
-40
-00:02:04.440 --> 00:02:05.060
-Let's build it.
-
-41
-00:02:05.820 --> 00:02:09.080
-Inside the Setup Toolbox,
-click the TCG tab.
-
-42
-00:02:09.720 --> 00:02:11.020
-The TCG table appears.
-
-43
-00:02:11.780 --> 00:02:14.300
-Before any other action,
-verify three checkboxes
-
-44
-00:02:14.300 --> 00:02:16.500
-on the right side of the TCG tab.
-
-45
-00:02:16.960 --> 00:02:18.860
-Active, Visible, Drag.
-
-46
-00:02:19.680 --> 00:02:20.980
-All three must be checked.
-
-47
-00:02:21.360 --> 00:02:23.440
-If Drag is off, you cannot drag
-
-48
-00:02:23.440 --> 00:02:25.020
-the yellow dots in the next steps.
-
-49
-00:02:25.820 --> 00:02:27.560
-The same action, repeated three times.
-
-50
-00:02:28.040 --> 00:02:29.080
-Set point one,
-
-51
-00:02:29.860 --> 00:02:32.100
-near FBH at 80% FSH.
-
-52
-00:02:32.700 --> 00:02:36.420
-Set point two, middle FBH at 80% FSH.
-
-53
-00:02:37.080 --> 00:02:40.920
-Set point three, far FBH at 80% FSH.
-
-54
-00:02:41.520 --> 00:02:44.240
-Drag yellow dot. 80% FSH.
-
-55
-00:02:44.880 --> 00:02:46.220
-Save. Three times.
-
-56
-00:02:47.080 --> 00:02:50.000
-Move the probe to the first
-FBH, the near standard.
-
-57
-00:02:50.980 --> 00:02:54.460
-On the A-scan, drag the yellow
-dot onto the response peak.
-
-58
-00:02:55.280 --> 00:02:59.700
-Adjust the Gain so the FBH
-amplitude reaches 80% FSH.
-
-59
-00:03:00.800 --> 00:03:02.740
-As you turn Gain up, the trace rises.
-
-60
-00:03:03.400 --> 00:03:05.900
-Stop when the peak touches
-the cyan reference line.
-
-61
-00:03:06.940 --> 00:03:07.680
-Save Point one.
-
-62
-00:03:08.500 --> 00:03:10.480
-Click the Save button
-on the toolbar setup.
-
-63
-00:03:11.360 --> 00:03:12.540
-Node one — locked.
-
-64
-00:03:13.960 --> 00:03:16.640
-Move the probe to the second
-FBH, the middle standard.
-
-65
-00:03:17.340 --> 00:03:20.300
-Drag the second yellow dot
-onto the new response peak.
-
-66
-00:03:21.040 --> 00:03:25.140
-Adjust Gain so this peak
-also reaches 80% FSH.
-
-67
-00:03:25.820 --> 00:03:28.800
-Save Point two. Node two — locked.
-
-68
-00:03:29.600 --> 00:03:32.860
-Move the probe to the third
-FBH, the far standard.
-
-69
-00:03:33.700 --> 00:03:36.300
-Drag the third yellow dot
+00:00:25.500 --> 00:00:28.530
+Drag the yellow dot
 onto the response peak.
 
-70
-00:03:37.040 --> 00:03:39.440
-Adjust Gain to 80% FSH.
+13
+00:00:28.930 --> 00:00:30.500
+Step 4.
 
-71
-00:03:40.280 --> 00:03:43.340
-Save Point three. Node three — locked.
+14
+00:00:30.500 --> 00:00:34.000
+Adjust the Gain so the F.B.H.
+amplitude reaches 80% F.S.H.
 
-72
-00:03:44.520 --> 00:03:45.960
-Three reference points set.
+15
+00:00:34.000 --> 00:00:36.440
+Then save. Point one is locked.
 
-73
-00:03:46.460 --> 00:03:47.900
-One detail from the guide.
+16
+00:00:36.840 --> 00:00:38.000
+Step 5.
 
-74
-00:03:48.640 --> 00:03:49.820
-With more than three segments,
+17
+00:00:38.000 --> 00:00:40.500
+Move to the second F.B.H.,
+the middle standard.
 
-75
-00:03:50.280 --> 00:03:52.800
-scroll boxes appear to the
-right of the segment list.
+18
+00:00:40.500 --> 00:00:43.970
+Drag, gain to 80%, and save.
 
-76
-00:03:53.480 --> 00:03:56.440
-The active segment is marked
-with an arrow next to its number.
+19
+00:00:44.370 --> 00:00:45.500
+Step 6.
 
-77
-00:03:57.340 --> 00:03:59.680
-If your inspection extends
-to full part depth,
+20
+00:00:45.500 --> 00:00:48.500
+Move to the third F.B.H.,
+the far standard.
 
-78
-00:04:00.080 --> 00:04:02.420
-add a TCG point on the back-wall response.
+21
+00:00:48.500 --> 00:00:51.120
+All three reference points are now set.
 
-79
-00:04:03.400 --> 00:04:05.020
-Click the toolbar button to set the
+22
+00:00:51.520 --> 00:00:52.700
+Step 7.
 
-80
-00:04:05.020 --> 00:04:07.120
-first point before the back-wall pulse.
+23
+00:00:52.700 --> 00:00:55.500
+Click the Files tab,
+then under TCG, click Save.
 
-81
-00:04:08.060 --> 00:04:10.200
-Then the second point
-after the back-wall pulse.
+24
+00:00:55.500 --> 00:00:58.890
+Name the file with probe type,
+F.B.H. size, and today's date.
 
-82
-00:04:10.960 --> 00:04:14.040
-Create at least four points in total to
+25
+00:00:59.290 --> 00:01:00.500
+Step 8. Important reminder.
 
-83
-00:04:14.040 --> 00:04:16.800
-define the TCG curve through
-the back-wall response.
+26
+00:01:00.500 --> 00:01:03.700
+Keep the water path
+within ± ¼ inch.
 
-84
-00:04:17.660 --> 00:04:18.140
-Optional.
+27
+00:01:03.700 --> 00:01:07.380
+Recalibrate after any probe
+or material change.
 
-85
-00:04:18.800 --> 00:04:20.100
-Skip this step if your inspection
+28
+00:01:07.780 --> 00:01:09.500
+Calibration complete.
 
-86
-00:04:20.100 --> 00:04:22.320
-only covers the FBH depth range.
+29
+00:01:09.500 --> 00:01:13.500
+Your TCG curve is ready.
+All three F.B.H. responses
 
-87
-00:04:23.180 --> 00:04:25.020
-Now save the TCG setup.
+30
+00:01:13.500 --> 00:01:16.500
+are equalized at 80% F.S.H.
 
-88
-00:04:25.580 --> 00:04:26.140
-Four clicks.
-
-89
-00:04:27.220 --> 00:04:30.180
-One. Click the Files tab
-in the Setup Toolbox.
-
-90
-00:04:30.920 --> 00:04:33.480
-Two. Under TCG, click Save.
-
-91
-00:04:34.440 --> 00:04:37.860
-Three. The UPRDB Navigator dialog opens.
-
-92
-00:04:38.500 --> 00:04:40.620
-The default file path is
-displayed at the bottom.
-
-93
-00:04:41.220 --> 00:04:42.900
-Four. Name the file.
-
-94
-00:04:43.580 --> 00:04:46.560
-We recommend a naming convention
-that includes the probe type,
-
-95
-00:04:47.000 --> 00:04:48.940
-the FBH size and the date.
-
-96
-00:04:49.600 --> 00:04:52.880
-For example, Normal Beam
-underscore TCG underscore
-
-97
-00:04:53.720 --> 00:04:56.440
-3/64-inch FBH underscore today's date.
-
-98
-00:04:57.240 --> 00:04:57.700
-Click Save.
-
-99
-00:04:58.420 --> 00:04:59.780
-TCG setup saved.
-
-100
-00:05:00.940 --> 00:05:02.920
-Quick checklist before
-you run the inspection.
-
-101
-00:05:03.820 --> 00:05:08.020
-Teach In opened. Material
-velocity set. Range set.
-
-102
-00:05:08.500 --> 00:05:11.500
-Water path kept within plus
-or minus a quarter inch.
-
-103
-00:05:12.060 --> 00:05:15.420
-Three FBH responses set to 80% FSH.
-
-104
-00:05:16.180 --> 00:05:18.660
-Optional back-wall points added if needed.
-
-105
-00:05:19.340 --> 00:05:20.520
-TCG setup saved.
-
-106
-00:05:21.360 --> 00:05:22.620
-Your TCG is ready.
-
-107
-00:05:23.260 --> 00:05:23.740
-Run the inspection.
-
-108
-00:05:24.960 --> 00:05:27.340
-If you need to recalibrate
-after a probe change,
-
-109
-00:05:27.900 --> 00:05:30.740
-a material change or any
-deviation in water path,
-
-110
-00:05:31.100 --> 00:05:32.260
-return to step three.
-
-111
-00:05:32.980 --> 00:05:35.460
-The full Scan Plan documentation is
-
-112
-00:05:35.460 --> 00:05:37.120
-available in the Scan Plan tab.
+31
+00:01:16.500 --> 00:01:18.500
+Run your inspection.

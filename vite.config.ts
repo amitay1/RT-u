@@ -89,7 +89,8 @@ export default defineConfig(({ mode }) => ({
     // Minify for production
     minify: 'esbuild',
     target: 'esnext',
-    // Enable gzip compression
-    reportCompressedSize: true,
+    // Skip per-chunk gzip reporting — adds 10-30s on a large bundle for a
+    // log line that doesn't affect the artifact. Same dist/ output either way.
+    reportCompressedSize: false,
   },
 }));

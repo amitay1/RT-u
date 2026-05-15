@@ -1,67 +1,43 @@
 WEBVTT
 
-NOTE Chapters for Tube Scan Plan Guide — Normal Beam TCG Calibration
+NOTE Chapters for Tube Scan Plan — Normal Beam TCG Calibration (condensed)
 
 Chapter 1
-00:00:00.000 --> 00:00:10.520
+00:00:00.000 --> 00:00:04.680
 Introduction
 
 Chapter 2
-00:00:10.520 --> 00:00:30.920
-Equipment Checklist
+00:00:04.680 --> 00:00:13.070
+Step 1 — Open Teach In · Set Parameters
 
 Chapter 3
-00:00:30.920 --> 00:00:44.920
-Three FBH Standards
+00:00:13.070 --> 00:00:20.840
+Step 2 — TCG Tab · Verify Checkboxes
 
 Chapter 4
-00:00:44.920 --> 00:00:52.580
-Open ScanMaster — Teach In
+00:00:20.840 --> 00:00:28.530
+Step 3 — Move to 1st FBH
 
 Chapter 5
-00:00:52.580 --> 00:01:23.920
-Set Basic Parameters
+00:00:28.530 --> 00:00:36.440
+Step 4 — Adjust Gain · Save Point 1
 
 Chapter 6
-00:01:23.920 --> 00:01:40.700
-Important — Water Path
+00:00:36.440 --> 00:00:43.970
+Step 5 — 2nd FBH (Middle)
 
 Chapter 7
-00:01:40.700 --> 00:02:05.820
-What TCG Solves — Before & After
+00:00:43.970 --> 00:00:51.120
+Step 6 — 3rd FBH (Far)
 
 Chapter 8
-00:02:05.820 --> 00:02:28.040
-TCG Tab — Verify Checkboxes
+00:00:51.120 --> 00:00:58.890
+Step 7 — Save the TCG File
 
 Chapter 9
-00:02:28.040 --> 00:02:47.080
-Three Reference Points Overview
+00:00:58.890 --> 00:01:07.380
+Important Reminder — Water Path & Recalibration
 
 Chapter 10
-00:02:47.080 --> 00:03:13.960
-Point 1 — Near FBH
-
-Chapter 11
-00:03:13.960 --> 00:03:29.600
-Point 2 — Middle FBH
-
-Chapter 12
-00:03:29.600 --> 00:03:57.340
-Point 3 — Far FBH
-
-Chapter 13
-00:03:57.340 --> 00:04:23.180
-Optional — Back-Wall Points
-
-Chapter 14
-00:04:23.180 --> 00:05:00.940
-Save the TCG Setup
-
-Chapter 15
-00:05:00.940 --> 00:05:24.960
-Final Checklist
-
-Chapter 16
-00:05:24.960 --> 00:05:37.120
-When to Recalibrate
+00:01:07.380 --> 00:01:20.000
+Calibration Complete

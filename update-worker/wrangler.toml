@@ -1,0 +1,13 @@
+name = "scan-master-updates"
+main = "src/worker.js"
+compatibility_date = "2024-11-12"
+
+# Logging during deploy / dev
+[observability]
+enabled = true
+
+# Non-secret config (committed to git). The PAT goes in via
+# `wrangler secret put GH_TOKEN`, not here.
+[vars]
+GH_OWNER = "amitay1"
+GH_REPO = "Scan-Master-16-12-25"

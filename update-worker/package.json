@@ -1,0 +1,11 @@
+{
+  "name": "scan-master-update-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker that proxies update artifacts from the private ScanMaster repo to electron-updater clients.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  }
+}
