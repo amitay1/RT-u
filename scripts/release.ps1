@@ -1593,12 +1593,24 @@ if ($releaseAssetsUploaded -and -not $UploadOnly) {
 
     # Use a temporary git worktree so we don't disturb the user's current
     # working tree (which has the release commit on `main`).
+    # git often writes informational output ("Preparing worktree...") to
+    # stderr while still exiting 0 — `$ErrorActionPreference = "Stop"` would
+    # treat that as an exception, so we wrap each git invocation to swallow
+    # informational noise and rely on $LASTEXITCODE for true success.
     $worktreePath = Join-Path ([System.IO.Path]::GetTempPath()) "scanmaster-ghpages-$([System.IO.Path]::GetRandomFileName())"
     $worktreeOK = $false
+    $savedEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     try {
-        git worktree add -B gh-pages-update $worktreePath origin/gh-pages 2>&1 | Out-Null
+        # Make sure we have the latest gh-pages ref locally.
+        & git fetch origin gh-pages 2>&1 | Out-Null
+
+        # Use a unique branch name each run so leftover state from a previous
+        # failed release can't collide.
+        $tmpBranch = "gh-pages-update-$(Get-Random -Maximum 99999)"
+        & git worktree add -B $tmpBranch $worktreePath origin/gh-pages 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
-            Write-Warn "  Could not check out gh-pages branch. Landing page version not updated."
+            Write-Warn "  Could not check out gh-pages branch (exit $LASTEXITCODE). Landing page version not updated."
         } else {
             $worktreeOK = $true
             $landingPagePath = Join-Path $worktreePath "index.html"
@@ -1615,17 +1627,17 @@ if ($releaseAssetsUploaded -and -not $UploadOnly) {
 
                     Push-Location $worktreePath
                     try {
-                        git add index.html 2>&1 | Out-Null
-                        git -c user.email="release-bot@scanmaster.local" -c user.name="ScanMaster Release Bot" commit -m "Landing page: bump to v$newVersion" 2>&1 | Out-Null
+                        & git add index.html 2>&1 | Out-Null
+                        & git -c user.email="release-bot@scanmaster.local" -c user.name="ScanMaster Release Bot" commit -m "Landing page: bump to v$newVersion" 2>&1 | Out-Null
                         if ($LASTEXITCODE -eq 0) {
-                            git push origin gh-pages-update:gh-pages 2>&1 | Out-Null
+                            & git push origin "${tmpBranch}:gh-pages" 2>&1 | Out-Null
                             if ($LASTEXITCODE -eq 0) {
                                 Write-Success "  Landing page updated to v$newVersion."
                             } else {
-                                Write-Warn "  Landing page commit created but push failed. Manually push gh-pages."
+                                Write-Warn "  Landing page commit created but push failed (exit $LASTEXITCODE). Manually push gh-pages."
                             }
                         } else {
-                            Write-Warn "  Landing page commit failed."
+                            Write-Warn "  Landing page commit failed (exit $LASTEXITCODE)."
                         }
                     } finally {
                         Pop-Location
@@ -1637,13 +1649,12 @@ if ($releaseAssetsUploaded -and -not $UploadOnly) {
                 Write-Warn "  gh-pages/index.html not found. Skipping landing page update."
             }
         }
-    } catch {
-        Write-Warn "  Landing page update threw: $_"
     } finally {
         if ($worktreeOK) {
-            git worktree remove --force $worktreePath 2>&1 | Out-Null
-            git branch -D gh-pages-update 2>&1 | Out-Null
+            & git worktree remove --force $worktreePath 2>&1 | Out-Null
+            if ($tmpBranch) { & git branch -D $tmpBranch 2>&1 | Out-Null }
         }
+        $ErrorActionPreference = $savedEAP
     }
 }
 
@@ -1662,37 +1673,68 @@ if ($releaseAssetsUploaded) {
 
     Write-Info "Verifying update endpoints (Worker → private GitHub repo)..."
 
+    # The Worker caches GitHub's /releases/latest response for 5 minutes to
+    # avoid hammering the API. Right after a release the cache may still hold
+    # the previous version — retry with backoff up to ~6 min so the cache TTL
+    # expires.
+    function Get-VerifyBodyText {
+        param($Response)
+        $c = $Response.Content
+        if ($c -is [byte[]]) {
+            return [System.Text.Encoding]::UTF8.GetString($c)
+        }
+        return [string]$c
+    }
+
     $latestOk = $false
-    try {
-        $verifyResponse = Invoke-WebRequest -Uri $latestYmlUrl -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
-        $body = $verifyResponse.Content
-        if ($verifyResponse.StatusCode -eq 200 -and $body -match "version:\s*$([regex]::Escape($newVersion))") {
-            Write-Success "  latest.yml OK ($latestYmlUrl → version $newVersion)"
-            $latestOk = $true
-        } else {
-            Write-Err "  latest.yml has WRONG content. Worker returned:"
-            Write-Err "    $($body.Substring(0, [Math]::Min(300, $body.Length)))"
-        }
-    } catch {
-        Write-Err "  latest.yml fetch FAILED: $($_.Exception.Message)"
-    }
-
     $exeOk = $false
-    try {
-        $headResp = Invoke-WebRequest -Uri $exeUrl -Method Head -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
-        if ($headResp.StatusCode -eq 200) {
-            $cl = $headResp.Headers.'Content-Length'
-            $sizeMB = if ($cl) { [math]::Round([int64]$cl / 1MB, 1) } else { "?" }
-            Write-Success "  Installer OK ($exeUrl → $sizeMB MB)"
-            $exeOk = $true
-        } else {
-            Write-Err "  Installer HEAD returned status $($headResp.StatusCode)"
+    $maxAttempts = 7   # 0,30,60,90,120,180,240 = up to ~6 min after the first hit
+    $delays = @(0, 30, 30, 30, 30, 60, 60)
+    $lastError = $null
+
+    for ($attempt = 0; $attempt -lt $maxAttempts; $attempt++) {
+        if ($delays[$attempt] -gt 0) {
+            Write-Info "  Worker cache may be stale; waiting $($delays[$attempt])s then retrying..."
+            Start-Sleep -Seconds $delays[$attempt]
         }
-    } catch {
-        Write-Err "  Installer HEAD FAILED: $($_.Exception.Message)"
+
+        $latestOk = $false
+        try {
+            $verifyResponse = Invoke-WebRequest -Uri $latestYmlUrl -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop -Headers @{ "Cache-Control" = "no-cache" }
+            $body = Get-VerifyBodyText -Response $verifyResponse
+            if ($verifyResponse.StatusCode -eq 200 -and $body -match "version:\s*$([regex]::Escape($newVersion))") {
+                $latestOk = $true
+            } else {
+                $preview = $body.Substring(0, [Math]::Min(200, $body.Length))
+                $lastError = "latest.yml content didn't match v$newVersion. Body starts: $preview"
+            }
+        } catch {
+            $lastError = "latest.yml fetch failed: $($_.Exception.Message)"
+        }
+
+        if ($latestOk) {
+            try {
+                $headResp = Invoke-WebRequest -Uri $exeUrl -Method Head -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+                if ($headResp.StatusCode -eq 200) {
+                    $exeOk = $true
+                } else {
+                    $lastError = "installer HEAD returned $($headResp.StatusCode)"
+                }
+            } catch {
+                $lastError = "installer HEAD failed: $($_.Exception.Message)"
+            }
+        }
+
+        if ($latestOk -and $exeOk) { break }
     }
 
-    if (-not $latestOk -or -not $exeOk) {
+    if ($latestOk -and $exeOk) {
+        $cl = $headResp.Headers.'Content-Length'
+        $sizeMB = if ($cl) { [math]::Round([int64]$cl / 1MB, 1) } else { "?" }
+        Write-Success "  latest.yml OK ($latestYmlUrl → version $newVersion)"
+        Write-Success "  Installer OK ($exeUrl → $sizeMB MB)"
+    } else {
+        Write-Err "  Verification FAILED: $lastError"
         Write-Err ""
         Write-Err "  electron-updater clients will fail. Possible causes:"
         Write-Err "    1. Worker GH_TOKEN secret stale → rotate it:"
