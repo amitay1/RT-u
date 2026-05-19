@@ -19,7 +19,11 @@ const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL || 'http://localhost:5
 // Available standards catalog
 const AVAILABLE_STANDARDS = {
   'AMS': { code: 'AMS-STD-2154E', name: 'Aerospace Material Specification' },
+  'AMS2630': { code: 'AMS-2630', name: 'AMS 2630 Product Over 0.5 Inch Thick' },
   'ASTM': { code: 'ASTM-A388', name: 'Steel Forgings' },
+  'ASTM_E1001': { code: 'ASTM-E1001', name: 'Immersion Pulse-Echo UT' },
+  'ASTM_E2580': { code: 'ASTM-E2580', name: 'Composite Panel UT' },
+  'ASTM_E588': { code: 'ASTM-E588', name: 'Bearing Steel Cleanliness' },
   'BS3': { code: 'BS-EN-10228-3', name: 'European Steel Standards Part 3' },
   'BS4': { code: 'BS-EN-10228-4', name: 'European Steel Standards Part 4' },
   'MIL': { code: 'MIL-STD-2154', name: 'Military Standard' },

@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "waveType": "shear",
+  "transducer": {
+    "partNumber": "IAE2P16679",
+    "frequencyMHz": 5,
+    "focusInches": 8,
+    "bandwidth": "medium",
+    "mirrorPartNumber": "IAE2P16678",
+    "mirrorAngleDegrees": 45,
+    "waterPathInches": 8,
+    "incidentAngleDegrees": 18.9,
+    "refractedAngleDegrees": 45
+  },
+  "calibration": {
+    "blockPartNumber": "IAE2P16675",
+    "referenceReflector": "FBH #1",
+    "targetAmplitudePercentFsh": 80,
+    "nominalIncidentAngleDegrees": 18.6,
+    "requiresDac": true,
+    "requiresCurvatureCorrection": true,
+    "requiresPostCalibration": true
+  },
+  "sharedLimits": {
+    "minRadialCoverageInches": 2.6,
+    "maxScanIncrementInches": 0.02,
+    "maxIndexIncrementInchesPerRev": 0.02,
+    "targetAmplitudePercentFsh": 80
+  },
+  "plans": [
+    {
+      "id": "ndip-1226-stage-1-demo",
+      "partNumber": "2A5001",
+      "ndip": "NDIP-1226 Rev F",
+      "description": "V2500 1st Stage HPT Disk Bore Inspection",
+      "nominalBoreRadiusInches": 2.91,
+      "boreOffsetInches": 0.943,
+      "zones": [
+        { "id": "E", "surfaceName": "Upper Web Transition", "shape": "arc", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.0, "startInches": 0.12, "stopInches": 1.414 }, { "positionInches": 0.5, "startInches": 0.12, "stopInches": 1.131 }] },
+        { "id": "A", "surfaceName": "Upper Chamfer", "shape": "chamfer", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.1, "startInches": 0.12, "stopInches": 1.414 }, { "positionInches": 1.06, "startInches": 0.12, "stopInches": 1.414 }] },
+        { "id": "B", "surfaceName": "Upper Land", "shape": "line", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.0, "startInches": 0.530, "stopInches": 2.333 }, { "positionInches": 0.45, "startInches": 0.530, "stopInches": 2.333 }] },
+        { "id": "C", "surfaceName": "Bore Entry Chamfer", "shape": "chamfer", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.0, "startInches": 0.495, "stopInches": 1.626 }, { "positionInches": 0.13, "startInches": 0.495, "stopInches": 1.626 }, { "positionInches": 0.335, "startInches": 0.495, "stopInches": 1.308 }] },
+        { "id": "D", "surfaceName": "Bore ID", "shape": "line", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.1, "startInches": 0.12, "stopInches": 0.566 }, { "positionInches": 1.2, "startInches": 0.12, "stopInches": 1.414 }, { "positionInches": 2.3, "startInches": 0.12, "stopInches": 1.202 }] }
+      ]
+    },
+    {
+      "id": "ndip-1227-stage-2-demo",
+      "partNumber": "2A4802",
+      "ndip": "NDIP-1227 Rev D",
+      "description": "V2500 2nd Stage HPT Disk Bore Inspection",
+      "nominalBoreRadiusInches": 2.773,
+      "boreOffsetInches": 0.898,
+      "zones": [
+        { "id": "M", "surfaceName": "Upper Web Transition", "shape": "arc", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.0, "startInches": 0.354, "stopInches": 0.707 }, { "positionInches": 2.0, "startInches": 0.354, "stopInches": 2.121 }] },
+        { "id": "N", "surfaceName": "Upper Shoulder Fillet", "shape": "arc", "scanModes": ["positive", "negative"], "inspectionNote": "Gating table marks this surface as too noisy; confirm the current approved instruction before treating it as an active scan." },
+        { "id": "O", "surfaceName": "Upper Land", "shape": "line", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.0, "startInches": 0.530, "stopInches": 2.210 }, { "positionInches": 0.46, "startInches": 0.530, "stopInches": 2.210 }] },
+        { "id": "P", "surfaceName": "Bore ID", "shape": "line", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.05, "startInches": 0.120, "stopInches": 0.707 }, { "positionInches": 1.0, "startInches": 0.120, "stopInches": 1.768 }, { "positionInches": 1.7, "startInches": 0.120, "stopInches": 1.768 }] },
+        { "id": "K", "surfaceName": "Lower Fillet Transition", "shape": "arc", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.84, "startInches": 0.495, "stopInches": 0.636 }, { "positionInches": 2.24, "startInches": 0.495, "stopInches": 2.503 }] },
+        { "id": "L", "surfaceName": "Lower Diagonal Slope", "shape": "line", "scanModes": ["positive", "negative"], "gateRows": [{ "positionInches": 0.0, "startInches": 0.354, "stopInches": 2.503 }, { "positionInches": 1.0, "startInches": 0.354, "stopInches": 2.121 }] }
+      ]
+    }
+  ]
+}

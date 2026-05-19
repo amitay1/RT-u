@@ -37,6 +37,10 @@ const getStandardLabel = (standard: StandardType): string => {
     "MIL-STD-2154": "MIL-STD-2154",
     "AMS-STD-2154E": "AMS-STD-2154E",
     "ASTM-A388": "ASTM A388/A388M",
+    "ASTM-E1001": "ASTM E1001",
+    "ASTM-E2580": "ASTM E2580",
+    "ASTM-E588": "ASTM E588",
+    "AMS-2630": "AMS 2630",
     "BS-EN-10228-3": "BS EN 10228-3:2016",
     "BS-EN-10228-4": "BS EN 10228-4:2016",
   };

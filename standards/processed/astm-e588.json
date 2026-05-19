@@ -1,0 +1,119 @@
+{
+  "standard": {
+    "id": "ASTM-E588",
+    "name": "ASTM E588",
+    "title": "Detection of Large Inclusions in Bearing Quality Steel by the Ultrasonic Method",
+    "revision": "2003 (Reapproved 2020)",
+    "category": "Immersion Ultrasonic Cleanliness Rating",
+    "sourcePdf": "standards/pdfs/ASTM-E588-03R20.pdf",
+    "publicPdf": "/standards/ASTM_E588_03R20.pdf"
+  },
+  "scope": {
+    "purpose": "Rates rectangular steel sections by immersion ultrasonic technique for large inclusions or clusters relevant to bearing steel lots.",
+    "acceptanceCriteria": "Does not define acceptability limits.",
+    "largeInclusionDefinition": "Reflecting area equivalent to or larger than 1/64 in FBH in a similar steel reference block."
+  },
+  "equipment": {
+    "systemComponents": ["ultrasonic test instrument", "focused immersion search unit", "recording/counting device", "system reference block", "instrument calibration block", "immersion tank with scanning accessories"],
+    "instrument": {
+      "frequencyMHz": 10,
+      "frequencyToleranceMHz": 0.5,
+      "receiverBandpassMinMHz": 1.3,
+      "dynamicRange": "Detect steel balls with 16:1 diameter ratio at a given sensitivity.",
+      "stabilityAfterWarmupMaxPercent": 5,
+      "preferredStabilityPercent": 2,
+      "pulserRepetitionRateMinPps": 500,
+      "sweepLinearity": "Minimum 80 mm sweep linear within 5 percent full scale."
+    },
+    "searchUnit": {
+      "type": "Spherically focused immersion",
+      "frequencyMHz": "10 +/- 0.5",
+      "focalLengthWaterInch": "8.2 +/- 0.3",
+      "focalLengthWaterMm": "208.3 +/- 7.6",
+      "beamSymmetryAmplitudeVariationMaxPercent": 15,
+      "newUnitQualification": "Verify new units on system reference block."
+    },
+    "tank": {
+      "axes": "X-Y scanning and indexing",
+      "normalization": "Manipulator angulates search unit in two mutually perpendicular vertical planes.",
+      "mountingToleranceInch": "1/64",
+      "mountingToleranceMm": 0.4
+    },
+    "couplant": {
+      "solution": "Tap or distilled water with wetting agent.",
+      "pHRange": "7.5 to 8.5",
+      "temperatureC": "19.5 to 25.5",
+      "rustPreventive": "Permitted if it does not adversely affect test performance."
+    },
+    "readout": "Level counters, pulse counters, integrators, strip chart, B-scan, C-scan, memory oscilloscope, or computer techniques."
+  },
+  "testSpecimen": {
+    "condition": "Rolled or forged condition; rectangular steel sections.",
+    "surface": "Prepared entry surface; avoid edge effects.",
+    "temperature": "Room temperature before scanning.",
+    "penetrability": "Verify ultrasonic penetrability before valid rating."
+  },
+  "procedure": {
+    "frequency": "10 MHz recommended for most bearing steels.",
+    "normalization": "Normalize to maximum first far-field back reflection or from a hard steel plate on billet surface.",
+    "waterDistance": {
+      "rule": "At least 1 +/- 1/16 in for every 4 in of specimen thickness, never less than 1 +/- 1/16 in.",
+      "setupTypicalInch": "1 +/- 1/16"
+    },
+    "monitoringGates": "Single or multiple gates may be used.",
+    "scanDirection": "Perpendicular to rolling direction.",
+    "sides": "Inspect two adjacent sides.",
+    "scanIndexInch": 0.05,
+    "scanIndexMm": 1.27,
+    "edgeExclusionInch": 0.5,
+    "edgeExclusionMm": 12.7,
+    "typicalScanSpeedInPerSec": 4,
+    "typicalScanSpeedMmPerSec": 101.6,
+    "speedValidation": "Recorded evaluation must be within 5 percent of scan below 1 in/s or one third normal operating speed, whichever is slower.",
+    "sensitivity": "Background material indications must not exceed one half of the lowest counting level."
+  },
+  "calibration": {
+    "counterBalls": {
+      "diameterRatio": "12:7:4",
+      "inchDiameters": ["3/4", "7/16", "1/4"],
+      "mmDiameters": [12, 7, 4],
+      "surfaceRoughnessRaMicroInchMax": 2,
+      "surfaceRoughnessRaMicronMax": 0.05
+    },
+    "instrumentBlock": "10 mm hemispherically shaped hole block with target 1.7 in / 43.2 mm below entry surface.",
+    "level3Setup": "Set largest ball signal to 80 percent full screen and set level-three counter threshold.",
+    "billetInspectionGainIncreaseDb": 24,
+    "crossReferenceFineAdjustmentDbMax": 1.5
+  },
+  "resultComputation": {
+    "severityFormula": "S = (Nl + Nm + Nh) / V",
+    "variables": {
+      "S": "severity rating",
+      "Nl": "low-level indications",
+      "Nm": "medium-level indications",
+      "Nh": "high-level indications",
+      "V": "volume tested = gated depth * scanned area"
+    },
+    "units": "counts per cubic inch"
+  },
+  "report": [
+    "Sample identification",
+    "System reference sample test results",
+    "Instrument and search unit manufacturer/type",
+    "Test date",
+    "Counts at each level",
+    "Severity",
+    "Volume tested",
+    "Gate length",
+    "Total index",
+    "Scan length",
+    "Water temperature",
+    "Sensitivity setting",
+    "Operator",
+    "Reduction ratio from original as-cast section to inspected sample size"
+  ],
+  "systemUse": {
+    "autoFillProfile": "Specialized bearing steel cleanliness rating, not general acceptance inspection.",
+    "recommendedTechnique": "immersion focused 10 MHz"
+  }
+}

@@ -8,6 +8,9 @@ export type StandardType =
   // ASTM Standards
   | "ASTM-A388"      // Heavy Steel Forgings
   | "ASTM-E2375"     // UT of Wrought Products (general)
+  | "ASTM-E1001"     // Immersed pulse-echo longitudinal-wave UT
+  | "ASTM-E2580"     // UT of aerospace flat panel composites / sandwich core
+  | "ASTM-E588"      // Immersion UT cleanliness rating for bearing quality steel
   | "ASTM-E127"      // FBH Reference Blocks (calibration)
   | "ASTM-E164"      // UT of Weldments
 
@@ -76,7 +79,7 @@ export type PartGeometry =
   | "impeller" | "blisk" | "hpt_disk"  // Aero engine complex forgings (stepped profiles, R surfaces)
   | "machined_component" | "bar" | "custom";
 
-export type AcceptanceClass = "AAA" | "AA" | "A" | "B" | "C";
+export type AcceptanceClass = "AAA" | "AA" | "A1" | "A" | "B" | "C";
 
 export type CalibrationBlockType = "flat_block" | "curved_block" | "cylinder_notched" | "cylinder_fbh" | "solid_cylinder_fbh" | "angle_beam" | "iiw_block" | "step_wedge" | "iow_block" | "custom";
 

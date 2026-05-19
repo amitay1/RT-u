@@ -19,6 +19,10 @@ const STANDARDS: ProcedureStandardType[] = [
   "AMS-STD-2154E",
   "ASTM-A388",
   "ASTM-E2375",
+  "ASTM-E1001",
+  "ASTM-E2580",
+  "ASTM-E588",
+  "AMS-2630",
   "BS-EN-10228-3",
   "BS-EN-10228-4",
   "MIL-STD-2154",
@@ -27,6 +31,11 @@ const STANDARDS: ProcedureStandardType[] = [
 
 const ADDITIONAL_STANDARDS = [
   "ASTM E127 - FBH Reference Blocks",
+  "ASTM E1001 - Immersion Pulse-Echo UT",
+  "ASTM E2580 - Composite Panel UT",
+  "ASTM E588 - Bearing Steel Cleanliness",
+  "ASTM E2581 - Composite Shearography",
+  "AMS 2375 - Forging First Article Approval",
   "ASTM E317 - Equipment Characterization",
   "ASTM E1065 - Transducer Verification",
   "EN 12668-1 - Instrument Characterization",

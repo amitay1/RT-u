@@ -526,6 +526,7 @@ export const FBH_SIZE_TABLE: FBHSizeByThickness[] = [
       // Table VI (Single discontinuity response reference)
       'AAA': ['1/64'],
       'AA': ['3/64'],
+      'A1': ['3/64'],
       'A': ['5/64'],
       'B': ['8/64'],
       'C': ['8/64']
@@ -538,6 +539,7 @@ export const FBH_SIZE_TABLE: FBHSizeByThickness[] = [
       // Table VI (Single discontinuity response reference)
       'AAA': ['1/64'],
       'AA': ['3/64'],
+      'A1': ['3/64'],
       'A': ['5/64'],
       'B': ['8/64'],
       'C': ['8/64']
@@ -550,6 +552,7 @@ export const FBH_SIZE_TABLE: FBHSizeByThickness[] = [
       // Table VI (Single discontinuity response reference)
       'AAA': ['1/64'],
       'AA': ['3/64'],
+      'A1': ['3/64'],
       'A': ['5/64'],
       'B': ['8/64'],
       'C': ['8/64']
@@ -562,6 +565,7 @@ export const FBH_SIZE_TABLE: FBHSizeByThickness[] = [
       // Table VI (Single discontinuity response reference)
       'AAA': ['1/64'],
       'AA': ['3/64'],
+      'A1': ['3/64'],
       'A': ['5/64'],
       'B': ['8/64'],
       'C': ['8/64']
@@ -574,6 +578,7 @@ export const FBH_SIZE_TABLE: FBHSizeByThickness[] = [
       // Table VI (Single discontinuity response reference)
       'AAA': ['1/64'],
       'AA': ['3/64'],
+      'A1': ['3/64'],
       'A': ['5/64'],
       'B': ['8/64'],
       'C': ['8/64']

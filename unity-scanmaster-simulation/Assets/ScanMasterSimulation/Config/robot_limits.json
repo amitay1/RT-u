@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "simulationUnits": "meters",
+  "tank": {
+    "outerSize": { "x": 3.2, "y": 1.25, "z": 2.2 },
+    "waterLevelY": 0.42,
+    "wallThickness": 0.06
+  },
+  "robot": {
+    "xAxis": { "min": -1.25, "max": 1.25, "speed": 0.55 },
+    "yAxis": { "min": -0.82, "max": 0.82, "speed": 0.45 },
+    "zAxis": { "min": 0.52, "max": 1.35, "speed": 0.35 },
+    "probeStandOff": 0.16
+  },
+  "turntable": {
+    "radius": 0.38,
+    "height": 0.14,
+    "demoRpm": 2.5
+  },
+  "scanDemo": {
+    "revolutions": 3.5,
+    "scanLengthMeters": 0.34,
+    "scanRadiusMeters": 0.34,
+    "scanDurationSeconds": 22
+  }
+}
+

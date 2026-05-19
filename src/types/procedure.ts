@@ -19,6 +19,10 @@ export type ProcedureStandardType =
   | "AMS-STD-2154E"
   | "ASTM-A388"
   | "ASTM-E2375"
+  | "ASTM-E1001"
+  | "ASTM-E2580"
+  | "ASTM-E588"
+  | "AMS-2630"
   | "BS-EN-10228-3"
   | "BS-EN-10228-4"
   | "MIL-STD-2154"
@@ -218,7 +222,7 @@ export interface ProcedureData {
 }
 
 // Acceptance class type
-export type AcceptanceClass = "AAA" | "AA" | "A" | "B" | "C";
+export type AcceptanceClass = "AAA" | "AA" | "A1" | "A" | "B" | "C";
 
 // Wizard form data (partial during wizard flow)
 export interface ProcedureWizardData {
@@ -342,6 +346,10 @@ export const STANDARD_LABELS: Record<ProcedureStandardType, string> = {
   "AMS-STD-2154E": "AMS-STD-2154E (Aerospace Metals)",
   "ASTM-A388": "ASTM A388 (Steel Forgings)",
   "ASTM-E2375": "ASTM E2375 (Wrought Products)",
+  "ASTM-E1001": "ASTM E1001 (Immersion Pulse-Echo)",
+  "ASTM-E2580": "ASTM E2580 (Composite Panels)",
+  "ASTM-E588": "ASTM E588 (Bearing Steel Cleanliness)",
+  "AMS-2630": "AMS 2630E (Product Over 0.5 Inch Thick)",
   "BS-EN-10228-3": "BS EN 10228-3 (Ferritic/Martensitic)",
   "BS-EN-10228-4": "BS EN 10228-4 (Stainless Steel)",
   "MIL-STD-2154": "MIL-STD-2154 (Military)",

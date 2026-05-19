@@ -1,0 +1,180 @@
+WEBVTT
+
+NOTE V2500 HPT Disk Scan Tutorial - Mastercut captions
+
+1
+00:00:00.000 --> 00:00:05.000
+V2500 HPT Disk Scan Tutorial - verified mastercut.
+
+2
+00:00:05.300 --> 00:00:08.500
+V2500 HPT Disk - Stage 1.
+
+3
+00:00:08.500 --> 00:00:12.000
+Immersion scan plan - a full walkthrough.
+
+4
+00:00:12.580 --> 00:00:15.500
+Step 1. Setup the immersion tank.
+
+5
+00:00:15.500 --> 00:00:18.500
+Mount the disk on the turntable, fill the tank,
+
+6
+00:00:18.500 --> 00:00:21.500
+and position the probe at an 8-inch water path.
+
+7
+00:00:21.970 --> 00:00:24.500
+Step 2. Open the scan plan.
+
+8
+00:00:24.500 --> 00:00:27.500
+Select the V2500 Stage 1 preset -
+
+9
+00:00:27.500 --> 00:00:31.000
+five zones populate automatically from procedure NDIP 1226.
+
+10
+00:00:31.210 --> 00:00:34.000
+Step 3. Anatomy of the disk.
+
+11
+00:00:34.000 --> 00:00:36.000
+Five inspection zones -
+
+12
+00:00:36.000 --> 00:00:38.000
+E, the upper web transition.
+
+13
+00:00:38.000 --> 00:00:39.500
+A, the upper chamfer.
+
+14
+00:00:39.500 --> 00:00:41.000
+B, the upper land.
+
+15
+00:00:41.000 --> 00:00:42.500
+C, the bore entry.
+
+16
+00:00:42.500 --> 00:00:43.300
+D, the bore inner diameter.
+
+17
+00:00:43.410 --> 00:00:46.500
+Step 4. Zone E plus 45-degree pass.
+
+18
+00:00:46.500 --> 00:00:50.500
+The probe approaches at plus 45 degrees,
+the disk rotates 360,
+
+19
+00:00:50.500 --> 00:00:54.500
+and the probe steps radially in two-hundredths-inch increments.
+
+20
+00:00:54.500 --> 00:00:58.000
+Every position is logged into the C-scan.
+
+21
+00:00:58.180 --> 00:01:01.500
+Step 5. Zone E minus 45-degree pass.
+
+22
+00:01:01.500 --> 00:01:05.500
+The shear direction changes, and the sweep repeats in the opposite direction
+
+23
+00:01:05.500 --> 00:01:07.700
+for full bidirectional coverage.
+
+24
+00:01:07.810 --> 00:01:11.500
+Step 6. Zones A through D.
+
+25
+00:01:11.500 --> 00:01:15.500
+Each zone is scanned twice, plus and minus 45 degrees -
+
+26
+00:01:15.500 --> 00:01:19.500
+ten passes in total.
+
+27
+00:01:19.640 --> 00:01:22.500
+Step 7. Live C-scan capture.
+
+28
+00:01:22.500 --> 00:01:26.500
+The colormap builds up as the probe moves -
+
+29
+00:01:26.500 --> 00:01:30.500
+peak amplitude per position, indications above 20% FSH are flagged.
+
+30
+00:01:30.500 --> 00:01:32.700
+Watch the data come in.
+
+31
+00:01:32.780 --> 00:01:36.000
+Inspection results.
+
+32
+00:01:36.000 --> 00:01:40.000
+Five C-scan strips, one per zone -
+
+33
+00:01:40.000 --> 00:01:43.300
+no reportable indications, this disk is clean.
+
+34
+00:01:43.410 --> 00:01:46.500
+Step 8. Save the scan data.
+
+35
+00:01:46.500 --> 00:01:49.900
+Enter the part serial number and click Save.
+
+36
+00:01:49.900 --> 00:01:50.800
+Inspection complete.
+
+37
+00:01:50.800 --> 00:01:51.150
+Five zones, ten passes, zero indications.
+
+38
+00:01:51.300 --> 00:01:56.500
+Missing chapter: calibration before the bore scan.
+
+39
+00:01:56.500 --> 00:02:04.800
+Verify FBH reference, DAC or TCG, 80 percent FSH, water path and incidence before scanning.
+
+40
+00:02:05.100 --> 00:02:10.800
+Missing chapter: Stage 2 is a separate scan plan.
+
+41
+00:02:10.800 --> 00:02:19.100
+Stage 2 uses P/N 2A4802, NDIP-1227 Rev D and zones M, N, O, P, K, L.
+
+42
+00:02:19.400 --> 00:02:25.800
+Missing chapter: post-calibration and traceability.
+
+43
+00:02:25.800 --> 00:02:31.600
+Review by surface, rescan questionable data, document post-cal and save traceable records.
+
+44
+00:02:31.900 --> 00:02:37.900
+Final rule: the approved current procedure controls production inspection.

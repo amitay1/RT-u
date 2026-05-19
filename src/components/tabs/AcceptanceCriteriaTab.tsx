@@ -37,6 +37,9 @@ const getStandardLabel = (standard: StandardType): string => {
     "NDIP-1260": "NDIP-1260 - PW1100G HPC 8th Stage IBR-8 (AUSI)",
     "PWA-SIM": "PWA SIM - Sonic Inspection Method (Bar/Billet/Forging)",
     "ASTM-E2375": "ASTM E2375 - UT of Wrought Products",
+    "ASTM-E1001": "ASTM E1001 - Immersion Pulse-Echo UT",
+    "ASTM-E2580": "ASTM E2580 - Composite Panel UT",
+    "ASTM-E588": "ASTM E588 - Bearing Steel Cleanliness",
     "ASTM-E127": "ASTM E127 - FBH Reference Blocks",
     "ASTM-E164": "ASTM E164 - UT of Weldments",
     "AMS-2630": "AMS 2630 - Products >0.5\" Thick",
@@ -53,6 +56,12 @@ const getQuickReferenceNote = (standard: StandardType): string => {
   }
   if (standard === "ASTM-A388") {
     return "ASTM A388 does not define QL1-QL4 in the base text. These quality levels are common industry conventions.";
+  }
+  if (standard === "ASTM-E1001" || standard === "ASTM-E2580") {
+    return "This ASTM practice defines examination method and reporting requirements. Acceptance limits must come from the drawing, purchase order, or contract.";
+  }
+  if (standard === "ASTM-E588") {
+    return "ASTM E588 reports bearing-steel inclusion cleanliness rating; it does not set acceptability limits.";
   }
   if (standard === "BS-EN-10228-3") {
     return "Class 1 is least stringent and Class 4 is most stringent. Limits are expressed in EFBH sizes.";

@@ -70,6 +70,19 @@ const STANDARD_PROFILES: Record<StandardType, InspectionSetupStandardProfile> = 
   "ASTM-E2375": {
     ...DEFAULT_PROFILE,
   },
+  "ASTM-E1001": {
+    ...DEFAULT_PROFILE,
+  },
+  "ASTM-E2580": {
+    ...DEFAULT_PROFILE,
+    allowedPartTypes: ["plate", "box"],
+    partTypeScopeNote: "ASTM E2580 is scoped for flat composite panels and sandwich-core panels.",
+  },
+  "ASTM-E588": {
+    ...DEFAULT_PROFILE,
+    allowedPartTypes: ["cylinder", "box"],
+    partTypeScopeNote: "ASTM E588 is scoped for bearing-quality steel specimens used for ultrasonic cleanliness rating.",
+  },
   "ASTM-E127": {
     ...DEFAULT_PROFILE,
   },
@@ -247,4 +260,3 @@ export function normalizeInspectionSetupForStandard(
     partType: "",
   };
 }
-

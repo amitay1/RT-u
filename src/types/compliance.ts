@@ -146,6 +146,9 @@ export const FREQUENCY_RANGES: Record<StandardType, FrequencyRange> = {
   // ASTM Standards
   "ASTM-A388": { min: 1, max: 5, recommended: [1, 2.25, 5] },
   "ASTM-E2375": { min: 1, max: 15, recommended: [2.25, 5, 10] },
+  "ASTM-E1001": { min: 2.25, max: 15, recommended: [2.25, 5, 10, 15] },
+  "ASTM-E2580": { min: 0.5, max: 20, recommended: [0.5, 2.25, 5, 10, 15] },
+  "ASTM-E588": { min: 9.5, max: 10.5, recommended: [10] },
   "ASTM-E127": { min: 1, max: 15, recommended: [5, 10, 15] },
   "ASTM-E164": { min: 1, max: 10, recommended: [2.25, 5] },
 
@@ -155,7 +158,7 @@ export const FREQUENCY_RANGES: Record<StandardType, FrequencyRange> = {
   "EN-ISO-16810": { min: 0.5, max: 15, recommended: [2, 4, 5] },
 
   // AMS Material-Specific Standards
-  "AMS-2630": { min: 1, max: 15, recommended: [2.25, 5, 10] },
+  "AMS-2630": { min: 2.25, max: 15, recommended: [2.25, 5, 10] },
   "AMS-2631": { min: 2, max: 10, recommended: [2.25, 5] },  // Titanium specific
   "AMS-2632": { min: 5, max: 25, recommended: [10, 15, 20] },  // Thin materials, higher freq
 
@@ -182,6 +185,9 @@ export const LINEARITY_REQUIREMENTS: Record<StandardType, LinearityRequirement> 
   // ASTM Standards
   "ASTM-A388": { vertical: 5, horizontal: 2 },
   "ASTM-E2375": { vertical: 5, horizontal: 2 },
+  "ASTM-E1001": { vertical: 5, horizontal: 2 },
+  "ASTM-E2580": { vertical: 5, horizontal: 2 },
+  "ASTM-E588": { vertical: 5, horizontal: 2 },
   "ASTM-E127": { vertical: 5, horizontal: 2 },
   "ASTM-E164": { vertical: 5, horizontal: 2 },
 
@@ -191,7 +197,7 @@ export const LINEARITY_REQUIREMENTS: Record<StandardType, LinearityRequirement> 
   "EN-ISO-16810": { vertical: 5, horizontal: 2 },
 
   // AMS Material-Specific Standards
-  "AMS-2630": { vertical: 5, horizontal: 2 },
+  "AMS-2630": { vertical: 5, horizontal: 3 },
   "AMS-2631": { vertical: 5, horizontal: 2 },
   "AMS-2632": { vertical: 5, horizontal: 2 },
 

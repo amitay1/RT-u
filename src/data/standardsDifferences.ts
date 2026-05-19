@@ -103,13 +103,28 @@ const acceptanceClassesByStandardBase = {
     { id: "LEVEL-3", label: "Level 3", description: "Commercial - Non-critical welds", stringency: "medium" },
   ],
 
-  // AMS-2630 - Products >0.5" thick (similar to AMS-STD-2154E)
+  // AMS-2630E - Products >0.5" thick (verified from AMS2630E Tables 3/5)
   "AMS-2630": [
-    { id: "AAA", label: "Class AAA", description: "Ultra-Critical - Products >0.5\" thick", stringency: "highest" },
-    { id: "AA", label: "Class AA", description: "Super-Critical - Products >0.5\" thick", stringency: "high" },
-    { id: "A", label: "Class A", description: "Critical - Products >0.5\" thick", stringency: "medium" },
-    { id: "B", label: "Class B", description: "Semi-Critical - Products >0.5\" thick", stringency: "low" },
+    { id: "AA", label: "Class AA", description: "Most stringent - Products >0.5\" thick", stringency: "highest" },
+    { id: "A1", label: "Class A1", description: "High aerospace quality - Products >0.5\" thick", stringency: "high" },
+    { id: "A", label: "Class A", description: "Standard aerospace quality - Products >0.5\" thick", stringency: "medium" },
+    { id: "B", label: "Class B", description: "Commercial aerospace quality - Products >0.5\" thick", stringency: "low" },
     { id: "C", label: "Class C", description: "Non-Critical - Products >0.5\" thick", stringency: "basic" },
+  ],
+
+  // ASTM E1001 - Immersed pulse-echo UT, acceptance by agreement
+  "ASTM-E1001": [
+    { id: "CONTRACT", label: "Contract Criteria", description: "Acceptance and reporting criteria are defined by contractual agreement", stringency: "medium" },
+  ],
+
+  // ASTM E2580 - Composite flat panel / sandwich core UT, acceptance by agreement
+  "ASTM-E2580": [
+    { id: "CONTRACT", label: "Contract Criteria", description: "Composite acceptance classes and reject limits are defined by contract", stringency: "medium" },
+  ],
+
+  // ASTM E588 - Bearing steel cleanliness rating, no acceptability limits
+  "ASTM-E588": [
+    { id: "RATING", label: "Cleanliness Rating", description: "Reports inclusion severity/counts; acceptability limits are not defined by E588", stringency: "medium" },
   ],
 
   // AMS-2631 - Titanium Bar, Billet, Plate
@@ -451,47 +466,83 @@ const acceptanceCriteriaByStandardBase = {
     },
   },
 
-  // AMS-2630 - Products >0.5" thick
+  // AMS-2630E - Products >0.5" thick (Tables 3 and 5)
   "AMS-2630": {
-    "AAA": {
-      singleDiscontinuity: "1/64\" (0.4mm) OR 25% of 3/64\" response",
-      multipleDiscontinuities: "10% of 3/64\" response (centers <1\" apart)",
-      linearDiscontinuity: "10% of 3/64\" response, 1/8\" max length",
-      backReflectionLoss: "50% (see Note 4)",
-      noiseLevel: "10% of 3/64\" response (see Note 5)",
-      specialNotes: "Products over 0.5\" thick. Ultra-critical class. Consistent with AMS-STD-2154E methodology."
-    },
     "AA": {
-      singleDiscontinuity: "3/64\" (1.2mm) FBH response",
-      multipleDiscontinuities: "2/64\" (0.8mm) FBH (centers <1\" apart)",
-      linearDiscontinuity: "2/64\" (0.8mm) FBH, 1/2\" max length",
-      backReflectionLoss: "50% maximum",
-      noiseLevel: "Alarm level",
-      specialNotes: "Products over 0.5\" thick. Super-critical class."
+      singleDiscontinuity: "Longitudinal: #3 FBH (1.2mm). Angle beam: #2 FBH (0.8mm).",
+      multipleDiscontinuities: "Longitudinal: #1 FBH (0.4mm) or 11% of #3 response. Angle beam: 50% of #2 response.",
+      linearDiscontinuity: "Longitudinal: #1 response over 0.12\" (3.0mm). Angle beam: 50% of #2 response over 0.12\" (3.0mm).",
+      backReflectionLoss: "50%",
+      noiseLevel: "Reference drift limit +/-10%; rejectable indication rules per Table 3/5",
+      specialNotes: "Most stringent AMS2630E class. Acceptance values differ from AMS-STD-2154E and do not include Class AAA."
+    },
+    "A1": {
+      singleDiscontinuity: "Longitudinal/angle beam: #3 FBH (1.2mm).",
+      multipleDiscontinuities: "Longitudinal: #2 FBH (0.8mm) or 44% of #3 response. Angle beam: #2 FBH (0.8mm).",
+      linearDiscontinuity: "Longitudinal: #2 response over 1.00\" (25mm). Angle beam: #2 response over 0.25\" (6.4mm).",
+      backReflectionLoss: "50%",
+      noiseLevel: "Reference drift limit +/-10%; rejectable indication rules per Table 3/5",
+      specialNotes: "AMS2630E high aerospace class between AA and A."
     },
     "A": {
-      singleDiscontinuity: "5/64\" (2.0mm) FBH response",
-      multipleDiscontinuities: "3/64\" (1.2mm) FBH (centers <1\" apart)",
-      linearDiscontinuity: "3/64\" (1.2mm) FBH, 1\" max length",
-      backReflectionLoss: "50% maximum",
-      noiseLevel: "Alarm level",
-      specialNotes: "Products over 0.5\" thick. Critical class."
+      singleDiscontinuity: "Longitudinal/angle beam: #5 FBH (2.0mm).",
+      multipleDiscontinuities: "Longitudinal/angle beam: #3 FBH (1.2mm).",
+      linearDiscontinuity: "Longitudinal: #3 response over 1.00\" (25mm). Angle beam: #3 response over 0.50\" (12.7mm).",
+      backReflectionLoss: "50%",
+      noiseLevel: "Reference drift limit +/-10%; rejectable indication rules per Table 3/5",
+      specialNotes: "Standard AMS2630E aerospace class for product over 0.5\" thick."
     },
     "B": {
-      singleDiscontinuity: "8/64\" (3.2mm) FBH response",
-      multipleDiscontinuities: "5/64\" (2.0mm) FBH (centers <1\" apart)",
-      linearDiscontinuity: "5/64\" (2.0mm) FBH, 1\" max length",
-      backReflectionLoss: "50% maximum",
-      noiseLevel: "Alarm level",
-      specialNotes: "Products over 0.5\" thick. Semi-critical class."
+      singleDiscontinuity: "Longitudinal/angle beam: #8 FBH (3.2mm).",
+      multipleDiscontinuities: "Longitudinal/angle beam: #5 FBH (2.0mm).",
+      linearDiscontinuity: "Longitudinal/angle beam: #5 response over 1.00\" (25.4mm).",
+      backReflectionLoss: "50%",
+      noiseLevel: "Reference drift limit +/-10%; rejectable indication rules per Table 3/5",
+      specialNotes: "Commercial aerospace AMS2630E class."
     },
     "C": {
-      singleDiscontinuity: "8/64\" (3.2mm) FBH response",
-      multipleDiscontinuities: "Not applicable",
-      linearDiscontinuity: "Not applicable",
-      backReflectionLoss: "50% maximum",
-      noiseLevel: "Alarm level",
-      specialNotes: "Products over 0.5\" thick. Non-critical class."
+      singleDiscontinuity: "By purchaser/vendor agreement",
+      multipleDiscontinuities: "By purchaser/vendor agreement",
+      linearDiscontinuity: "By purchaser/vendor agreement",
+      backReflectionLoss: "By purchaser/vendor agreement",
+      noiseLevel: "By purchaser/vendor agreement",
+      specialNotes: "AMS2630E Class C criteria are established by purchaser/vendor agreement."
+    },
+  },
+
+  // ASTM E1001 - Immersed pulse-echo UT; acceptance criteria are contractual
+  "ASTM-E1001": {
+    "CONTRACT": {
+      singleDiscontinuity: "Per contractual rejection level",
+      multipleDiscontinuities: "Per contractual rejection level",
+      linearDiscontinuity: "Per contractual rejection level",
+      backReflectionLoss: "Report/evaluate per contract",
+      noiseLevel: "Reference echo >=60% FSH and noise <=20% FSH unless otherwise agreed",
+      specialNotes: "ASTM E1001 defines immersed pulse-echo examination practice and reporting; it does not define accept/reject limits."
+    },
+  },
+
+  // ASTM E2580 - Composite flat panel / sandwich core UT; acceptance criteria are contractual
+  "ASTM-E2580": {
+    "CONTRACT": {
+      singleDiscontinuity: "Per engineering drawing or purchase order",
+      multipleDiscontinuities: "Per engineering drawing or purchase order",
+      linearDiscontinuity: "Per engineering drawing or purchase order",
+      backReflectionLoss: "Evaluate amplitude / through-transmission loss per contract",
+      noiseLevel: "Minimum 3:1 signal-to-noise ratio",
+      specialNotes: "ASTM E2580 defines pulse-echo and through-transmission UT methods for composites; it does not define acceptance criteria."
+    },
+  },
+
+  // ASTM E588 - Bearing steel cleanliness rating; no acceptability limits
+  "ASTM-E588": {
+    "RATING": {
+      singleDiscontinuity: "Report inclusions >= 1/64\" FBH equivalent",
+      multipleDiscontinuities: "Report inclusion counts by severity band",
+      linearDiscontinuity: "Not an acceptance criterion in E588",
+      backReflectionLoss: "Not an acceptance criterion in E588",
+      noiseLevel: "Maintain validated detection of 1/64\" FBH equivalent inclusions",
+      specialNotes: "ASTM E588 reports ultrasonic cleanliness severity S=(Nl+Nm+Nh)/V. Acceptability limits must be defined by product specification or purchaser."
     },
   },
 
@@ -794,10 +845,40 @@ const equipmentParametersByStandardBase = {
     frequencyRange: { min: 2.25, max: 15, typical: 5, unit: "MHz" },
     verticalLinearity: { min: 5, max: 98 },
     horizontalLinearity: { min: 90 },
-    frequencyTolerance: "ֲ±10%",
-    prfRange: "100-10000 Hz",
+    frequencyTolerance: null,
+    prfRange: "Set to support scan speed and 100% coverage",
+    transducerDiameter: { min: 9.5, max: 25.4, unit: "mm" },
+    notes: "AMS2630E requires the highest practical frequency; do not use below 2.25 MHz longitudinal or 1.0 MHz shear without agreement. Immersion transducers are typically 3/8\" to 1\" diameter."
+  },
+
+  "ASTM-E1001": {
+    frequencyRange: { min: 2.25, max: 15, typical: 5, unit: "MHz" },
+    verticalLinearity: { min: 5, max: 98 },
+    horizontalLinearity: null,
+    frequencyTolerance: null,
+    prfRange: "Adequate for immersed pulse-echo examination",
     transducerDiameter: { min: 6.35, max: 25.4, unit: "mm" },
-    notes: "Products >0.5\" thick. Contact or immersion methods. Longitudinal or shear wave modes. Consistent with AMS-2631 methodology."
+    notes: "Immersed longitudinal-wave pulse-echo practice. System must produce the specified reference echo and keep noise within the agreed limit."
+  },
+
+  "ASTM-E2580": {
+    frequencyRange: { min: 0.5, max: 20, typical: 5, unit: "MHz" },
+    verticalLinearity: { min: 5, max: 98 },
+    horizontalLinearity: null,
+    frequencyTolerance: null,
+    prfRange: "Limited by spot size, overlap, speed, and averaging",
+    transducerDiameter: { min: 6.35, max: 25.4, unit: "mm" },
+    notes: "Composite flat panel/sandwich core UT. Procedure A is pulse-echo from one side; Procedure B is through-transmission from two sides. Minimum SNR is 3:1."
+  },
+
+  "ASTM-E588": {
+    frequencyRange: { min: 9.5, max: 10.5, typical: 10, unit: "MHz" },
+    verticalLinearity: { min: 5, max: 98 },
+    horizontalLinearity: null,
+    frequencyTolerance: "+/-0.5 MHz",
+    prfRange: ">=500 pps",
+    transducerDiameter: { min: 6.35, max: 25.4, unit: "mm" },
+    notes: "Focused immersion inspection for bearing-quality steel cleanliness rating. Transducer focal length 8.2 +/-0.3 in and beam symmetry variation <=15%."
   },
 
   "AMS-2631": {
@@ -980,13 +1061,43 @@ const scanParametersByStandardBase = {
   },
 
   "AMS-2630": {
-    maxSpeedManual: { value: 150, unit: "mm/s" },
-    maxSpeedAutomated: { value: 150, unit: "mm/s" },
+    maxSpeedManual: { value: 152.4, unit: "mm/s" },
+    maxSpeedAutomated: { value: 508, unit: "mm/s" },
     minOverlap: 30,
     coverageRequired: 100,
-    calibrationFrequency: "Before inspection, every 4 hours, and at completion",
-    sensitivityGain: "80% FSH on reference, scanning gain per class requirements",
-    notes: "Products >0.5\" thick. Consistent with AMS-STD-2154E. 30% minimum overlap. Coverage map for complex geometries."
+    calibrationFrequency: "Before each part/configuration or shift, and at completion",
+    sensitivityGain: "Set reference sensitivity per applicable class and verify within +/-10%",
+    notes: "AMS2630E manual max speed is 6 in/s. Automated default max is 20 in/s unless PRR/coverage or dynamic verification supports higher. Scan index is normally <=70% effective beam width; up to 80% is allowed with documented coverage."
+  },
+
+  "ASTM-E1001": {
+    maxSpeedManual: { value: 152, unit: "mm/s" },
+    maxSpeedAutomated: { value: 305, unit: "mm/s" },
+    minOverlap: 25,
+    coverageRequired: 100,
+    calibrationFrequency: "Before inspection and whenever setup changes",
+    sensitivityGain: "DAC at 80-90% of upper linear limit; manual +6 dB recommended",
+    notes: "Immersion pulse-echo scan index is based on effective beam diameter. Alarm level is typically 50% of the contractual rejection threshold."
+  },
+
+  "ASTM-E2580": {
+    maxSpeedManual: { value: 100, unit: "mm/s" },
+    maxSpeedAutomated: { value: 508, unit: "mm/s" },
+    minOverlap: 25,
+    coverageRequired: 100,
+    calibrationFrequency: "Before inspection, after changes, and per procedure",
+    sensitivityGain: "Reference discontinuity at 80% FSH when applicable",
+    notes: "Composite panel scan speed must satisfy speed <= (1-overlap) * spot size * PRR / averages. Minimum overlap is one-quarter spot/transducer diameter."
+  },
+
+  "ASTM-E588": {
+    maxSpeedManual: { value: 101.6, unit: "mm/s" },
+    maxSpeedAutomated: { value: 101.6, unit: "mm/s" },
+    minOverlap: 0,
+    coverageRequired: 100,
+    calibrationFrequency: "Before inspection and after completion; validate speed within 5%",
+    sensitivityGain: "Set for reliable detection of 1/64\" FBH equivalent inclusions",
+    notes: "Focused immersion scan uses 0.050\" (1.27mm) index. Typical scan speed is 4 in/s with water pH 7.5-8.5 and temperature 19.5-25.5 C."
   },
 
   "AMS-2631": {
@@ -1232,7 +1343,51 @@ const documentationByStandardBase = {
       "Material specification and heat lot",
       "Equipment settings and calibration records",
       "All indications above recording level",
-      "Traceability to reference standards"
+      "Traceability to reference standards",
+      "Part/configuration, class, method, search unit, frequency, water path, gain, scan index, and speed",
+      "Reference standardization checks and drift results"
+    ]
+  },
+
+  "ASTM-E1001": {
+    recordRetentionYears: "Per contract",
+    personnelCertification: "Per written practice or contract",
+    techniqueSheetRequired: true,
+    coverageMapRequired: "Required when scan plan/coverage must be demonstrated",
+    additionalRequirements: [
+      "Part identification and material",
+      "Reference standard and DAC/sensitivity setup",
+      "Search unit frequency, size, focal conditions, and water path",
+      "Scan plan, index, speed, and coverage",
+      "All reportable indications per contractual criteria"
+    ]
+  },
+
+  "ASTM-E2580": {
+    recordRetentionYears: "Per contract",
+    personnelCertification: "NAS 410, SNT-TC-1A, CP-189, or contract requirement",
+    techniqueSheetRequired: true,
+    coverageMapRequired: "Required for C-scan composite panel inspections",
+    additionalRequirements: [
+      "Procedure A pulse-echo or Procedure B through-transmission",
+      "Composite/sandwich panel layup, thickness, and reference standard",
+      "SNR verification, reference discontinuity response, and gain settings",
+      "Spot size, overlap, PRR, averaging, scan speed, and scan index",
+      "Wetting agent/control check records when applicable"
+    ]
+  },
+
+  "ASTM-E588": {
+    recordRetentionYears: "Per quality system or contract",
+    personnelCertification: "Qualified UT operator per purchaser/manufacturer practice",
+    techniqueSheetRequired: true,
+    coverageMapRequired: "Required for inspected volume / cleanliness rating",
+    additionalRequirements: [
+      "Steel heat, lot, specimen identification, and inspected volume",
+      "10 MHz focused immersion transducer and focal length verification",
+      "Water pH and temperature records",
+      "Scan index and speed validation within 5%",
+      "Inclusion counts by severity band and calculated severity rating S"
     ]
   },
 
@@ -1415,11 +1570,38 @@ const calibrationByStandardBase = {
 
   "AMS-2630": {
     referenceBlockMaterial: "Same material specification and heat treatment as part",
-    calibrationInterval: "Before each inspection, every 4 hours, and at completion",
+    calibrationInterval: "Before each part/configuration or shift, and at completion",
     dacCurvePoints: 3,
-    primarySensitivity: "80% FSH on reference reflector",
-    transferCorrection: "Required when surface finish or curvature differs",
-    verificationRequirements: "Consistent with AMS-2631 methodology"
+    primarySensitivity: "Class-specific reference response; maintain standardization within +/-10%",
+    transferCorrection: "Required when surface finish, curvature, attenuation, or water path differs",
+    verificationRequirements: "Shift is <=8 hours. Verify reference drift before/after; water path variation limited to +/-0.25\" (6.4mm)."
+  },
+
+  "ASTM-E1001": {
+    referenceBlockMaterial: "Same or acoustically similar material; curved references within 10% radius when part radius <8\"",
+    calibrationInterval: "Before inspection and after setup changes",
+    dacCurvePoints: 3,
+    primarySensitivity: "Reference echo at 80-90% of upper linear limit",
+    transferCorrection: "Required for surface, curvature, attenuation, or water path differences",
+    verificationRequirements: "Confirm reference echo/noise performance and agreed rejection threshold before production scanning."
+  },
+
+  "ASTM-E2580": {
+    referenceBlockMaterial: "Representative composite/sandwich reference standard with agreed discontinuities",
+    calibrationInterval: "Before inspection, after changes, and per procedure",
+    dacCurvePoints: 1,
+    primarySensitivity: "Reference discontinuity at 80% FSH where applicable; SNR >=3:1",
+    transferCorrection: "Required for layup, thickness, surface, coupling, and attenuation differences",
+    verificationRequirements: "System performance per ASTM E1324/E317 at least yearly; search unit checks per ASTM E1065/E1065M."
+  },
+
+  "ASTM-E588": {
+    referenceBlockMaterial: "Bearing-quality steel reference for 1/64\" FBH equivalent inclusion sensitivity",
+    calibrationInterval: "Before inspection and after completion",
+    dacCurvePoints: 1,
+    primarySensitivity: "Detect/report inclusions >=1/64\" FBH equivalent",
+    transferCorrection: "Control water path/focus and specimen surface condition",
+    verificationRequirements: "10 +/-0.5 MHz focused transducer, 8.2 +/-0.3\" focal length, beam symmetry variation <=15%, PRR >=500 pps."
   },
 
   "AMS-2631": {
@@ -1552,7 +1734,10 @@ export function getDefaultAcceptanceClass(standard: StandardType): string {
     "ASTM-E2375": "A", // Same as AMS-STD-2154E
     "ASTM-E127": "CALIBRATION", // Calibration block standard
     "ASTM-E164": "LEVEL-2", // Standard weld quality
-    "AMS-2630": "A", // Same as AMS-STD-2154E
+    "AMS-2630": "A", // Standard AMS2630E class
+    "ASTM-E1001": "CONTRACT", // Acceptance by contractual agreement
+    "ASTM-E2580": "CONTRACT", // Acceptance by contractual agreement
+    "ASTM-E588": "RATING", // Cleanliness rating, no acceptability limit
     "AMS-2631": "A", // Standard titanium class
     "AMS-2632": "A", // Standard thin materials class
     "EN-ISO-16810": "REFERENCE", // Framework standard
@@ -1575,9 +1760,9 @@ export function getFBHSizeForStandard(
   acceptanceClass: string
 ): string {
   // AMS-STD-2154E / MIL-STD-2154 Table VI single-discontinuity reference sizes are class-based.
-  // ASTM-E2375 and AMS-2630 follow the same class scheme in this application.
+  // ASTM-E2375 follows the same class scheme in this application.
   if (standard === "AMS-STD-2154E" || standard === "MIL-STD-2154" ||
-      standard === "ASTM-E2375" || standard === "AMS-2630") {
+      standard === "ASTM-E2375") {
     const classMap: Record<string, string> = {
       AAA: "1/64\" (0.4mm)",
       AA: "3/64\" (1.2mm)",
@@ -1586,6 +1771,29 @@ export function getFBHSizeForStandard(
       C: "8/64\" (3.2mm)",
     };
     return classMap[acceptanceClass] || classMap["A"];
+  }
+
+  if (standard === "AMS-2630") {
+    const classMap: Record<string, string> = {
+      AA: "LW #3 FBH (1.2mm); angle beam #2 FBH (0.8mm)",
+      A1: "LW/angle beam #3 FBH (1.2mm)",
+      A: "LW/angle beam #5 FBH (2.0mm)",
+      B: "LW/angle beam #8 FBH (3.2mm)",
+      C: "By purchaser/vendor agreement",
+    };
+    return classMap[acceptanceClass] || classMap["A"];
+  }
+
+  if (standard === "ASTM-E1001") {
+    return "Reference reflector and rejection threshold per contract";
+  }
+
+  if (standard === "ASTM-E2580") {
+    return "Representative composite reference discontinuity per engineering requirement";
+  }
+
+  if (standard === "ASTM-E588") {
+    return "1/64\" (0.4mm) FBH equivalent inclusion threshold";
   }
 
   if (standard === "ASTM-A388") {
@@ -1695,6 +1903,26 @@ export function getRecommendedFrequencyForStandard(
     return "2.25-5 MHz";
   }
 
+  if (standard === "AMS-2630") {
+    if (thicknessMm > 50.8) return "2.25 MHz minimum longitudinal (use highest practical)";
+    if (thicknessMm > 25.4) return "2.25-5 MHz";
+    return "5-10 MHz";
+  }
+
+  if (standard === "ASTM-E1001") {
+    if (thicknessMm > 50.8) return "2.25 MHz";
+    if (thicknessMm > 25.4) return "5 MHz";
+    return "5-10 MHz";
+  }
+
+  if (standard === "ASTM-E2580") {
+    return "0.5-20 MHz selected for composite layup and required resolution";
+  }
+
+  if (standard === "ASTM-E588") {
+    return "10 MHz (+/-0.5 MHz)";
+  }
+
   // AMS-2631 - Titanium (lower frequencies for grain scatter)
   if (standard === "AMS-2631") {
     if (thicknessMm > 100) return "2.25 MHz";
@@ -1714,7 +1942,7 @@ export function getRecommendedFrequencyForStandard(
     return "Per referencing product standard";
   }
 
-  // AMS-STD-2154E, MIL-STD-2154, ASTM-E2375, AMS-2630, BS EN 10228-3
+  // AMS-STD-2154E, MIL-STD-2154, ASTM-E2375, BS EN 10228-3
   if (thicknessMm < 12.7) return "10 MHz";
   if (thicknessMm < 25.4) return "5 MHz";
   if (thicknessMm < 50.8) return "2.25 MHz";

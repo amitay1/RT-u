@@ -148,6 +148,27 @@ export const standardRules: Record<StandardType, StandardRules> = {
     scanCoverageDefault: 100,
     linearityRequirements: { vertical: { min: 5, max: 98 }, horizontal: { min: 90 } }
   },
+  "ASTM-E1001": {
+    defaultAcceptanceClass: "CONTRACT", minThickness: 0,
+    typicalFrequencies: ["2.25", "5.0", "10.0", "15.0"],
+    couplantRecommendations: ["Water (Immersion)"],
+    scanCoverageDefault: 100,
+    linearityRequirements: { vertical: { min: 5, max: 98 }, horizontal: { min: 90 } }
+  },
+  "ASTM-E2580": {
+    defaultAcceptanceClass: "CONTRACT", minThickness: 0,
+    typicalFrequencies: ["0.5", "2.25", "5.0", "10.0", "15.0", "20.0"],
+    couplantRecommendations: ["Water (Immersion)", "Water with approved wetting agent"],
+    scanCoverageDefault: 100,
+    linearityRequirements: { vertical: { min: 5, max: 98 }, horizontal: { min: 90 } }
+  },
+  "ASTM-E588": {
+    defaultAcceptanceClass: "RATING", minThickness: 0,
+    typicalFrequencies: ["10.0"],
+    couplantRecommendations: ["Water (Immersion)"],
+    scanCoverageDefault: 100,
+    linearityRequirements: { vertical: { min: 5, max: 98 }, horizontal: { min: 90 } }
+  },
   "ASTM-E127": {
     defaultAcceptanceClass: "A", minThickness: 0,
     typicalFrequencies: ["5.0"],
@@ -164,7 +185,7 @@ export const standardRules: Record<StandardType, StandardRules> = {
   },
   "AMS-2630": {
     defaultAcceptanceClass: "A", minThickness: 12.7,
-    typicalFrequencies: ["2.25", "5.0", "10.0"],
+    typicalFrequencies: ["2.25", "5.0", "10.0", "15.0"],
     couplantRecommendations: ["Water (Immersion)", "Glycerin", "Commercial Gel"],
     scanCoverageDefault: 100,
     linearityRequirements: { vertical: { min: 5, max: 98 }, horizontal: { min: 90 } }

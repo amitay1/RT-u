@@ -1,0 +1,23 @@
+{
+  "purpose": "Cross-standard quick lookup for newly added UT standards.",
+  "standards": {
+    "ASTM-E1001": {
+      "method": "Immersed pulse-echo longitudinal-wave UT",
+      "frequencyMHz": "2.25, 5, 10, 15 nominal table frequencies; selected by material and discontinuity needs",
+      "acceptance": "By contractual agreement",
+      "keyAutoFill": "Immersion, straight-beam, clean/deaerated couplant, scan index based on effective beam diameter, alarm at 50 percent of reference/rejection threshold"
+    },
+    "ASTM-E2580": {
+      "method": "Composite flat panel UT: pulse echo or through transmission",
+      "frequencyMHz": "0.5 to 20",
+      "acceptance": "By contractual agreement",
+      "keyAutoFill": "Composite references, Level III-approved technique record, 3:1 SNR, 25 percent minimum spot/transducer overlap, yearly system linearity/performance"
+    },
+    "ASTM-E588": {
+      "method": "Bearing steel inclusion cleanliness rating by focused immersion UT",
+      "frequencyMHz": "10 +/- 0.5",
+      "acceptance": "No acceptability limits; reports severity/counts",
+      "keyAutoFill": "Focused immersion search unit, 1.27 mm scan index, 101.6 mm/s typical speed, pH 7.5-8.5 water, counts per cubic inch severity"
+    }
+  }
+}

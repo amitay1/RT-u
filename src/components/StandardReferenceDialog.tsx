@@ -31,6 +31,10 @@ export const StandardReferenceDialog = ({
   const pdfByStandard: Partial<Record<StandardType, string>> = {
     "ASTM-A388": "/standards/ASTM_A388.pdf",
     "ASTM-E2375": "/standards/E2375.pdf",
+    "ASTM-E1001": "/standards/ASTM_E1001_21.pdf",
+    "ASTM-E2580": "/standards/ASTM_E2580_24.pdf",
+    "ASTM-E588": "/standards/ASTM_E588_03R20.pdf",
+    "AMS-2630": "/standards/AMS_2630E.pdf",
     "NDIP-1226": "/standards/NDIP_1226_RevF.pdf",
     "NDIP-1227": "/standards/NDIP_1227_RevD.pdf",
     "MIL-STD-2154": "/standards/MIL-STD-2154.pdf",

@@ -344,6 +344,9 @@ function buildFBHTablesFromJSON(): Record<string, Record<string, Record<string, 
     'AMS-STD-2154E': parseMilStd2154FBHTable(),
     'MIL-STD-2154': parseMilStd2154FBHTable(),
     'ASTM-E2375': parseMilStd2154FBHTable(), // Uses same table as AMS
+    'AMS-2630': {
+      '12.7+': { AA: 3, A1: 3, A: 5, B: 8, C: 5 },
+    },
     'ASTM-A388': parseAstmA388FBHTable(),
     'BS-EN-10228-3': parseBsEn10228_3Data(),
     'BS-EN-10228-4': parseBsEn10228_4Data(),
@@ -366,6 +369,10 @@ const MIN_BLOCK_DIMENSIONS: Record<string, { length: number; width: number; heig
   'MIL-STD-2154': { length: 76.2, width: 50.8, height: 25.4 },
   'ASTM-A388': { length: 101.6, width: 76.2, height: 38.1 },         // 4" x 3" x 1.5"
   'ASTM-E2375': { length: 76.2, width: 50.8, height: 25.4 },
+  'ASTM-E1001': { length: 76.2, width: 50.8, height: 25.4 },
+  'ASTM-E2580': { length: 101.6, width: 76.2, height: 25.4 },
+  'ASTM-E588': { length: 76.2, width: 50.8, height: 25.4 },
+  'AMS-2630': { length: 76.2, width: 50.8, height: 25.4 },
   // NOTE: ASTM E127 uses cylindrical blocks (2" / 50.8mm diameter solid aluminum).
   // These rectangular dims are an approximation for layout purposes only.
   'ASTM-E127': { length: 50.8, width: 50.8, height: 50.8 },  // 2" dia cylinder
@@ -396,6 +403,13 @@ function getSurfaceFinishFromStandard(standard: string): { ra: number; note: str
     return {
       ra: 3.2, // 125 μin standard
       note: calReq?.surfaceFinish || '125 μin (3.2 μm) Ra max',
+    };
+  }
+
+  if (standard === 'AMS-2630' || standard === 'ASTM-E1001' || standard === 'ASTM-E2580' || standard === 'ASTM-E588') {
+    return {
+      ra: 3.2,
+      note: 'Surface finish must be suitable for stable ultrasonic coupling and standardization transfer',
     };
   }
 
@@ -490,6 +504,14 @@ const NOTCH_REQUIREMENTS: Record<string, {
     width: 1.5,
     length: 15.0,
     type: 'rectangular',
+  },
+  'AMS-2630': {
+    depthPercent: 10,
+    depthMin: 0.5,
+    depthMax: 2.54,
+    width: 1.0,
+    length: 12.7,
+    type: 'edm',
   },
   'DEFAULT': {
     depthPercent: 10,
@@ -946,6 +968,10 @@ function getFBHNumber(
     return 3;
   }
 
+  if (standard === "ASTM-E588") {
+    return 1;
+  }
+
   // Get FBH table for standard
   const fbhTable = FBH_SIZES_BY_STANDARD[standard] || FBH_SIZES_BY_STANDARD['AMS-STD-2154E'];
 
@@ -1126,6 +1152,10 @@ export function getLoadedStandardsInfo(): Record<string, { source: string; thick
     'ASTM-A388': {
       source: 'standards/processed/astm-a388.json',
       thicknessRanges: Object.keys(FBH_SIZES_BY_STANDARD['ASTM-A388'] || {}),
+    },
+    'AMS-2630': {
+      source: 'standards/processed/ams-2630.json',
+      thicknessRanges: Object.keys(FBH_SIZES_BY_STANDARD['AMS-2630'] || {}),
     },
     'BS-EN-10228-3': {
       source: 'standards/processed/bs-en-10228-3.json',

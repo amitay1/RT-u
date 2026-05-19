@@ -4,20 +4,35 @@ This document provides a professional technical reference for the Scan Master so
 
 The document is intended as a technical reference. It is not a marketing document, not a regulatory certification document, and not a substitute for review by an NDT Level III, quality team, security team, or legal advisor. Its purpose is to show what exists in the system, what is partially implemented, and what should be completed before external production use or enterprise deployment.
 
-## Quick Navigation
+## Categorized Table of Contents / תוכן עניינים לפי קטגוריות
 
-| Topic | Sections |
+Use this section as the main map for the document. The content is organized by category so a reader can jump to the right area without scanning all 64 sections.
+
+השתמש בחלק הזה כמפת ניווט ראשית למסמך. התוכן מסודר לפי קטגוריות כדי שאפשר יהיה להגיע במהירות לנושא הכללי הנכון בלי לעבור על כל 64 הסעיפים.
+
+| Category / קטגוריה | What It Covers / מה זה כולל | Sections / סעיפים |
+| --- | --- | --- |
+| Product and workflow / מוצר וזרימת עבודה | Product purpose, supported documents, user workflow, and core capabilities | [1. Executive Summary](#1-executive-summary), [2. Product Definition](#2-product-definition), [3. Core Capabilities](#3-core-capabilities) |
+| Architecture and code map / ארכיטקטורה ומפת קוד | Application layers, technology stack, main code areas, web/desktop responsibilities, and UI state model | [4. Architecture Overview](#4-architecture-overview), [5. Tech Stack](#5-tech-stack), [6. Key Code Areas](#6-key-code-areas), [7. Web vs Desktop Responsibilities](#7-web-vs-desktop-responsibilities), [8. State and UI Model](#8-state-and-ui-model) |
+| Data, tenancy, and API boundaries / נתונים, ארגונים וגבולות API | Storage, core records, multi-tenant ownership, authentication, backend API, and Supabase responsibilities | [9. Data Storage](#9-data-storage), [10. Multi-Tenant Model](#10-multi-tenant-model), [11. Authentication and Authorization](#11-authentication-and-authorization), [12. API and Backend](#12-api-and-backend), [13. Supabase](#13-supabase) |
+| Security and hardening / אבטחה והקשחה | Existing security layers, production gaps, secrets, validation, XSS/CSP, Electron, and CAD/Python risk | [14. Existing Security Layers](#14-existing-security-layers), [15. Security Gaps Before Production](#15-security-gaps-before-production), [16. Secrets and Sensitive Files](#16-secrets-and-sensitive-files), [17. SQL Injection and Input Validation](#17-sql-injection-and-input-validation), [18. XSS and CSP](#18-xss-and-csp), [19. Electron Security](#19-electron-security), [20. CAD and Python Engine](#20-cad-and-python-engine) |
+| Commercial, release, and operations / מסחר, הפצה ותפעול | Licensing, payments, installer, download gate, privacy, logs, retention, backups, telemetry, and license behavior | [21. Licensing](#21-licensing), [22. Payments](#22-payments), [23. Updates and Installer](#23-updates-and-installer), [24. Download Gate](#24-download-gate), [25. Privacy, Logs, and Retention](#25-privacy-logs-and-retention), [34. Disaster Recovery and Backups](#34-disaster-recovery-and-backups), [35. Telemetry and Crash Reports](#35-telemetry-and-crash-reports), [36. License Expiry and Revocation](#36-license-expiry-and-revocation) |
+| Quality and repository readiness / איכות ומוכנות קוד | Tests, dependency audit, CI/CD, repository hygiene, and handoff readiness | [26. Quality and Tests](#26-quality-and-tests), [27. Dependency Audit](#27-dependency-audit), [28. CI/CD](#28-cicd), [29. Repository Hygiene](#29-repository-hygiene) |
+| NDT/Aerospace readiness / מוכנות NDT ותעופה | Compliance positioning, audit trail, standards versioning, residency/export control, concurrent editing, equipment, evidence, and enterprise integrations | [30. NDT/Aerospace Compliance Positioning](#30-ndtaerospace-compliance-positioning), [31. Audit Trail and Signed Reports](#31-audit-trail-and-signed-reports), [32. Standards Versioning](#32-standards-versioning), [33. Data Residency, ITAR, Export Control, and GDPR](#33-data-residency-itar-export-control-and-gdpr), [37. Concurrent Editing](#37-concurrent-editing), [38. Instrument Integration](#38-instrument-integration), [39. Customer-Supplied Standards](#39-customer-supplied-standards), [40. Units and Internationalization](#40-units-and-internationalization), [41. Calibration Traceability](#41-calibration-traceability), [42. Image and Evidence Handling](#42-image-and-evidence-handling), [43. PLM, MES, and QMS Integration](#43-plm-mes-and-qms-integration) |
+| CSI / ScanMaster integration / אינטגרציית CSI / ScanMaster | Existing integration foundation, system boundaries, file/API requirements, robot/machine data, workflow, safety, pilot criteria, and requests to ScanMaster | [44. CSI / ScanMaster Robot Integration Overview](#44-csi-scanmaster-robot-integration-overview), [45. Existing CSI-Relevant Components](#45-existing-csi-relevant-components), [46. MCIO Instrument Window Reference](#46-mcio-instrument-window-reference), [47. System Boundary](#47-system-boundary), [48. Integration Levels](#48-integration-levels), [49. Required Information About CSI / Setup File Format](#49-required-information-about-csi-setup-file-format), [50. Required Information About Communication/API](#50-required-information-about-communicationapi), [51. Required Information About Robot, Machine, and Axes](#51-required-information-about-robot-machine-and-axes), [52. Required Information About UT Acquisition](#52-required-information-about-ut-acquisition), [53. Operator Workflow](#53-operator-workflow), [54. Results Import](#54-results-import), [55. Safety and Dry-Run](#55-safety-and-dry-run), [56. Pilot Acceptance Criteria](#56-pilot-acceptance-criteria), [57. Business and Technical Value of Integration](#57-business-and-technical-value-of-integration), [58. Technical Requests to ScanMaster](#58-technical-requests-to-scanmaster) |
+| Gaps, plan, and references / פערים, תוכנית ומקורות | Strengths, known gaps, closure plan, follow-up file map, references, and document status | [59. Strengths](#59-strengths), [60. Known Gaps](#60-known-gaps), [61. Recommended Closure Plan](#61-recommended-closure-plan), [62. File Map for Follow-Up Questions](#62-file-map-for-follow-up-questions), [63. Official References](#63-official-references), [64. Document Status](#64-document-status) |
+
+## Quick Topic Finder / איתור מהיר לפי נושא
+
+| If You Need / אם צריך | Go To / עבור אל |
 | --- | --- |
-| System overview | 1-3 |
-| Architecture and technologies | 4-8 |
-| Data, permissions, and storage | 9-13 |
-| Security and production hardening | 14-20 |
-| Licensing, payments, updates, and distribution | 21-25 |
-| Code quality, tests, and CI | 26-29 |
-| NDT/Aerospace readiness | 30-43 |
-| CSI / ScanMaster Robot integration | 44-58 |
-| Known gaps and closure plan | 59-61 |
-| File map and references | 62-64 |
+| Understand what the software does / להבין מה התוכנה עושה | Sections 1-3 |
+| Find where a feature lives in code / למצוא איפה פיצ'ר נמצא בקוד | Sections 6 and 62 |
+| Review security before production / לבדוק אבטחה לפני פרודקשן | Sections 14-20 and 60-61 |
+| Prepare for customer or enterprise handoff / להתכונן למסירה ללקוח או לארגון | Sections 25-29, 34-36, and 60-61 |
+| Check NDT/Aerospace traceability requirements / לבדוק דרישות עקיבות ל-NDT ותעופה | Sections 30-43 |
+| Work on CSI / ScanMaster integration / לעבוד על אינטגרציית CSI / ScanMaster | Sections 44-58 |
+| Decide what to fix first / להחליט מה לתקן קודם | Sections 15, 60, and 61 |
 
 ## 1. Executive Summary
 
@@ -64,6 +79,22 @@ The system should be positioned as a decision-support, documentation, and tracea
 | Licensing | License key, offline license, and activation foundations. |
 | Distribution | Download gate and desktop packaging foundations. |
 | CSI foundation | Initial setup export and integration planning code. |
+
+### Main Workflow Map / מפת זרימת עבודה ראשית
+
+This workflow map is included because it connects the product capabilities to the real user journey. It is not a new feature claim; it is a categorized reading map for how the existing software pieces fit together.
+
+מפת זרימה זו נוספה כדי לחבר בין יכולות המוצר לבין המסלול המעשי של המשתמש. זו אינה הצהרת פיצ'ר חדשה, אלא מפת קריאה שמסדרת איך החלקים הקיימים בתוכנה מתחברים.
+
+| Step / שלב | Workflow Area / אזור עבודה | Typical Data / מידע טיפוסי | Main Output / תוצר עיקרי |
+| --- | --- | --- | --- |
+| 1 | Project and part setup / הגדרת פרויקט וחלק | Customer, part number, material, dimensions, drawing, revision | Controlled inspection context |
+| 2 | Standard and procedure selection / בחירת תקן ונוהל | AMS/ASTM/BS-EN/MIL/NDIP/customer procedure, revision, acceptance class | Applicable rule context |
+| 3 | Equipment and calibration / ציוד וכיול | Instrument, probe, wedge, couplant, calibration block, certificates | Traceable setup basis |
+| 4 | Scan planning / תכנון סריקה | Method, scan type, path, speed, index, water path, gates, DAC/TCG | Technique Sheet setup |
+| 5 | Documentation and review / תיעוד ובדיקה | Inspector, qualification, notes, drawings, evidence, checklist | Review-ready document |
+| 6 | Export and approval / יצוא ואישור | PDF/DOCX package, revision metadata, signatures when available | Technique Sheet or Inspection Report |
+| 7 | Future integration / אינטגרציה עתידית | CSI setup export, result import, scan metadata | Machine setup traceability path |
 
 ## 4. Architecture Overview
 
@@ -127,6 +158,21 @@ The architecture is pragmatic and product-oriented: the frontend contains signif
 
 Electron provides important product value, but it also increases the security responsibility. The preload bridge, IPC handlers, local server, update mechanism, and file access paths must remain narrow and audited.
 
+### Operating Modes and Environments / מצבי הפעלה וסביבות
+
+The document should distinguish between operating modes because the same feature can have different risk in browser, desktop, offline, staging, and production contexts.
+
+המסמך צריך להבדיל בין מצבי הפעלה, כי אותו פיצ'ר יכול להיות בעל סיכון שונה בדפדפן, בדסקטופ, באופליין, בסטייג'ינג ובפרודקשן.
+
+| Mode / מצב | Purpose / מטרה | Production Expectation / ציפייה לפרודקשן |
+| --- | --- | --- |
+| Local development / פיתוח מקומי | Developer testing, mock flows, fast iteration | Must not be confused with customer production behavior |
+| Web app / אפליקציית Web | Browser-based customer workflow | Auth, RLS, API authorization, CSP, and storage policies enforced |
+| Electron desktop / דסקטופ Electron | Local desktop workflow and controlled file access | Hardened preload, signed builds, offline policy, local data protection |
+| Offline desktop / דסקטופ אופליין | Work where network access is limited | Signed offline license, local backup/export path, clear sync limitations |
+| Staging / סביבת בדיקות | Customer-like validation before release | Separate data, separate secrets, release smoke testing |
+| Production / פרודקשן | Real customer data and commercial usage | No mock auth, rotated secrets, audit logging, monitored backups |
+
 ## 8. State and UI Model
 
 The UI is built around React contexts, hooks, and domain-specific components. The application contains many form sections and report generation flows, with domain calculations embedded in utility layers.
@@ -158,6 +204,24 @@ Production usage should define a clear data classification model:
 | Standards and procedures | Licensed or customer confidential |
 | Logs and crash data | May contain PII or controlled data |
 | License records | Commercial and operational |
+
+### Core Records and Traceability Map / מפת רשומות ועקיבות
+
+This is a practical data map for product and audit discussions. It reflects the main record types already represented by the codebase or product workflow, and highlights what each record must stay linked to.
+
+זו מפת נתונים שימושית לדיוני מוצר וביקורת. היא משקפת את סוגי הרשומות המרכזיים שכבר קיימים בקוד או בזרימת העבודה, ומדגישה למה כל רשומה צריכה להיות מקושרת.
+
+| Record / רשומה | Purpose / מטרה | Must Link To / חייב להיות מקושר אל |
+| --- | --- | --- |
+| Organization / ארגון | Customer or tenant boundary | Users, sheets, standards access, licenses, equipment |
+| User and inspector profile / משתמש ופרופיל בודק | Identity, qualification, and signature metadata | Organization, certification, approvals, report events |
+| Technique Sheet / כרטיס טכניקה | Planned inspection setup | Part, standard revision, equipment, calibration, scan parameters |
+| Inspection Report / דוח בדיקה | Final inspection record | Technique Sheet, evidence, results, inspector, approval state |
+| Standard or procedure / תקן או נוהל | Rule source for auto-fill and acceptance logic | Revision, effective date, rule snapshot, approval owner |
+| Equipment / ציוד | Instruments, probes, wedges, blocks, and related assets | Calibration status, serial number, certificates, usage history |
+| License and activation / רישיון ואקטיבציה | Commercial entitlement and offline access | Organization, device, purchased standards, expiry/revocation state |
+| Export artifact / קובץ יצוא | PDF/DOCX/CSI/export package | Source record, revision, timestamp, signer, hash when required |
+| Audit event / אירוע ביקורת | Evidence of important action or change | Actor, organization, record, timestamp, before/after state |
 
 ## 10. Multi-Tenant Model
 
@@ -365,6 +429,20 @@ Logs and crash data can contain sensitive customer information. A production pol
 - Export and deletion requests.
 - Support access logging.
 
+### Support, Diagnostics, and Recovery / תמיכה, דיאגנוסטיקה ושחזור
+
+The codebase includes diagnostics and recovery-oriented pieces, so the production documentation should define what support data can be collected and how it is handled.
+
+בקוד קיימים חלקים שקשורים לדיאגנוסטיקה ושחזור, ולכן תיעוד הפרודקשן צריך להגדיר איזה מידע תמיכה אפשר לאסוף ואיך מטפלים בו.
+
+| Area / תחום | Required Definition / הגדרה נדרשת |
+| --- | --- |
+| Diagnostic export / יצוא דיאגנוסטיקה | Exact fields included, redaction rules, and customer approval flow |
+| Crash recovery / שחזור מקריסה | What is saved locally, how long it remains, and how users restore work |
+| Support access / גישת תמיכה | Who can access customer records, under what approval, and how access is logged |
+| Update recovery / שחזור אחרי עדכון | How drafts are preserved before update install and restored after restart |
+| Incident response / טיפול באירוע | Owner, severity levels, customer notification, and remediation record |
+
 ## 26. Quality and Tests
 
 Current validation includes passing tests and typecheck. Additional production quality coverage should include:
@@ -448,6 +526,21 @@ Required model:
 
 Current state should be treated as a foundation, not a complete immutable records system.
 
+### Document Lifecycle / מחזור חיים של מסמך
+
+Technique Sheets and Inspection Reports should have an explicit lifecycle so users, auditors, and developers understand when a record is editable and when it becomes controlled.
+
+לכרטיסי טכניקה ולדוחות בדיקה צריך להיות מחזור חיים ברור כדי שמשתמשים, מבקרים ומפתחים יבינו מתי רשומה ניתנת לעריכה ומתי היא הופכת למסמך מבוקר.
+
+| State / מצב | Meaning / משמעות | Expected Controls / בקרות נדרשות |
+| --- | --- | --- |
+| Draft / טיוטה | Work in progress | Editable, autosave allowed, validation warnings visible |
+| Review / בבדיקה | Ready for internal technical check | Changes tracked, reviewer identity recorded |
+| Approved / מאושר | Accepted for use or issue | Approval metadata, revision, and signer captured |
+| Locked / נעול | Controlled record | No silent edits; changes require new revision or controlled unlock |
+| Revised / גרסה חדשה | Superseded by an updated record | Old revision preserved and linked to replacement |
+| Exported / יוצא לקובץ | PDF/DOCX/CSI artifact created | Export timestamp, format, source record, and hash when required |
+
 ## 32. Standards Versioning
 
 When a sheet is created using a specific standard revision, that revision must remain attached to the record even if the standard changes later.
@@ -463,6 +556,20 @@ Required data:
 - Review/approval owner.
 
 This is critical for AMS/ASTM/customer procedure traceability.
+
+### Calculation and Rule Governance / ניהול חישובים וכללים
+
+Because the software includes domain calculations and standard-based recommendations, production use should define how calculation logic is reviewed, versioned, and approved.
+
+מכיוון שהתוכנה כוללת חישובים מקצועיים והמלצות לפי תקנים, שימוש בפרודקשן צריך להגדיר איך לוגיקת החישוב נבדקת, מקבלת גרסה ומאושרת.
+
+| Item / פריט | Required Control / בקרה נדרשת |
+| --- | --- |
+| Formula source / מקור נוסחה | Link each calculation to a standard, procedure, engineering note, or Level III decision |
+| Versioning / ניהול גרסאות | Preserve the calculator or rule version used when a sheet is generated |
+| Review owner / בעל אישור | Assign technical review to a qualified owner before customer release |
+| Test fixtures / נתוני בדיקה | Keep golden examples for common materials, thicknesses, probes, gates, DAC/TCG, and acceptance classes |
+| Manual override / שינוי ידני | Record who changed a recommended value, when, why, and from what original value |
 
 ## 33. Data Residency, ITAR, Export Control, and GDPR
 
@@ -882,7 +989,7 @@ Required information from ScanMaster before real integration:
 | Field | Status |
 | --- | --- |
 | Document type | Technical and architectural software reference |
-| Language | English |
+| Language | English, with bilingual English/Hebrew navigation and selected added notes |
 | Includes MCI/O image | Yes, from `MCIO Instrument Manual GB50010130.pdf` |
 | Includes download gate access code | No |
 | Suitable for printing/sharing | Yes, if treated as a known-gaps and hardening reference |

@@ -93,7 +93,11 @@ interface Stats {
 
 const AVAILABLE_STANDARDS = {
   'AMS': { code: 'AMS-STD-2154E', name: 'Aerospace Material Specification', price: 500 },
+  'AMS2630': { code: 'AMS-2630', name: 'AMS 2630 Product Over 0.5 Inch Thick', price: 500 },
   'ASTM': { code: 'ASTM-A388', name: 'Steel Forgings', price: 500 },
+  'ASTM_E1001': { code: 'ASTM-E1001', name: 'Immersion Pulse-Echo UT', price: 500 },
+  'ASTM_E2580': { code: 'ASTM-E2580', name: 'Composite Panel UT', price: 500 },
+  'ASTM_E588': { code: 'ASTM-E588', name: 'Bearing Steel Cleanliness', price: 500 },
   'BS3': { code: 'BS-EN-10228-3', name: 'European Steel Standards Part 3', price: 500 },
   'BS4': { code: 'BS-EN-10228-4', name: 'European Steel Standards Part 4', price: 500 },
   'MIL': { code: 'MIL-STD-2154', name: 'Military Standard', price: 800 },
@@ -113,7 +117,7 @@ export default function LicenseDashboard() {
     factoryName: "",
     contactEmail: "",
     contactPhone: "",
-    standards: ["AMS", "ASTM", "BS3", "BS4", "MIL"],
+    standards: ["AMS", "AMS2630", "ASTM", "ASTM_E1001", "ASTM_E2580", "ASTM_E588", "BS3", "BS4", "MIL"],
     isLifetime: true,
     expiryDate: "",
     maxActivations: 3,

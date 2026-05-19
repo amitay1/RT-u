@@ -1,0 +1,147 @@
+{
+  "standard": {
+    "id": "AMS-2630",
+    "name": "AMS2630",
+    "title": "Inspection, Ultrasonic - Product Over 0.5 Inch (12.7 mm) Thick",
+    "revision": "E",
+    "issued": "1960-06",
+    "revised": "2021-11",
+    "supersedes": "AMS2630D",
+    "category": "Aerospace Ultrasonic Testing",
+    "sourcePdf": "standards/pdfs/AMS-2630E.pdf",
+    "publicPdf": "/standards/AMS_2630E.pdf"
+  },
+  "scope": {
+    "method": "Pulse-echo ultrasonic inspection",
+    "productForms": ["flat", "rectangular", "round", "cylindrical", "contoured", "finished machined parts when testable"],
+    "thickness": {
+      "minInch": 0.5,
+      "minMm": 12.7
+    },
+    "modes": ["longitudinal wave", "shear wave", "combined longitudinal/shear"],
+    "techniques": ["contact", "immersion", "bubbler", "collimator", "squirter", "ultrasonic wheel"]
+  },
+  "qualification": {
+    "personnel": ["NAS410", "SNT-TC-1A when specified", "A4A Spec 105 when specified"],
+    "facility": "Subject to purchaser survey and approval; equipment, references, couplants, fixtures, and tanks are available on request."
+  },
+  "equipment": {
+    "instrumentRequirements": {
+      "signalToNoise": "2:1 using ASTM E127 reference block 1-0300",
+      "verticalLinearityPercentFullScaleMax": 5,
+      "horizontalLinearityPercentFullScaleMax": 3,
+      "gainAccuracy": "+/-2 dB per 20 dB control range",
+      "voltageRegulationAmplitudeVariationMaxPercent": 5
+    },
+    "immersionTransducers": {
+      "diameterRangeInch": "3/8 to 1",
+      "diameterRangeMm": "9.5 to 25.4",
+      "rectangularAreaMaxIn2": 1
+    },
+    "contactTransducers": {
+      "longitudinalAreaMaxIn2": 1,
+      "longitudinalDimensionRangeInch": "1/2 to 1-1/8",
+      "shearAcceptedSizes": ["1 in2", "1 x 1/2 in"]
+    },
+    "frequency": {
+      "selectionRule": "Use the highest practical frequency that provides required penetration and resolution.",
+      "longitudinalMinMHzWithoutAgreement": 2.25,
+      "shearMinMHzWithoutAgreement": 1.0
+    },
+    "beamProfile": {
+      "focalLengthVerification": "Annual verification when focal length is used to set water path without setup verification.",
+      "focalLengthToleranceMaxPercent": 20,
+      "roundTransducerBeamWidthRatioMin": "0.75:1 at -6 dB points in two directions 90 deg apart"
+    },
+    "angleBeamContact": {
+      "angleToleranceDeg": 3,
+      "referenceBlock": "IIW block or appropriate substitute"
+    }
+  },
+  "couplant": {
+    "immersion": "Tap water permitted; other fluids specified by procedure. Fluid must be free of visible air bubbles and excessive attenuation.",
+    "contact": "Must not injure the product and must be approved in procedure.",
+    "viscosityGuide": [
+      { "surfaceRaMicroInch": "5-100", "surfaceRaMicron": "0.1-2.5", "couplant": "SAE 10" },
+      { "surfaceRaMicroInch": "50-125", "surfaceRaMicron": "1.2-3.2", "couplant": "SAE 20" },
+      { "surfaceRaMicroInch": "100-200", "surfaceRaMicron": "2.5-5.1", "couplant": "SAE 30" }
+    ]
+  },
+  "procedureControls": {
+    "writtenProcedureRequired": true,
+    "procedureMinimumContent": [
+      "Specific product or part number, fabrication stage, surface condition, and configuration",
+      "Instrumentation, recording equipment, fixtures, tanks, manipulators, and coupling means",
+      "Ultrasonic references and standardization procedure",
+      "Testing plan, recording procedure, scanning plan, sensitivity, interpretation method, and relationship to references",
+      "Testing facility name and address"
+    ],
+    "systemStandardization": {
+      "initialReferenceAmplitudePercentDisplay": "20 to 90",
+      "standardizationCheck": "Before each part configuration or shift and at completion of each lot or shift",
+      "shiftMaxHours": 8,
+      "allowedReferenceDriftPercent": 10,
+      "undersensitiveAction": "Reinspect material since last standardization if response is more than 10 percent undersensitive.",
+      "oversensitiveAction": "Rejected indications since last standardization may be re-evaluated if response is more than 10 percent oversensitive."
+    }
+  },
+  "scanParameters": {
+    "immersion": {
+      "straightBeamNormalityToleranceDeg": 2,
+      "angleBeamEntryAngleToleranceDeg": 2,
+      "waterPathVariationToleranceInch": 0.25,
+      "waterPathVariationToleranceMm": 6.4
+    },
+    "contactAngleBeam": {
+      "entryAngleChangeLimitDeg": 3
+    },
+    "dac": {
+      "recommended": true,
+      "displayCurveSignalRangePercent": "20 to 80",
+      "typicalVerticalLimitPercent": 80
+    },
+    "electronicGating": {
+      "requiredForImmersion": true,
+      "minimumDetectionCountN": 2,
+      "speedEquationWithMonitorCount": "S = EBW * PRR / (N * C)",
+      "speedEquationWithoutMonitorCount": "S = EBWS * PRR"
+    },
+    "scanIndex": {
+      "basis": "Smallest effective beam width measured at planned gain, water travel, and alarm level.",
+      "defaultMaxPercentEBW": 70,
+      "documentedCoverageMaxPercentEBW": 80,
+      "alarmLevelMaxPercentReferenceResponse": 80
+    },
+    "scanSpeed": {
+      "manualMaxInPerSec": 6,
+      "manualMaxMmPerSec": 152.4,
+      "automatedDefaultMaxInPerSec": 20,
+      "automatedDefaultMaxMmPerSec": 508,
+      "higherSpeedCondition": "Permitted when PRR/coverage criteria are defined or dynamic reference check is performed."
+    },
+    "manualScanningGain": "Add 6 dB to reference gain when manually monitoring internal discontinuity amplitudes, unless noise exceeds alarm level."
+  },
+  "acceptanceClasses": {
+    "longitudinalFBH": {
+      "AA": { "single": "#3 / 1.2 mm", "multiple": "#1 / 0.4 mm or 11% of #3", "linear": "#1 response for 0.12 in / 3.0 mm", "backReflectionLossMaxPercent": 50 },
+      "A1": { "single": "#3 / 1.2 mm", "multiple": "#2 / 0.8 mm or 44% of #3", "linear": "#2 response for 1.00 in / 25 mm", "backReflectionLossMaxPercent": 50 },
+      "A": { "single": "#5 / 2.0 mm", "multiple": "#3 / 1.2 mm", "linear": "#3 response for 1.00 in / 25 mm", "backReflectionLossMaxPercent": 50 },
+      "B": { "single": "#8 / 3.2 mm", "multiple": "#5 / 2.0 mm", "linear": "#5 response for 1.00 in / 25 mm", "backReflectionLossMaxPercent": 50 },
+      "C": { "criteria": "Established by purchaser and vendor for specific part" }
+    },
+    "angleBeamFBH": {
+      "AA": { "single": "#2 / 0.8 mm", "multiple": "50% of #2 response", "linear": "50% of #2 response for 0.12 in / 3.0 mm" },
+      "A1": { "single": "#3 / 1.2 mm", "multiple": "#2 / 0.8 mm", "linear": "#2 response for 0.25 in / 6.4 mm" },
+      "A": { "single": "#5 / 2.0 mm", "multiple": "#3 / 1.2 mm", "linear": "#3 response for 0.50 in / 12.7 mm" },
+      "B": { "single": "#8 / 3.2 mm", "multiple": "#5 / 2.0 mm", "linear": "#5 response for 1.00 in / 25.4 mm" },
+      "C": { "criteria": "Established by purchaser and vendor for specific part" }
+    },
+    "multipleIndicationSpacing": "Multiple discontinuities above the listed reference are unacceptable when centers of any two are less than 1 in / 25 mm apart.",
+    "backReflectionLoss": "Unsaturated back-reflection loss greater than 50 percent is unacceptable when accompanied by internal signal increase at least twice normal background noise.",
+    "notchesOrSDH": "Classes for angle beam using notches or SDH are by purchaser/vendor agreement."
+  },
+  "systemUse": {
+    "correctedClassSet": ["AA", "A1", "A", "B", "C"],
+    "notes": "This extracted class set replaces the previous generic AAA/AA/A/B/C assumption for AMS-2630."
+  }
+}

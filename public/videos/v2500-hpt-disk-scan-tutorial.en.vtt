@@ -1,0 +1,150 @@
+WEBVTT
+
+NOTE V2500 HPT Disk Stage 1 — Immersion Scan Tutorial
+NOTE Language: English (en)
+NOTE Source: Rachel narration via ElevenLabs eleven_multilingual_v2
+
+1
+00:00:00.300 --> 00:00:03.500
+V2500 HPT Disk · Stage 1.
+
+2
+00:00:03.500 --> 00:00:07.000
+Immersion scan plan — a full walkthrough.
+
+3
+00:00:07.580 --> 00:00:10.500
+Step 1. Setup the immersion tank.
+
+4
+00:00:10.500 --> 00:00:13.500
+Mount the disk on the turntable, fill the tank,
+
+5
+00:00:13.500 --> 00:00:16.500
+and position the probe at an 8-inch water path.
+
+6
+00:00:16.970 --> 00:00:19.500
+Step 2. Open the scan plan.
+
+7
+00:00:19.500 --> 00:00:22.500
+Select the V2500 Stage 1 preset —
+
+8
+00:00:22.500 --> 00:00:26.000
+five zones populate automatically from procedure NDIP 1226.
+
+9
+00:00:26.210 --> 00:00:29.000
+Step 3. Anatomy of the disk.
+
+10
+00:00:29.000 --> 00:00:31.000
+Five inspection zones —
+
+11
+00:00:31.000 --> 00:00:33.000
+E, the upper web transition.
+
+12
+00:00:33.000 --> 00:00:34.500
+A, the upper chamfer.
+
+13
+00:00:34.500 --> 00:00:36.000
+B, the upper land.
+
+14
+00:00:36.000 --> 00:00:37.500
+C, the bore entry.
+
+15
+00:00:37.500 --> 00:00:38.300
+D, the bore inner diameter.
+
+16
+00:00:38.410 --> 00:00:41.500
+Step 4. Zone E plus 45-degree pass.
+
+17
+00:00:41.500 --> 00:00:45.500
+The probe approaches at plus 45 degrees,
+the disk rotates 360,
+
+18
+00:00:45.500 --> 00:00:49.500
+and the probe steps radially in two-hundredths-inch increments.
+
+19
+00:00:49.500 --> 00:00:53.000
+Every position is logged into the C-scan.
+
+20
+00:00:53.180 --> 00:00:56.500
+Step 5. Zone E minus 45-degree pass.
+
+21
+00:00:56.500 --> 00:01:00.500
+The mirror flips, and we repeat the sweep in the opposite direction
+
+22
+00:01:00.500 --> 00:01:02.700
+for full bidirectional coverage.
+
+23
+00:01:02.810 --> 00:01:06.500
+Step 6. Zones A through D.
+
+24
+00:01:06.500 --> 00:01:10.500
+Each zone is scanned twice, plus and minus 45 degrees —
+
+25
+00:01:10.500 --> 00:01:14.500
+ten passes in total.
+
+26
+00:01:14.640 --> 00:01:17.500
+Step 7. Live C-scan capture.
+
+27
+00:01:17.500 --> 00:01:21.500
+The colormap builds up as the probe moves —
+
+28
+00:01:21.500 --> 00:01:25.500
+peak amplitude per position, indications above 20% FSH are flagged.
+
+29
+00:01:25.500 --> 00:01:27.700
+Watch the data come in.
+
+30
+00:01:27.780 --> 00:01:31.000
+Inspection results.
+
+31
+00:01:31.000 --> 00:01:35.000
+Five C-scan strips, one per zone —
+
+32
+00:01:35.000 --> 00:01:38.300
+no reportable indications, this disk is clean.
+
+33
+00:01:38.410 --> 00:01:41.500
+Step 8. Save the scan data.
+
+34
+00:01:41.500 --> 00:01:45.400
+Enter the part serial number and click Save.
+
+35
+00:01:45.540 --> 00:01:48.000
+Inspection complete.
+
+36
+00:01:48.000 --> 00:01:50.000
+Five zones, ten passes, zero indications.

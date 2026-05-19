@@ -20,6 +20,8 @@ import {
 import mammoth from 'mammoth';
 import { VideoPlayer } from "@/components/training/VideoPlayer";
 import { getVideoBySlug } from "@/data/videoCatalog";
+import { V2500ScanSimulator } from "@/components/scanning/V2500ScanSimulator";
+import { Plane } from "lucide-react";
 
 /**
  * Map a Scan-Plan document → its companion training video slug.
@@ -31,7 +33,22 @@ import { getVideoBySlug } from "@/data/videoCatalog";
 const DOCUMENT_VIDEO_MAP: Record<string, string> = {
   "scan-plan-guide": "tube-scan-plan-tcg-calibration",
   "tcg-shear-wave-calibration": "angle-beam-tcg-calibration-shear-wave",
+  // V2500 Stage 1 HPT disk — companion to the immersion scan tutorial (id 103)
+  "v2500-hpt-disk-stage-1": "v2500-hpt-disk-scan-tutorial",
+  "ndip-1226": "v2500-hpt-disk-scan-tutorial",
+  "ndip-1226-rev-f": "v2500-hpt-disk-scan-tutorial",
 };
+
+/**
+ * Heuristic: does an active scan-plan document refer to the V2500 Stage 1 HPT
+ * disk immersion procedure? Triggers the embedded interactive simulator.
+ */
+function isV2500ScanPlan(docs: { filePath: string; title: string; description: string }[]): boolean {
+  return docs.some((d) => {
+    const blob = `${d.filePath} ${d.title} ${d.description}`.toLowerCase();
+    return /\bv2500\b|\bndip-?1226\b|\bhpt\s*(disk|stage\s*1)\b/.test(blob);
+  });
+}
 
 function videoSlugForDocument(filePath: string): string | undefined {
   // Strip directories and extension: "/documents/scan-plan-guide.docx" -> "scan-plan-guide"
@@ -136,6 +153,14 @@ export const ScanPlanTab = ({ data, onChange }: ScanPlanTabProps) => {
     setOpenDocs(prev => ({ ...prev, [docId]: !prev[docId] }));
   };
 
+  // Hooks must be called in the same order every render — keep them above any
+  // conditional return. Detect whether the simulator should show.
+  const showV2500Simulator = isV2500ScanPlan(activeDocuments);
+  const [simOpen, setSimOpen] = useState<boolean>(false);
+  useEffect(() => {
+    if (showV2500Simulator) setSimOpen(true);
+  }, [showV2500Simulator]);
+
   if (activeDocuments.length === 0) {
     return (
       <div className="flex flex-col gap-2 p-2">
@@ -152,6 +177,39 @@ export const ScanPlanTab = ({ data, onChange }: ScanPlanTabProps) => {
 
   return (
     <div className="flex flex-col gap-3 p-2">
+      {showV2500Simulator && (
+        <Collapsible open={simOpen} onOpenChange={setSimOpen}>
+          <Card className="overflow-hidden border-cyan-400/40 bg-gradient-to-br from-slate-950 to-slate-900">
+            <CollapsibleTrigger className="w-full">
+              <div className="flex items-center justify-between p-4 hover:bg-cyan-950/30 transition-colors cursor-pointer border-b border-cyan-900/40">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-cyan-600 rounded-lg">
+                    <Plane className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-lg text-cyan-300">
+                      ✈ V2500 HPT Disk — Interactive Scan Simulator
+                    </h3>
+                    <p className="text-sm text-slate-400">
+                      Interactive 3D rehearsal of the immersion scan · 5 zones · ±45° shear wave · 10 passes
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`h-6 w-6 text-cyan-300 transition-transform duration-300 ${
+                    simOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="p-3">
+                <V2500ScanSimulator />
+              </div>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
       {activeDocuments.map((doc) => {
         const companionVideo = (() => {
           const slug = videoSlugForDocument(doc.filePath);

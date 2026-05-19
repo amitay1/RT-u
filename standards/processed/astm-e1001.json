@@ -1,0 +1,93 @@
+{
+  "standard": {
+    "id": "ASTM-E1001",
+    "name": "ASTM E1001",
+    "title": "Detection and Evaluation of Discontinuities by the Immersed Pulse-Echo Ultrasonic Method Using Longitudinal Waves",
+    "revision": "2021",
+    "category": "Immersion Ultrasonic Testing",
+    "sourcePdf": "standards/pdfs/ASTM-E1001-21.pdf",
+    "publicPdf": "/standards/ASTM_E1001_21.pdf"
+  },
+  "scope": {
+    "method": "Immersed pulse-echo longitudinal-wave UT using one search unit as transmitter and receiver.",
+    "coverage": "General requirements for detecting discontinuities and relative or approximate sizing.",
+    "exclusions": "Does not define acceptance criteria; reporting and acceptance are contractual."
+  },
+  "equipment": {
+    "frequencyTableNominalsMHz": [2.25, 5.0, 10.0, 15.0],
+    "minimumEchoCapability": "At least 60 percent full scale from the specified reference reflector at part thickness; noise not greater than 20 percent.",
+    "searchUnits": "Immersion straight-beam longitudinal search units with flat or focused acoustic lenses.",
+    "alarm": "Audible alarm preferred for regular shapes and parallel surfaces unless recording equipment is used.",
+    "manipulation": "Manipulator supports angular adjustment and smooth, accurate positioning with agreed backlash limits.",
+    "referenceStandards": {
+      "materialSimilarity": "Attenuation, noise, surface condition, and velocity should be similar to examined material.",
+      "flatBlocks": "ASTM E127 area-amplitude, distance-amplitude, or combined sets may be used where empirically valid.",
+      "curvedSurfaces": "For radii under about 8 in / 203 mm, reference blocks must be within 10 percent of the part radius.",
+      "reflectors": ["FBH", "seeded voids/inclusions for ceramics", "other agreed artificial discontinuities"]
+    }
+  },
+  "examinationRequirements": {
+    "materialCondition": "Surfaces must permit uniform examination; smooth rough areas when roughness prevents required detection and evaluation.",
+    "coverage": "Scan index must be less than effective beam length at any depth and must support repeatable response from required discontinuity length.",
+    "resolution": "If entry-surface resolution or one-side penetration is insufficient, examine from the opposite side.",
+    "frequencySelection": "Higher frequencies improve beam directivity and resolution; lower frequencies improve penetration and detection of misaligned planar discontinuities."
+  },
+  "setupAndStandardization": {
+    "couplant": "Clean, deaerated liquid couplant; corrosion inhibitors and wetting agents permitted if they do not affect material properties.",
+    "referenceBlockSelection": {
+      "nearField": "Use metal path increments from Table 2 with adjacent spacing limits from Table 3.",
+      "farField": "Use at least three blocks: front-surface resolution, about half thickness, and thickness or greater.",
+      "combinedNearFar": "Include near-field range blocks plus one block at thickness or greater."
+    },
+    "metalPathIncrementsInch": [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0],
+    "nearFieldAdjacentPathMaxDifference": [
+      { "rangeInch": "0 to 0.25", "maxDifferenceInch": 0.125 },
+      { "rangeInch": "0.25 to 1.0", "maxDifferenceInch": 0.25 },
+      { "rangeInch": "1.0 to 3.0", "maxDifferenceInch": 0.5 },
+      { "rangeInch": "over 3.0", "maxDifferenceInch": 1.0 }
+    ],
+    "beamNormalization": "Maximize front-surface echo; re-angle by zone if monitored front/back signal falls by more than 50 percent due to part shape.",
+    "waterPath": "Second front-surface echo must not appear before first back-surface echo; focused transducer focus should be in material at required depth.",
+    "waterPathEvaluationToleranceInch": 0.125,
+    "scanIndex": "Use the least effective beam diameter measured across selected reference targets as maximum allowable scan index.",
+    "distanceAmplitudeCurve": "Set largest reference indication to 80 to 90 percent of upper linear limit and plot all selected reference block amplitudes.",
+    "scanningGain": "Set lowest point reference to 80 to 90 percent upper linear limit; +6 dB recommended for manual scanning without changing alarm level.",
+    "alarmLevel": "Trigger at 50 percent of rejection limit at equivalent metal distance."
+  },
+  "evaluation": {
+    "initialRecordingLevel": "Evaluate locations above one half of reference response at equivalent depth or those triggering alarm.",
+    "backReflection": "Record locations where back-surface reflection is below specified value and verify loss is not due to roughness or nonparallel surfaces.",
+    "singleDiscontinuity": "Compare with reference reflector at equivalent depth; dynamic evaluation may be used when specified.",
+    "multipleOrLinear": "Evaluate spacing and length as agreed in the contractual procedure."
+  },
+  "qualityAssurance": {
+    "systemPerformanceChecks": [
+      "After power interruption",
+      "After operating personnel change",
+      "After system component replacement",
+      "After non-repeatable electrical or mechanical control adjustment",
+      "At agreed interim periods",
+      "At conclusion of inspection process"
+    ],
+    "wettingAgentControl": "Check corrosion inhibitor and wetting agent concentration after initial makeup and at manufacturer-recommended intervals."
+  },
+  "documentation": [
+    "Minimum equipment requirements",
+    "Positioning backlash",
+    "Reference standards and reflectors",
+    "Material condition",
+    "Water path variation",
+    "Transfer technique",
+    "Back-reflection monitoring",
+    "Coverage",
+    "Evaluation of multiple and linear discontinuities",
+    "Personnel qualification",
+    "System performance",
+    "Part number/configuration, fabrication stage, surface finish, and preparation",
+    "Instrumentation, search unit, manipulation equipment, couplant, scan plan, transfer, DAC, water path, index, acceptance/reporting criteria, and evaluation procedure"
+  ],
+  "systemUse": {
+    "autoFillProfile": "Immersion longitudinal-wave pulse-echo profile with acceptance by contract.",
+    "recommendedTechnique": "conventional immersion"
+  }
+}

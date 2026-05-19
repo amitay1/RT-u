@@ -1,0 +1,69 @@
+{
+  "standard": {
+    "id": "AMS-2375",
+    "name": "AMS2375",
+    "title": "Control of Forgings Requiring First Article Approval",
+    "revision": "F",
+    "issued": "1969-05",
+    "revised": "2022-09",
+    "supersedes": "AMS2375E",
+    "category": "Aerospace Process Control",
+    "method": "Forging first article approval",
+    "sourcePdf": "standards/pdfs/AMS-2375F.pdf",
+    "publicPdf": "/standards/AMS_2375F.pdf"
+  },
+  "scope": {
+    "purpose": "Defines first-article and preproduction approval controls for forgings and controls for subsequent production forgings.",
+    "application": "Used where forgings require preproduction approval and production lots must remain metallurgically consistent with the qualified forging.",
+    "isUltrasonicInspectionStandard": false
+  },
+  "requirements": {
+    "forgingStock": {
+      "conformance": "Forging producer verifies stock conforms to applicable material specification and will yield acceptable forgings.",
+      "approvedSources": "Use cognizant engineering approved stock sources when specified."
+    },
+    "preproductionForgings": {
+      "procedure": "Produce and heat treat one or more preproduction forgings using the same practices planned for production.",
+      "confirmatoryTesting": "Submit duplicate or remaining sections to cognizant engineering when requested.",
+      "nonFinalHeatTreatDelivery": "When supplied in other than final heat treated condition, test forging or sections are heat treated to final condition before testing.",
+      "specimenLocations": "Coupon and grain-flow section locations are defined by cognizant engineering; otherwise representative locations require concurrence when required."
+    },
+    "properties": {
+      "grainFlow": "Etch representative sections, photograph grain-flow pattern, and verify conformity to drawing without reentrant flow lines or end grains except accepted flash/parting-line end grains.",
+      "hardness": "Perform hardness surveys across the heaviest section unless otherwise specified.",
+      "microstructure": "Examine center of heaviest usable section plus surfaces of heaviest and thinnest sections; submit microstructure photos and identify abnormal conditions.",
+      "mechanicalProperties": "Test representative specimens to the applicable final heat-treated material specification."
+    },
+    "processControlFactors": [
+      "Forging stock type, nominal size, shape, and multiple-weight",
+      "Inspection and qualification of forging stock",
+      "Processing sequence or number of operations affecting structure, grain flow, or working",
+      "Forging equipment type",
+      "Die configuration, dimensions, and forging pressure",
+      "Thermal parameters for stock heating, annealing, and heat treatment",
+      "Stress relief procedure when applicable",
+      "Protective atmosphere or coatings",
+      "Cleaning operations",
+      "Inspection procedures"
+    ],
+    "productionControl": {
+      "approvalBeforeShipment": "Production forgings are not shipped before written preproduction approval unless waived.",
+      "changeControl": "Changes to design or process-control parameters require cognizant engineering concurrence or reapproval."
+    },
+    "records": {
+      "facilityMaintenanceRetentionYears": 7,
+      "processInstructions": "Maintain documented routing and processing methods for each part number or configuration."
+    },
+    "reports": [
+      "Test results showing conformance to AMS2375, material specification, and drawing",
+      "Grain-flow photographs",
+      "Microstructure photographs",
+      "Source of forging stock",
+      "Physical location of forging producer"
+    ]
+  },
+  "systemUse": {
+    "primaryUse": "Reference/process-control standard for forging FAI workflows.",
+    "autoFillImpact": "Should not drive UT scan parameters or acceptance criteria directly; use alongside the active UT standard for forged aerospace parts."
+  }
+}

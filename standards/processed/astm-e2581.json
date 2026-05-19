@@ -1,0 +1,76 @@
+{
+  "standard": {
+    "id": "ASTM-E2581",
+    "name": "ASTM E2581",
+    "title": "Shearography of Polymer Matrix Composites and Sandwich Core Materials in Aerospace Applications",
+    "revision": "2014 (Reapproved 2023)",
+    "category": "Aerospace Composite Shearography",
+    "sourcePdf": "standards/pdfs/ASTM-E2581-14R23.pdf",
+    "publicPdf": "/standards/ASTM_E2581_14R23.pdf"
+  },
+  "scope": {
+    "method": "Laser shearography NDT for polymer matrix composites and sandwich core materials.",
+    "materials": ["bismaleimide", "epoxy", "phenolic", "polyimide", "PEEK", "PEI", "PPS", "polysulfone", "aramid", "boron", "carbon", "glass", "quartz", "silicon carbide"],
+    "geometries": ["uniaxial laminates", "cross-ply laminates", "angle-ply laminates", "honeycomb sandwich", "foam core sandwich"],
+    "acceptanceCriteria": "Does not specify accept/reject criteria and is not a service approval method."
+  },
+  "equipment": {
+    "camera": "Laser shearography camera with demonstrated ability to detect maximum allowable defect size/depth in similar material and structure.",
+    "controls": ["pan/tilt camera motion", "aperture", "zoom/focus", "horizontal/vertical shear vector", "laser pan/tilt/expansion"],
+    "imageProcessing": "Computer captures images, converts to digital format, applies signal processing, and supports adjacent image mosaics.",
+    "fixture": "Rigid fixture minimizes relative motion between camera and article to prevent image decorrelation.",
+    "calibrationRecord": ["instrument calibration", "serial number", "calibration date", "calibration due date", "person performing calibration", "no-calibration-needed status when applicable"]
+  },
+  "stressingMethods": {
+    "vacuum": {
+      "typicalRangeKPa": "0.7 to 14.0",
+      "typicalRangePsi": "0.1 to 2.0",
+      "partialVacuumTypicalKPaBelowAmbient": 9.4,
+      "partialVacuumTypicalPsiBelowAmbient": 1.4
+    },
+    "thermal": {
+      "devices": ["high intensity quartz lamps", "heat guns", "controlled thermal stressing devices"],
+      "procedureOptions": ["capture then heat then capture", "heat then capture then wait then capture"],
+      "repeatability": "Requires precise timing of heat and wait parameters."
+    },
+    "pressure": {
+      "biasPressure": "Usually 0.1 to 1.0 percent of working pressure for pressure vessels.",
+      "cycleDelta": "Approximately 0.5 percent of working pressure, or limited by decorrelation."
+    },
+    "acousticVibration": "Air-coupled acoustic driver introduces focused acoustic pressure wave.",
+    "mechanicalVibration": "Piezoelectric actuator coupled by mechanical or vacuum attachment."
+  },
+  "procedure": {
+    "general": [
+      "Select stressing technique for application.",
+      "Secure article in rigid fixture.",
+      "Place camera at optimal field of view and focus.",
+      "Offset view if required to avoid laser saturation.",
+      "Calibrate image scale with known point spacing.",
+      "Set shear vectors for application.",
+      "Capture unstressed and stressed images and process phase map shearogram."
+    ],
+    "applicationMatrix": {
+      "thermal": ["impact damage", "delamination", "porosity", "disbonds", "crushed core", "insert location"],
+      "pressure": ["vented core impact damage", "vented core disbonds", "COPV damage/delamination/bridging/manufacturing flaws"],
+      "partialVacuum": ["disbonds", "crushed core", "far-side disbonds", "core splice disbonds", "voids", "liner disbonds"],
+      "vibration": ["impact damage", "delamination", "disbonds", "perforated skin disbonds", "crushed core"]
+    }
+  },
+  "qualificationAndSafety": {
+    "facility": "NDE facilities qualified per ASTM E543 when contractually specified.",
+    "personnel": ["ANSI/ASNT CP-189", "SNT-TC-1A", "NAS-410", "MIL-STD-410 or similar when specified"],
+    "laserSafety": "Control laser hazard according to applicable laser safety classifications and regulations.",
+    "acousticNoise": "Evaluate acoustic/mechanical vibration noise exposure and use minimum required source levels."
+  },
+  "precisionBiasDocumentation": {
+    "quantitativeCalibration": "Requires pixel/mm or pixel/in image scale and shear vector calibration.",
+    "repeatability": "Use repeated scans of known features with similar loading/deformation.",
+    "traceability": ["composite material", "reinforcement", "matrix", "preform/prepreg", "process method", "part information"],
+    "testValidity": ["test method", "specimen geometry", "conditioning", "equipment", "environment", "loading", "raw and normalized data", "statistical analysis when applicable"]
+  },
+  "systemUse": {
+    "primaryUse": "Reference standard for composite shearography workflows.",
+    "autoFillImpact": "Not a UT scan-parameter driver; keep separate from ultrasonic technique sheet defaults."
+  }
+}

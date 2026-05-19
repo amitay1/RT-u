@@ -5,7 +5,8 @@
 -- AMS Standards (Aerospace Material Specifications)
 INSERT INTO standards (code, name, description, version, category, is_free, is_active, metadata) VALUES
 ('AMS-STD-2154', 'Inspection, Ultrasonic, Wrought Metals', 'Aerospace standard for ultrasonic inspection of wrought metal products including acceptance criteria classes AAA, AA, A, B, C', 'E', 'Aerospace', true, true, '{"classes": ["AAA", "AA", "A", "B", "C"], "materials": ["aluminum", "titanium", "steel", "nickel"], "thicknessMin": 6.35, "thicknessUnit": "mm", "releaseYear": 2019}'),
-('AMS-2630', 'Inspection, Ultrasonic Product Over 0.5 Inch Thick', 'Standard for ultrasonic inspection of products over 0.5 inch (12.7 mm) thick using contact or immersion methods', '2022E', 'Aerospace', true, true, '{"classes": ["AAA", "AA", "A", "B", "C"], "thicknessMin": 12.7, "thicknessUnit": "mm", "methods": ["contact", "immersion"]}'),
+('AMS-2630', 'Inspection, Ultrasonic Product Over 0.5 Inch Thick', 'Standard for ultrasonic inspection of products over 0.5 inch (12.7 mm) thick using contact or immersion methods', 'E', 'Aerospace', true, true, '{"classes": ["AA", "A1", "A", "B", "C"], "thicknessMin": 12.7, "thicknessUnit": "mm", "methods": ["contact", "immersion", "bubbler", "squirter"], "sourcePdf": "/standards/AMS_2630E.pdf"}'),
+('AMS-2375', 'Control of Forgings Requiring First Article Approval', 'Aerospace process-control standard for preproduction/first-article approval and continued control of production forgings', 'F', 'Aerospace Process', true, true, '{"inspectionStandard": false, "productForm": "forgings", "recordsRetentionYears": 7, "sourcePdf": "/standards/AMS_2375F.pdf"}'),
 ('AMS-2631', 'Ultrasonic Inspection, Titanium and Titanium Alloy Bar, Billet and Plate', 'Standard for ultrasonic inspection of titanium bars, billets and plate products ≥0.25 inch thick', 'G', 'Aerospace', true, true, '{"classes": ["AA", "A", "A1", "B"], "material": "titanium", "forms": ["bar", "billet", "plate"], "thicknessMin": 6.4, "surfaceFinish": 250, "releaseYear": 2022}'),
 ('AMS-2632', 'Ultrasonic Inspection of Thin Materials', 'Standard for ultrasonic inspection of thin materials ≤0.5 inch (12.7mm) thick', 'C', 'Aerospace', true, true, '{"classes": ["AA", "A", "B", "C"], "thicknessMax": 12.7, "thicknessUnit": "mm", "frequencyRange": "5-15 MHz", "releaseYear": 2022}'),
 ('AMS-2628', 'Ultrasonic Immersion Inspection, Titanium Billet Premium Grade', 'Standard for immersion ultrasonic inspection of premium grade titanium billet ≥5 inches diameter', '2021A', 'Aerospace', true, true, '{"material": "titanium", "forms": ["billet"], "minDiameter": 127, "method": "immersion"}')
@@ -13,12 +14,18 @@ ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     version = EXCLUDED.version,
+    category = EXCLUDED.category,
+    metadata = EXCLUDED.metadata,
     is_free = true,
     is_active = true;
 
 -- ASTM Standards
 INSERT INTO standards (code, name, description, version, category, is_free, is_active, metadata) VALUES
 ('ASTM-E2375', 'Standard Practice for Ultrasonic Testing of Wrought Products', 'ASTM standard for ultrasonic examination of wrought products - adopted from MIL-STD-2154 with 5 acceptance classes', '2022', 'Industrial', true, true, '{"classes": ["AAA", "AA", "A", "B", "C"], "methods": ["contact", "immersion"], "techniques": ["straight beam", "angle beam"], "adoptedFrom": "MIL-STD-2154"}'),
+('ASTM-E1001', 'Standard Practice for Immersed Pulse-Echo Ultrasonic Testing Using Longitudinal Waves', 'General immersion pulse-echo longitudinal-wave UT practice for discontinuity detection and relative evaluation; acceptance criteria by agreement', '2021', 'Industrial', true, true, '{"methods": ["immersion"], "techniques": ["pulse-echo", "straight beam", "longitudinal wave"], "frequenciesMHz": [2.25, 5, 10, 15], "acceptanceCriteria": "by agreement", "sourcePdf": "/standards/ASTM_E1001_21.pdf"}'),
+('ASTM-E2580', 'Standard Practice for Ultrasonic Testing of Flat Panel Composites and Sandwich Core Materials Used in Aerospace Applications', 'Composite flat panel and sandwich core UT using pulse-echo or through-transmission longitudinal wave methods', '2024', 'Composite', true, true, '{"materials": ["polymer matrix composite", "sandwich core", "honeycomb"], "methods": ["pulse-echo", "through-transmission", "contact", "squirter"], "frequencyRangeMHz": [0.5, 20], "acceptanceCriteria": "by agreement", "sourcePdf": "/standards/ASTM_E2580_24.pdf"}'),
+('ASTM-E2581', 'Standard Practice for Shearography of Polymer Matrix Composites and Sandwich Core Materials in Aerospace Applications', 'Composite shearography NDT reference standard using thermal, pressure, vacuum, acoustic, or vibration stressing', '2014R2023', 'Composite', true, true, '{"inspectionMethod": "shearography", "ultrasonic": false, "materials": ["polymer matrix composite", "sandwich core"], "acceptanceCriteria": "not specified", "sourcePdf": "/standards/ASTM_E2581_14R23.pdf"}'),
+('ASTM-E588', 'Standard Practice for Detection of Large Inclusions in Bearing Quality Steel by the Ultrasonic Method', 'Immersion focused ultrasonic cleanliness rating for large inclusions in bearing quality steel; reports severity/counts without acceptability limits', '2003R2020', 'Industrial', true, true, '{"material": "bearing quality steel", "method": "immersion", "frequencyMHz": 10, "scanIndexMm": 1.27, "acceptanceCriteria": "not specified", "sourcePdf": "/standards/ASTM_E588_03R20.pdf"}'),
 ('ASTM-E127', 'Practice for Fabrication and Control of FBH Ultrasonic Standard Reference Blocks', 'Standard for fabrication of flat-bottom hole (FBH) reference blocks - FBH sizes 1/64 to 8/64 inch', '2020', 'Calibration', true, true, '{"blockType": "FBH", "fbhSizes": ["1/64", "2/64", "3/64", "4/64", "5/64", "6/64", "7/64", "8/64"], "testFrequency": 5, "testMethod": "immersion"}'),
 ('ASTM-E428', 'Practice for Fabrication and Control of Metal Reference Blocks (Withdrawn 2019)', 'Standard for steel and other metal reference blocks - merged into E127-19', '2019', 'Calibration', true, true, '{"blockType": "FBH", "materials": ["steel", "titanium", "nickel"], "status": "merged into E127-19"}'),
 ('ASTM-E317', 'Practice for Evaluating Performance Characteristics of Ultrasonic Pulse-Echo Testing Instruments', 'Standard for evaluating UT instrument performance', '2020', 'Equipment', true, true, '{"testTypes": ["linearity", "resolution", "sensitivity"]}'),
@@ -28,6 +35,8 @@ ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     version = EXCLUDED.version,
+    category = EXCLUDED.category,
+    metadata = EXCLUDED.metadata,
     is_free = true,
     is_active = true;
 
@@ -44,6 +53,8 @@ ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     version = EXCLUDED.version,
+    category = EXCLUDED.category,
+    metadata = EXCLUDED.metadata,
     is_free = true,
     is_active = true;
 
@@ -56,6 +67,8 @@ ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     version = EXCLUDED.version,
+    category = EXCLUDED.category,
+    metadata = EXCLUDED.metadata,
     is_free = true,
     is_active = true;
 
@@ -67,6 +80,8 @@ ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     version = EXCLUDED.version,
+    category = EXCLUDED.category,
+    metadata = EXCLUDED.metadata,
     is_free = true,
     is_active = true;
 

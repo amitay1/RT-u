@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "simulationUnits": "meters",
+  "sourceMeshUnits": "unknown_STL_units",
+  "notes": [
+    "The two STL files were found in public/standards/MRO.",
+    "The 0765-to-stage-1 and 0784-to-stage-2 mapping is a working simulation mapping. Swap the partNumber and ndip fields if your OEM source metadata says otherwise.",
+    "Runtime values are visual simulation values, not a certified inspection procedure."
+  ],
+  "parts": [
+    {
+      "id": "v2500-a5-0765",
+      "displayName": "P&W V2500-A5 0765 HPT Disk Model",
+      "sourceStl": "Assets/ScanMasterSimulation/Models/PW/Source/Engine V2500-A5-0765-Model.stl",
+      "generatedMeshAsset": "Assets/ScanMasterSimulation/Models/Generated/V2500_A5_0765_Mesh.asset",
+      "prefab": "Assets/ScanMasterSimulation/Models/Generated/PW_V2500_A5_0765_HPT_Disk.prefab",
+      "provisionalPartNumber": "2A5001",
+      "provisionalNdip": "NDIP-1226",
+      "provisionalStage": 1,
+      "description": "V2500 1st Stage High Pressure Turbine Disk, working mapping",
+      "material": "Powdered Nickel Metal",
+      "boreRadiusMm": 73.91,
+      "inspectionOffsetMm": 23.95,
+      "radialCoverageMm": 66.04,
+      "fitDiameterMeters": 0.58
+    },
+    {
+      "id": "v2500-a5-0784",
+      "displayName": "P&W V2500-A5 0784 HPT Disk Model",
+      "sourceStl": "Assets/ScanMasterSimulation/Models/PW/Source/Engine V2500-A5-0784-Model.stl",
+      "generatedMeshAsset": "Assets/ScanMasterSimulation/Models/Generated/V2500_A5_0784_Mesh.asset",
+      "prefab": "Assets/ScanMasterSimulation/Models/Generated/PW_V2500_A5_0784_HPT_Disk.prefab",
+      "provisionalPartNumber": "2A4802",
+      "provisionalNdip": "NDIP-1227",
+      "provisionalStage": 2,
+      "description": "V2500 2nd Stage High Pressure Turbine Disk, working mapping",
+      "material": "Powdered Nickel Metal",
+      "boreRadiusMm": 70.43,
+      "inspectionOffsetMm": 22.81,
+      "radialCoverageMm": 66.04,
+      "fitDiameterMeters": 0.52
+    }
+  ]
+}
+

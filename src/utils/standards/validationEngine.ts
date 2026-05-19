@@ -215,6 +215,7 @@ export class ValidationEngine {
       // Table VI: AAA multiple discontinuities uses percent-of-response (10% of 3/64 response).
       AAA: { single: '1/64', multi: '10%' },
       AA: { single: '3/64', multi: '2/64' },
+      A1: { single: '3/64', multi: '2/64' },
       A: { single: '5/64', multi: '3/64' },
       B: { single: '8/64', multi: '5/64' },
       // Table VI Note 2: multiple discontinuity criteria not applicable to Class C

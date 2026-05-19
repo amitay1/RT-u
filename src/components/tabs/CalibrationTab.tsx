@@ -159,6 +159,9 @@ const getStandardLabel = (standard: StandardType): string => {
     "BS-EN-10228-3": "BS EN 10228-3:2016",
     "BS-EN-10228-4": "BS EN 10228-4:2016",
     "ASTM-E2375": "ASTM E2375",
+    "ASTM-E1001": "ASTM E1001",
+    "ASTM-E2580": "ASTM E2580",
+    "ASTM-E588": "ASTM E588",
     "ASTM-E127": "ASTM E127",
     "ASTM-E164": "ASTM E164",
     "AMS-2630": "AMS 2630",
@@ -184,6 +187,9 @@ const getFBHDropdownStandard = (standard: StandardType): string => {
     standard === "AMS-STD-2154E" ||
     standard === "MIL-STD-2154" ||
     standard === "ASTM-E2375" ||
+    standard === "ASTM-E1001" ||
+    standard === "ASTM-E2580" ||
+    standard === "ASTM-E588" ||
     standard === "ASTM-E127" ||
     standard === "ASTM-E164" ||
     standard === "AMS-2630" ||

@@ -1,0 +1,97 @@
+{
+  "standard": {
+    "id": "ASTM-E2580",
+    "name": "ASTM E2580",
+    "title": "Ultrasonic Testing of Flat Panel Composites and Sandwich Core Materials Used in Aerospace Applications",
+    "revision": "2024",
+    "category": "Aerospace Composite Ultrasonic Testing",
+    "sourcePdf": "standards/pdfs/ASTM-E2580-24.pdf",
+    "publicPdf": "/standards/ASTM_E2580_24.pdf"
+  },
+  "scope": {
+    "materials": ["flat panel composites", "flat sandwich core panels", "honeycomb sandwich core materials"],
+    "detectedAnomalies": ["foreign materials", "delamination", "disbond", "unbond", "fiber debonding", "inclusions", "porosity", "voids"],
+    "procedures": {
+      "A": "Pulse echo, non-contacting or contacting, one-sided access, 0.5 to 20 MHz longitudinal wave.",
+      "B": "Through transmission, two transducers, two-sided access, 0.5 to 20 MHz longitudinal wave, automated and recorded."
+    },
+    "acceptanceCriteria": "Not specified by this standard; contractually defined."
+  },
+  "equipment": {
+    "electronicEquipment": "Capable of producing and processing signals over the search-unit frequency range.",
+    "searchUnits": "Longitudinal straight-beam units with flat or focused acoustic lenses matched to contact or squirter setup.",
+    "alarm": "Adjustable threshold; not required on systems that record amplitude data.",
+    "gateSync": "Pulse-echo gate should lock to first interface pulse; through-transmission gate covers positive/negative horizontal movement.",
+    "squirter": "Must provide laminar coupling fluid flow at all inspection angles.",
+    "scanRecord": "Recording must not show backlash or hysteresis that hinders detection or evaluation.",
+    "referenceBlocks": {
+      "types": ["structural anomaly reference blocks", "foreign inclusion reference blocks", "transfer cutouts by agreement"],
+      "ARP5605": "Solid composite laminate reference standard guidance.",
+      "ARP5606": "Composite honeycomb reference standard guidance."
+    },
+    "couplants": ["air", "immersion", "contact"]
+  },
+  "generalRequirements": {
+    "inProcess": "Use automated equipment capable of electronic recording for flat panel composite or honeycomb structures.",
+    "inService": "Manual contact may be used for suspected damage areas with an acoustically similar reference standard.",
+    "materialCondition": "Clean, smooth surface.",
+    "coverage": "Scanning speed, index increment, and step size must cause target simulated anomaly to register three times at the agreed threshold.",
+    "frequencySelection": "Select based on material and anticipated discontinuity type.",
+    "techniqueRecord": "Approved by Level III and includes part/zone, inspector, procedure, equipment, coverage sketches, and repeatable control settings."
+  },
+  "procedureA": {
+    "name": "Pulse Echo",
+    "signalToNoiseMin": "3:1",
+    "frequencyRangeMHz": [0.5, 20],
+    "referenceBlockSelection": "Based on test objective; step wedges for ply count/debond/delamination, FBH for discontinuity size at known depth.",
+    "standardization": {
+      "referenceDiscontinuity": "Smallest unacceptable discontinuity nearest the depth zone, or nearest back surface for full thickness.",
+      "referenceResponsePercentFullScaleMin": 80,
+      "transfer": "Adjust for attenuation differences between reference and part using back-surface response."
+    },
+    "scan": {
+      "minimumOverlap": "1/4 of front-surface spot diameter for non-contact, or 1/4 of transducer diameter for contact.",
+      "speedFormula": "maximum speed = (1 - overlap) * spot size * PRR / averages",
+      "evaluation": "Size reference and anomalies using -6 dB half-amplitude drop points with linear settings."
+    }
+  },
+  "procedureB": {
+    "name": "Through Transmission",
+    "frequencyRangeMHz": [0.5, 20],
+    "setup": [
+      "Seal parts to prevent water ingress.",
+      "Open-ended sandwich panels must not be immersed.",
+      "Keep free water columns minimum.",
+      "Water columns normal to laminate surface and parallel to honeycomb cell walls.",
+      "Adjust squirters for smooth laminar intersecting flow."
+    ],
+    "standardization": "Set 100 percent first received signal in a good reference area and gate first received signal.",
+    "scan": "Trace multiple scan areas to part scan instructions; inspect tapered parts by zones to maintain 100 percent received signal."
+  },
+  "qualityAssurance": {
+    "systemPerformance": [
+      "Check gain, distance-amplitude relationship, and alarm trigger after power interruption, personnel change, component replacement, or non-repeatable adjustment.",
+      "Perform interim checks as needed to support recovery and reinspection.",
+      "Test system linearity/performance yearly per ASTM E1324 or ASTM E317.",
+      "Evaluate search units periodically per ASTM E1065/E1065M."
+    ],
+    "wettingAgentControl": "Check wetting agent after initial makeup and every 90 days when used."
+  },
+  "documentation": [
+    "Material traceability per ASTM E1309",
+    "Test method, specimen preparation, geometry, conditioning, equipment, transducer, environment, loading, raw/normalized data, and statistics per ASTM E1434",
+    "Positioning backlash",
+    "Reference standards and reflectors",
+    "Beam path variation",
+    "Transfer technique",
+    "Coverage, scanning speed, and indexing",
+    "Discontinuity evaluation",
+    "Personnel qualification",
+    "System performance",
+    "Written Level III-approved procedure/report with part, equipment, search units, fixtures, couplant, scan plan, transfer, acceptance classes, water paths, index, DAC, and evaluation procedure"
+  ],
+  "systemUse": {
+    "autoFillProfile": "Composite flat panel or sandwich core UT profile.",
+    "recommendedTechniques": ["bubbler", "squirt", "conventional contact"]
+  }
+}
