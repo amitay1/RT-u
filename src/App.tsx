@@ -13,7 +13,6 @@ import { useServiceWorker } from "@/hooks/useServiceWorker";
 import { UpdateNotification } from "@/components/UpdateNotification";
 import { GlobalErrorBoundary, RecoveryProvider } from "@/components/ErrorBoundary";
 import { crashReporter } from "@/lib/crashReporter";
-import SplashScreen from "./components/SplashScreen";
 import { FirstRunWizard } from "./components/wizard/FirstRunWizard";
 import { useFirstRun } from "./hooks/useFirstRun";
 import Index from "./pages/Index";
@@ -55,7 +54,6 @@ const AdminShortcut = () => {
 
 const AppContent = () => {
   const { isOffline } = useServiceWorker();
-  const [showSplash, setShowSplash] = useState(true);
   const { isElectron } = useLicense();
   const { isFirstRun, isLoading: firstRunLoading, completeFirstRun } = useFirstRun();
   const [showFirstRunWizard, setShowFirstRunWizard] = useState(false);
@@ -95,10 +93,7 @@ const AppContent = () => {
     setShowFirstRunWizard(false);
   };
 
-  // Show splash screen
-  if (showSplash) {
-    return <SplashScreen onComplete={() => setShowSplash(false)} />;
-  }
+  // No intro splash video — go straight into the app.
 
   // RT-PT Inspector is distributed free — no license gate.
   // (The license context is still mounted so any downstream code that
