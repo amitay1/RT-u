@@ -2,10 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
-  FileText,
   Save,
   CheckCircle,
-  FileSearch,
   Settings,
   RefreshCw,
   FileDown,
@@ -15,7 +13,10 @@ import {
   Square,
   X,
   Download,
-  Rocket
+  Rocket,
+  Film,
+  Camera,
+  Droplets
 } from "lucide-react";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { SavedCardsDialog } from "@/components/SavedCardsDialog";
@@ -133,12 +134,21 @@ function useUpdateStatus() {
   return { state, version, percent, checkForUpdates, installUpdate };
 }
 
+export type NdtMethod = "UT" | "RT-Film" | "RT-Digital" | "PT";
+
 interface ToolbarProps {
   onSave: () => void;
   onExport: () => void;
   onValidate: () => void;
   reportMode: "Technique" | "Report";
   onReportModeChange: (mode: "Technique" | "Report") => void;
+  /**
+   * NDT method switch. When set to "UT" (default) the Technique/Report buttons drive the workspace.
+   * When set to one of the RT/PT values, the workspace shows the dedicated RT/PT tabs from the
+   * 1742/2698/1417 spec — the Technique/Report buttons render as inactive.
+   */
+  ndtMethod?: NdtMethod;
+  onNdtMethodChange?: (method: NdtMethod) => void;
   isSplitMode?: boolean;
   onSplitModeChange?: (value: boolean) => void;
   activePart?: "A" | "B";
@@ -159,6 +169,8 @@ export const Toolbar = ({
   onValidate,
   reportMode,
   onReportModeChange,
+  ndtMethod = "UT",
+  onNdtMethodChange,
   isSplitMode = false,
   onSplitModeChange,
   activePart = "A",
@@ -209,22 +221,34 @@ export const Toolbar = ({
 
       <div className="flex min-w-0 gap-1 rounded-2xl border border-border/80 bg-black/10 p-1.5 backdrop-blur-xl">
         <Button
-          variant={reportMode === "Technique" ? "secondary" : "ghost"}
+          variant={ndtMethod === "RT-Film" ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => onReportModeChange("Technique")}
+          onClick={() => onNdtMethodChange?.("RT-Film")}
+          title="ASTM E1742 - Radiographic Testing (Film)"
           className="h-9 md:h-10 rounded-xl text-sm md:text-base font-semibold px-3 data-[state=active]:shadow-none"
         >
-          <FileText className="h-4 w-4 md:mr-2" />
-          <span className="hidden sm:inline">Technique</span>
+          <Film className="h-4 w-4 md:mr-2" />
+          <span className="hidden sm:inline">RT Film</span>
         </Button>
         <Button
-          variant={reportMode === "Report" ? "secondary" : "ghost"}
+          variant={ndtMethod === "RT-Digital" ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => onReportModeChange("Report")}
+          onClick={() => onNdtMethodChange?.("RT-Digital")}
+          title="ASTM E2698 - Radiographic Testing (Digital / DDA)"
           className="h-9 md:h-10 rounded-xl text-sm md:text-base font-semibold px-3 data-[state=active]:shadow-none"
         >
-          <FileSearch className="h-4 w-4 md:mr-2" />
-          <span className="hidden sm:inline">Report</span>
+          <Camera className="h-4 w-4 md:mr-2" />
+          <span className="hidden sm:inline">RT Digital</span>
+        </Button>
+        <Button
+          variant={ndtMethod === "PT" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => onNdtMethodChange?.("PT")}
+          title="ASTM E1417 - Penetrant Testing"
+          className="h-9 md:h-10 rounded-xl text-sm md:text-base font-semibold px-3 data-[state=active]:shadow-none"
+        >
+          <Droplets className="h-4 w-4 md:mr-2" />
+          <span className="hidden sm:inline">PT</span>
         </Button>
 
         <Separator orientation="vertical" className="mx-1 hidden h-7 bg-border/70 sm:block" />

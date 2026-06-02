@@ -6,7 +6,9 @@ import { StandardSelector } from "@/components/StandardSelector";
 import { AcceptanceClassSelector } from "@/components/AcceptanceClassSelector";
 import { ThreeDViewer } from "@/components/ThreeDViewer";
 import { MenuBar } from "@/components/MenuBar";
-import { Toolbar } from "@/components/Toolbar";
+import { Toolbar, type NdtMethod } from "@/components/Toolbar";
+import { RtPtWorkspace } from "@/components/RtPtWorkspace";
+import { RtPtSidebar } from "@/components/RtPtSidebar";
 import { StatusBar } from "@/components/StatusBar";
 import { UnifiedExportDialog } from "@/components/export/UnifiedExportDialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -95,6 +97,11 @@ const Index = () => {
   const [standard, setStandard] = useState<StandardType>("AMS-STD-2154E");
   const [activeTab, setActiveTab] = useState("setup");
   const [reportMode, setReportMode] = useState<"Technique" | "Report">("Technique");
+  // ── NDT method switch ──────────────────────────────────────────────────
+  // This build is RT/PT only — default to RT-Film. The "UT" value is kept in
+  // the type for backward-compat with the Toolbar prop, but no UI sets it.
+  const [ndtMethod, setNdtMethod] = useState<NdtMethod>("RT-Film");
+  const isRtPtMode = ndtMethod !== "UT";
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [activePart, setActivePart] = useState<"A" | "B">("A");
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -633,6 +640,8 @@ const Index = () => {
         onValidate={handleValidate}
         reportMode={reportMode}
         onReportModeChange={setReportMode}
+        ndtMethod={ndtMethod}
+        onNdtMethodChange={setNdtMethod}
         isSplitMode={isSplitMode}
         onSplitModeChange={setIsSplitMode}
         activePart={activePart}
@@ -646,58 +655,71 @@ const Index = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 px-2 pb-2 md:px-3 md:pb-3">
-        {/* Compact Header with Standard & Class for mobile/tablet layouts */}
+        {/* Compact Header for mobile/tablet — shows RT/PT method info */}
         <div className="lg:hidden border border-border/80 bg-card/90 rounded-[1.35rem] p-3 mb-2">
-          <div className="flex flex-col gap-4">
-            <div className="flex-1">
-              <h3 className="font-semibold text-xs mb-2">Standard</h3>
-              <StandardSelector value={standard} onChange={applyStandardChange} />
-            </div>
-            {reportMode === "Technique" && !isPwNdip && (
-              <div className="border-t border-border pt-3">
-                <AcceptanceClassSelector
-                  value={(!isSplitMode || activePart === "A") ? acceptanceCriteria.acceptanceClass : acceptanceCriteriaB.acceptanceClass}
-                  onChange={(newClass) => {
-                    if (!isSplitMode || activePart === "A") {
-                      setAcceptanceCriteria(prev => ({ ...prev, acceptanceClass: newClass }));
-                    } else {
-                      setAcceptanceCriteriaB(prev => ({ ...prev, acceptanceClass: newClass }));
-                    }
-                  }}
-                  standard={standard}
-                />
+          {isRtPtMode && ndtMethod !== "UT" ? (
+            <RtPtSidebar method={ndtMethod} onMethodChange={setNdtMethod} />
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-xs mb-2">Standard</h3>
+                <StandardSelector value={standard} onChange={applyStandardChange} />
               </div>
-            )}
-          </div>
+              {reportMode === "Technique" && !isPwNdip && (
+                <div className="border-t border-border pt-3">
+                  <AcceptanceClassSelector
+                    value={(!isSplitMode || activePart === "A") ? acceptanceCriteria.acceptanceClass : acceptanceCriteriaB.acceptanceClass}
+                    onChange={(newClass) => {
+                      if (!isSplitMode || activePart === "A") {
+                        setAcceptanceCriteria(prev => ({ ...prev, acceptanceClass: newClass }));
+                      } else {
+                        setAcceptanceCriteriaB(prev => ({ ...prev, acceptanceClass: newClass }));
+                      }
+                    }}
+                    standard={standard}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Desktop: Left Panel with Standard Selector */}
+        {/* Desktop: Left Panel — RT/PT method info & switcher */}
         <CollapsibleSidebar
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
-          title="Standard & Class"
+          title={isRtPtMode && ndtMethod !== "UT" ? "Method & Standard" : "Standard & Class"}
         >
-          <StandardSelector value={standard} onChange={applyStandardChange} variant="compact" />
-          {reportMode === "Technique" && !isPwNdip && (
-            <div className="mt-6 pt-4 border-t border-border">
-              <AcceptanceClassSelector
-                value={(!isSplitMode || activePart === "A") ? acceptanceCriteria.acceptanceClass : acceptanceCriteriaB.acceptanceClass}
-                onChange={(newClass) => {
-                  if (!isSplitMode || activePart === "A") {
-                    setAcceptanceCriteria(prev => ({ ...prev, acceptanceClass: newClass }));
-                  } else {
-                    setAcceptanceCriteriaB(prev => ({ ...prev, acceptanceClass: newClass }));
-                  }
-                }}
-                standard={standard}
-                variant="compact"
-              />
-            </div>
+          {isRtPtMode && ndtMethod !== "UT" ? (
+            <RtPtSidebar method={ndtMethod} onMethodChange={setNdtMethod} />
+          ) : (
+            <>
+              <StandardSelector value={standard} onChange={applyStandardChange} variant="compact" />
+              {reportMode === "Technique" && !isPwNdip && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <AcceptanceClassSelector
+                    value={(!isSplitMode || activePart === "A") ? acceptanceCriteria.acceptanceClass : acceptanceCriteriaB.acceptanceClass}
+                    onChange={(newClass) => {
+                      if (!isSplitMode || activePart === "A") {
+                        setAcceptanceCriteria(prev => ({ ...prev, acceptanceClass: newClass }));
+                      } else {
+                        setAcceptanceCriteriaB(prev => ({ ...prev, acceptanceClass: newClass }));
+                      }
+                    }}
+                    standard={standard}
+                    variant="compact"
+                  />
+                </div>
+              )}
+            </>
           )}
         </CollapsibleSidebar>
 
         {/* Center Panel: Main Form */}
           <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+          {isRtPtMode && ndtMethod !== "UT" ? (
+            <RtPtWorkspace method={ndtMethod} />
+          ) : (<>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <div className="px-1 pb-1.5 pt-1 md:px-3 md:pb-2 md:pt-1.5 flex-shrink-0">
                 {reportMode === "Technique" ? (
@@ -1053,6 +1075,7 @@ const Index = () => {
               </Collapsible3DPanel>
             </div>
           )}
+          </>)}
         </div>
       </div>
 
