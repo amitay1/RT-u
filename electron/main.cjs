@@ -332,7 +332,7 @@ function initAutoUpdater() {
   // GitHub releases are configured in electron-builder.json
   // No custom feed URL configuration needed
   console.log('📦 Current app version:', app.getVersion());
-  console.log('🔗 Update provider: GitHub (amitay1/Scan-Master-16-12-25)');
+  console.log('🔗 Update provider: disabled (RT-PT Inspector is distributed standalone)');
 
   setupAutoUpdaterHandlers();
   
@@ -1250,13 +1250,13 @@ function buildMenuTemplate() {
         updateMenuItem,
         { type: 'separator' },
         {
-          label: 'About Scan Master',
+          label: 'About RT-PT Inspector',
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: 'About Scan Master',
-              message: 'Scan Master Inspection Pro',
-              detail: `Professional ultrasonic inspection technique sheet generator\n\nVersion: ${app.getVersion()}\n\nBuilt with Electron, React, and Node.js`,
+              title: 'About RT-PT Inspector',
+              message: 'RT-PT Inspector',
+              detail: `Radiographic and penetrant technique-sheet creator\n(ASTM E1742 / E2698 / E1417)\n\nVersion: ${app.getVersion()}\n\nBuilt with Electron, React, and Node.js`,
               buttons: ['OK']
             });
           }
@@ -1264,7 +1264,7 @@ function buildMenuTemplate() {
         {
           label: 'Documentation',
           click: () => {
-            shell.openExternal('https://github.com/yourusername/scan-master/wiki');
+            shell.openExternal('https://github.com/amitay1/RT-u');
           }
         }
       ]
@@ -1365,7 +1365,7 @@ async function createWindow() {
     },
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    title: 'Scan Master Inspection Pro',
+    title: 'RT-PT Inspector',
     // Use content size to ensure proper fitting
     useContentSize: true,
     // Start maximized (not kiosk – allows restore/minimize)

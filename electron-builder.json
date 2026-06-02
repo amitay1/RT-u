@@ -1,91 +1,83 @@
 {
-    "appId":  "com.scanmaster.inspectionpro",
-    "productName":  "Scan Master Inspection Pro",
-    "artifactName":  "ScanMaster-Setup-${version}.${ext}",
-    "directories":  {
-                        "output":  "release-build"
-                    },
-    "extraMetadata":  {
-                          "main":  "electron/main.cjs",
-                          "type":  "commonjs"
-                      },
-    "files":  [
-                  "dist/**/*",
-                  "!dist/standards/MRO/**",
-                  "electron/**/*",
-                  "server/**/*",
-                  "shared/**/*",
-                  "node_modules/**/*",
-                  "package.json"
-              ],
-    "asarUnpack":  [
-                       "dist/**/*"
-                   ],
-    "mac":  {
-                "category":  "public.app-category.productivity",
-                "icon":  "build/icon.icns",
-                "hardenedRuntime":  true,
-                "gatekeeperAssess":  false,
-                "entitlements":  "build/entitlements.mac.plist",
-                "entitlementsInherit":  "build/entitlements.mac.plist"
-            },
-    "win":  {
-                "icon":  "public/app.ico",
-                "signAndEditExecutable":  false,
-                "target":  [
-                               {
-                                   "target":  "nsis",
-                                   "arch":  [
-                                                "x64"
-                                            ]
-                               },
-                               {
-                                   "target":  "portable",
-                                   "arch":  [
-                                                "x64"
-                                            ]
-                               }
-                           ]
-            },
-    "linux":  {
-                  "target":  [
-                                 {
-                                     "target":  "AppImage",
-                                     "arch":  [
-                                                  "x64"
-                                              ]
-                                 },
-                                 {
-                                     "target":  "deb",
-                                     "arch":  [
-                                                  "x64"
-                                              ]
-                                 }
-                             ],
-                  "category":  "Development",
-                  "icon":  "build"
-              },
-    "nsis":  {
-                 "oneClick":  true,
-                 "allowToChangeInstallationDirectory":  false,
-                 "createDesktopShortcut":  true,
-                 "createStartMenuShortcut":  true,
-                 "differentialPackage":  true,
-                 "runAfterFinish":  true,
-                 "deleteAppDataOnUninstall":  false,
-                 "perMachine":  false,
-                 "allowElevation":  true,
-                 "artifactName":  "ScanMaster-Setup-${version}.${ext}"
-             },
-    "portable":  {
-                     "artifactName":  "ScanMaster-Portable-${version}.${ext}"
-                 },
-    "publish":  [
-                    {
-                        "provider":  "generic",
-                        "url":  "https://scan-master-updates.amitay1.workers.dev",
-                        "useMultipleRangeRequest":  false,
-                        "channel":  "latest"
-                    }
+    "appId": "com.amitay.rtptinspector",
+    "productName": "RT-PT Inspector",
+    "artifactName": "RTPT-Inspector-Setup-${version}.${ext}",
+    "directories": {
+        "output": "release-build"
+    },
+    "extraMetadata": {
+        "main": "electron/main.cjs",
+        "type": "commonjs"
+    },
+    "files": [
+        "dist/**/*",
+        "!dist/standards/MRO/**",
+        "electron/**/*",
+        "server/**/*",
+        "shared/**/*",
+        "node_modules/**/*",
+        "package.json"
+    ],
+    "asarUnpack": [
+        "dist/**/*"
+    ],
+    "mac": {
+        "category": "public.app-category.productivity",
+        "icon": "build/icon.icns",
+        "hardenedRuntime": true,
+        "gatekeeperAssess": false,
+        "entitlements": "build/entitlements.mac.plist",
+        "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+        "icon": "public/app.ico",
+        "signAndEditExecutable": false,
+        "target": [
+            {
+                "target": "nsis",
+                "arch": [
+                    "x64"
                 ]
+            },
+            {
+                "target": "portable",
+                "arch": [
+                    "x64"
+                ]
+            }
+        ]
+    },
+    "linux": {
+        "target": [
+            {
+                "target": "AppImage",
+                "arch": [
+                    "x64"
+                ]
+            },
+            {
+                "target": "deb",
+                "arch": [
+                    "x64"
+                ]
+            }
+        ],
+        "category": "Development",
+        "icon": "build"
+    },
+    "nsis": {
+        "oneClick": true,
+        "allowToChangeInstallationDirectory": false,
+        "createDesktopShortcut": true,
+        "createStartMenuShortcut": true,
+        "differentialPackage": false,
+        "runAfterFinish": true,
+        "deleteAppDataOnUninstall": false,
+        "perMachine": false,
+        "allowElevation": true,
+        "artifactName": "RTPT-Inspector-Setup-${version}.${ext}"
+    },
+    "portable": {
+        "artifactName": "RTPT-Inspector-Portable-${version}.${ext}"
+    }
 }

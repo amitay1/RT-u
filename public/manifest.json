@@ -1,14 +1,14 @@
 {
-  "name": "Scan Master Inspection Pro",
-  "short_name": "Scan Master",
-  "description": "Professional ultrasonic inspection technique sheet generator for aerospace and industrial NDT",
+  "name": "RT-PT Inspector",
+  "short_name": "RT-PT Inspector",
+  "description": "Radiographic and penetrant technique-sheet creator (ASTM E1742 / E2698 / E1417).",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1419",
   "theme_color": "#115eb0",
   "orientation": "any",
   "scope": "/",
-  "id": "com.scanmaster.inspectionpro",
+  "id": "com.amitay.rtptinspector",
   "icons": [
     {
       "src": "/sm-logo.png",

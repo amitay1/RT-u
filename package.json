@@ -1,12 +1,12 @@
 {
-    "name":  "scan-master-inspection-pro",
-    "description":  "Professional ultrasonic inspection technique sheet generator for NDT",
+    "name":  "rt-pt-inspector",
+    "description":  "RT-PT Inspector — radiographic and penetrant technique-sheet creator (ASTM E1742 / E2698 / E1417)",
     "author":  {
                    "name":  "Amitay Levi",
                    "email":  "amitay1@gmail.com"
                },
     "private":  true,
-    "version":  "1.1.97",
+    "version":  "1.0.0",
     "type":  "module",
     "scripts":  {
                     "dev":  "tsx watch --clear-screen=false --ignore \u0027**/*.timestamp-*.mjs\u0027 server/index.ts",

@@ -8,7 +8,6 @@ import { SettingsProvider } from "@/contexts/SettingsContext";
 import { SavedCardsProvider } from "@/contexts/SavedCardsContext";
 import { InspectorProfileProvider } from "@/contexts/InspectorProfileContext";
 import { LicenseProvider, useLicense } from "@/contexts/LicenseContext";
-import { LicenseActivationScreen } from "@/components/LicenseActivation";
 import { SettingsSync } from "@/components/SettingsSync";
 import { useServiceWorker } from "@/hooks/useServiceWorker";
 import { UpdateNotification } from "@/components/UpdateNotification";
@@ -57,7 +56,7 @@ const AdminShortcut = () => {
 const AppContent = () => {
   const { isOffline } = useServiceWorker();
   const [showSplash, setShowSplash] = useState(true);
-  const { license, loading: licenseLoading, isElectron } = useLicense();
+  const { isElectron } = useLicense();
   const { isFirstRun, isLoading: firstRunLoading, completeFirstRun } = useFirstRun();
   const [showFirstRunWizard, setShowFirstRunWizard] = useState(false);
 
@@ -101,12 +100,15 @@ const AppContent = () => {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
 
-  // Check license (only in Electron)
-  if (isElectron && !licenseLoading) {
-    if (!license || !license.activated || !license.valid) {
-      return <LicenseActivationScreen />;
-    }
-  }
+  // RT-PT Inspector is distributed free — no license gate.
+  // (The license context is still mounted so any downstream code that
+  // reads `useLicense().isElectron` keeps working without changes.)
+  // Original license check kept for reference:
+  //   if (isElectron && !licenseLoading) {
+  //     if (!license || !license.activated || !license.valid) {
+  //       return <LicenseActivationScreen />;
+  //     }
+  //   }
 
   return (
     <BrowserRouter>
