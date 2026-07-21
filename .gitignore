@@ -121,3 +121,9 @@ training-videos/assets/**/animations/
 # Local agent/CLI tooling caches (not part of the RT-PT product)
 .codex/
 .playwright-cli/
+
+# RT-PT signing private keys must never enter the repo (they live outside it)
+**/update-private-key.pem
+**/*-private-key.pem
+**/*private*.pem
+!**/*public*.pem
