@@ -15,7 +15,7 @@ export function useEquipmentData(): EquipmentTabFields {
   // For example from localStorage, context, or API call
   useEffect(() => {
     // Load saved data from localStorage if exists
-    const savedData = localStorage.getItem('scanmaster-equipment-data');
+    const savedData = localStorage.getItem('rtpt-inspector-equipment-data');
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
@@ -28,7 +28,7 @@ export function useEquipmentData(): EquipmentTabFields {
 
   // Save data when it changes
   useEffect(() => {
-    localStorage.setItem('scanmaster-equipment-data', JSON.stringify(equipmentData));
+    localStorage.setItem('rtpt-inspector-equipment-data', JSON.stringify(equipmentData));
   }, [equipmentData]);
 
   return equipmentData;

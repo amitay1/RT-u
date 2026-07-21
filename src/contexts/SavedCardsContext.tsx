@@ -1,21 +1,20 @@
 /**
  * Saved Cards Context
- * Manages saving, loading, and organizing technique/report cards
+ * Manages saving, loading, and organizing RT/PT technique cards.
  * Cards are stored per profile - each profile sees only its own cards
  *
  * Uses unified storage to share data across all browsers (Chrome, Edge) and Electron
  */
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { decodeRtPtDocument } from '@/lib/rtPtDocumentCodec';
 import {
-  StandardType,
-  InspectionSetupData,
-  EquipmentData,
-  CalibrationData,
-  ScanParametersData,
-  AcceptanceCriteriaData,
-  DocumentationData,
-} from '@/types/techniqueSheet';
+  decodeStoredRtPtCards,
+  importRtPtCardsFromJson,
+  type RtPtCardImportReport,
+  type RtPtSavedCard,
+  type RtPtSavedCardsFilter,
+} from '@/lib/rtPtSavedCard';
 import { getStorageData, setStorageData, STORAGE_KEYS } from '@/services/unifiedStorage';
 
 // Generate UUID using native crypto API
@@ -34,7 +33,7 @@ const generateId = (): string => {
 // Get current profile ID from localStorage
 const getCurrentProfileId = (): string => {
   try {
-    const stored = localStorage.getItem('scanmaster_inspector_profiles');
+    const stored = localStorage.getItem('rtpt_inspector_profiles');
     if (stored) {
       const data = JSON.parse(stored);
       return data.currentProfileId || 'default';
@@ -49,56 +48,10 @@ const getCurrentProfileId = (): string => {
 // TYPES
 // ============================================================================
 
-export interface SavedCard {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'technique' | 'report';
-  standard: StandardType;
-  createdAt: string;
-  updatedAt: string;
-  completionPercent: number;
-  tags: string[];
-  isFavorite: boolean;
-  isArchived: boolean;
-  
-  // Profile association
-  profileId: string;
-  
-  // Split mode data
-  isSplitMode: boolean;
-  
-  // Part A data (or single part if not split)
-  inspectionSetup: InspectionSetupData;
-  equipment: EquipmentData;
-  calibration: CalibrationData;
-  scanParameters: ScanParametersData;
-  acceptanceCriteria: AcceptanceCriteriaData;
-  documentation: DocumentationData;
-  
-  // Part B data (only if split mode)
-  inspectionSetupB?: InspectionSetupData;
-  equipmentB?: EquipmentData;
-  calibrationB?: CalibrationData;
-  scanParametersB?: ScanParametersData;
-  acceptanceCriteriaB?: AcceptanceCriteriaData;
-  documentationB?: DocumentationData;
-  
-  // Additional metadata
-  partDiagram?: string;
-  lastEditedSection?: string;
-  data?: any; // Full card data for loading
-}
-
-export interface SavedCardsFilter {
-  type?: 'technique' | 'report' | 'all';
-  searchQuery?: string;
-  tags?: string[];
-  showArchived?: boolean;
-  showFavoritesOnly?: boolean;
-  sortBy?: 'name' | 'updatedAt' | 'createdAt' | 'completionPercent';
-  sortOrder?: 'asc' | 'desc';
-}
+export type SavedCard = RtPtSavedCard;
+export type SavedCardsFilter = RtPtSavedCardsFilter;
+export type ImportCardsReport = RtPtCardImportReport;
+export type SavedCardUpdate = Partial<Omit<SavedCard, 'id' | 'profileId' | 'createdAt' | 'updatedAt'>>;
 
 export interface SavedCardsContextType {
   // State
@@ -106,8 +59,8 @@ export interface SavedCardsContextType {
   isLoading: boolean;
   
   // CRUD operations
-  saveCard: (card: Omit<SavedCard, 'id' | 'createdAt' | 'updatedAt'>) => SavedCard;
-  updateCard: (id: string, updates: Partial<SavedCard>) => void;
+  saveCard: (card: Omit<SavedCard, 'id' | 'profileId' | 'createdAt' | 'updatedAt'>) => SavedCard;
+  updateCard: (id: string, updates: SavedCardUpdate) => void;
   deleteCard: (id: string) => void;
   duplicateCard: (id: string, newName?: string) => SavedCard | null;
   
@@ -127,10 +80,10 @@ export interface SavedCardsContextType {
   // Import/Export
   exportCard: (id: string) => string | null;
   exportAllCards: () => string;
-  importCards: (json: string) => number;
+  importCards: (json: string) => ImportCardsReport;
   
   // Auto-save
-  autoSaveCard: (id: string | null, cardData: Omit<SavedCard, 'id' | 'createdAt' | 'updatedAt'>) => string;
+  autoSaveCard: (id: string | null, cardData: Omit<SavedCard, 'id' | 'profileId' | 'createdAt' | 'updatedAt'>) => string;
   
   // Recent cards
   getRecentCards: (limit?: number) => SavedCard[];
@@ -140,6 +93,8 @@ export interface SavedCardsContextType {
 // CONTEXT
 // ============================================================================
 
+// This context remains public for the existing hook while its persistence provider stays co-located.
+// eslint-disable-next-line react-refresh/only-export-components
 export const SavedCardsContext = createContext<SavedCardsContextType | undefined>(undefined);
 
 // ============================================================================
@@ -147,7 +102,6 @@ export const SavedCardsContext = createContext<SavedCardsContextType | undefined
 // ============================================================================
 
 const STORAGE_KEY = STORAGE_KEYS.SAVED_CARDS;
-const AUTO_SAVE_KEY = 'scanmaster_autosave';
 
 // ============================================================================
 // PROVIDER
@@ -189,14 +143,14 @@ export function SavedCardsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadCards = async () => {
       try {
-        const stored = await getStorageData<SavedCard[]>(STORAGE_KEY, []);
-        if (stored && Array.isArray(stored)) {
-          // Migrate old cards without profileId
-          const migratedCards = stored.map((card: SavedCard) => ({
-            ...card,
-            profileId: card.profileId || 'default',
-          }));
-          setAllCards(migratedCards);
+        const stored = await getStorageData<unknown>(STORAGE_KEY, []);
+        const decoded = decodeStoredRtPtCards(stored, { fallbackProfileId: 'default' });
+        setAllCards(decoded.cards);
+        if (decoded.rejected > 0) {
+          console.warn(
+            `[RT-PT Saved Cards] Rejected ${decoded.rejected} invalid stored card(s).`,
+            decoded.errors,
+          );
         }
       } catch (error) {
         console.error('Failed to load saved cards:', error);
@@ -226,11 +180,16 @@ export function SavedCardsProvider({ children }: { children: ReactNode }) {
   }, [allCards, isLoading]);
 
   // Save a new card (with current profile)
-  const saveCard = useCallback((cardData: Omit<SavedCard, 'id' | 'createdAt' | 'updatedAt'>): SavedCard => {
+  const saveCard = useCallback((cardData: Omit<SavedCard, 'id' | 'profileId' | 'createdAt' | 'updatedAt'>): SavedCard => {
+    const decoded = decodeRtPtDocument(cardData.data);
+    if (decoded.status !== 'success') {
+      throw new Error(`Cannot save this card: ${decoded.message}`);
+    }
     const now = new Date().toISOString();
     const profileId = getCurrentProfileId();
     const newCard: SavedCard = {
       ...cardData,
+      data: decoded.document,
       id: generateId(),
       profileId, // Associate with current profile
       createdAt: now,
@@ -242,10 +201,18 @@ export function SavedCardsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Update existing card
-  const updateCard = useCallback((id: string, updates: Partial<SavedCard>) => {
+  const updateCard = useCallback((id: string, updates: SavedCardUpdate) => {
+    let safeUpdates = updates;
+    if (Object.prototype.hasOwnProperty.call(updates, 'data')) {
+      const decoded = decodeRtPtDocument(updates.data);
+      if (decoded.status !== 'success') {
+        throw new Error(`Cannot update this card: ${decoded.message}`);
+      }
+      safeUpdates = { ...updates, data: decoded.document };
+    }
     setAllCards(prev => prev.map(card => 
       card.id === id 
-        ? { ...card, ...updates, updatedAt: new Date().toISOString() }
+        ? { ...card, ...safeUpdates, updatedAt: new Date().toISOString() }
         : card
     ));
   }, []);
@@ -284,9 +251,9 @@ export function SavedCardsProvider({ children }: { children: ReactNode }) {
     let result = [...cards];
     
     if (filter) {
-      // Filter by type
-      if (filter.type && filter.type !== 'all') {
-        result = result.filter(c => c.type === filter.type);
+      // Filter by RT/PT inspection method.
+      if (filter.method && filter.method !== 'all') {
+        result = result.filter(c => c.data.method === filter.method);
       }
       
       // Filter by search query
@@ -395,79 +362,24 @@ export function SavedCardsProvider({ children }: { children: ReactNode }) {
     return JSON.stringify(cards, null, 2);
   }, [cards]);
 
-  // Import cards - supports both local SavedCard format and server TechniqueSheetRecord format
-  const importCards = useCallback((json: string): number => {
-    try {
-      const imported = JSON.parse(json);
-      const cardsToImport = Array.isArray(imported) ? imported : [imported];
-      const now = new Date().toISOString();
-      const profileId = getCurrentProfileId();
-
-      const newCards: SavedCard[] = [];
-
-      for (const item of cardsToImport) {
-        if (typeof item !== 'object' || item === null) continue;
-
-        // Check if it's already a SavedCard format (local export)
-        if ('name' in item && 'type' in item && 'inspectionSetup' in item) {
-          newCards.push({
-            ...item,
-            id: generateId(),
-            profileId, // Associate with current profile
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-        // Check if it's a TechniqueSheetRecord format (server export)
-        else if ('sheetName' in item && 'data' in item && typeof item.data === 'object') {
-          const data = item.data;
-          newCards.push({
-            id: generateId(),
-            profileId, // Associate with current profile
-            name: item.sheetName || 'Imported Card',
-            description: '',
-            type: data.reportMode === 'Report' ? 'report' : 'technique',
-            standard: (item.standard || data.standard || 'AMS-STD-2154E') as StandardType,
-            createdAt: now,
-            updatedAt: now,
-            completionPercent: 0,
-            tags: [],
-            isFavorite: false,
-            isArchived: false,
-            isSplitMode: data.isSplitMode || false,
-            inspectionSetup: data.partA?.inspectionSetup || {},
-            equipment: data.partA?.equipment || {},
-            calibration: data.partA?.calibration || {},
-            scanParameters: data.partA?.scanParameters || {},
-            acceptanceCriteria: data.partA?.acceptanceCriteria || {},
-            documentation: data.partA?.documentation || {},
-            inspectionSetupB: data.partB?.inspectionSetup,
-            equipmentB: data.partB?.equipment,
-            calibrationB: data.partB?.calibration,
-            scanParametersB: data.partB?.scanParameters,
-            acceptanceCriteriaB: data.partB?.acceptanceCriteria,
-            documentationB: data.partB?.documentation,
-          } as SavedCard);
-        }
-      }
-
-      if (newCards.length === 0) {
-        console.warn('No valid cards found in import. Expected format: SavedCard or TechniqueSheetRecord');
-        return 0;
-      }
-
-      setAllCards(prev => [...newCards, ...prev]);
-      return newCards.length;
-    } catch (error) {
-      console.error('Failed to import cards:', error);
-      return 0;
+  // Import only RT/PT V1 documents, whether raw or inside an allowlisted old envelope.
+  const importCards = useCallback((json: string): ImportCardsReport => {
+    const report = importRtPtCardsFromJson(json, {
+      profileId: getCurrentProfileId(),
+      idFactory: generateId,
+    });
+    if (report.cards.length > 0) {
+      setAllCards(prev => [...report.cards, ...prev]);
     }
+    return {
+      imported: report.imported,
+      rejected: report.rejected,
+      errors: report.errors,
+    };
   }, []);
 
   // Auto-save (creates or updates based on existing ID)
-  const autoSaveCard = useCallback((id: string | null, cardData: Omit<SavedCard, 'id' | 'createdAt' | 'updatedAt'>): string => {
-    const now = new Date().toISOString();
-    
+  const autoSaveCard = useCallback((id: string | null, cardData: Omit<SavedCard, 'id' | 'profileId' | 'createdAt' | 'updatedAt'>): string => {
     if (id) {
       // Update existing card
       const existing = cards.find(c => c.id === id);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useState, useCallback, useRef } from 'react';
 
 export const useServiceWorker = () => {
@@ -11,6 +10,7 @@ export const useServiceWorker = () => {
   const updateFoundHandlerRef = useRef<(() => void) | null>(null);
   const messageHandlerRef = useRef<((event: MessageEvent) => void) | null>(null);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const reloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -105,6 +105,9 @@ export const useServiceWorker = () => {
       if (updateFoundHandlerRef.current && registrationRef.current) {
         registrationRef.current.removeEventListener('updatefound', updateFoundHandlerRef.current);
       }
+      if (reloadTimeoutRef.current) {
+        clearTimeout(reloadTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -128,24 +131,27 @@ export const useServiceWorker = () => {
       navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange, { once: true });
       
       // Fallback reload after 3 seconds if controllerchange doesn't fire
-      setTimeout(() => {
+      reloadTimeoutRef.current = setTimeout(() => {
         window.location.reload();
       }, 3000);
     }
   }, [registration, updateInProgress]);
 
-  const clearCache = async () => {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  const clearCache = async (): Promise<boolean> => {
+    const controller = 'serviceWorker' in navigator
+      ? navigator.serviceWorker.controller
+      : null;
+    if (controller) {
       const messageChannel = new MessageChannel();
       
-      return new Promise((resolve) => {
+      return new Promise<boolean>((resolve) => {
         messageChannel.port1.onmessage = (event) => {
           if (event.data && event.data.cleared) {
             resolve(true);
           }
         };
 
-        navigator.serviceWorker.controller.postMessage(
+        controller.postMessage(
           { type: 'CLEAR_CACHE' },
           [messageChannel.port2]
         );

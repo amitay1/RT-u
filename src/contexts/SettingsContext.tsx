@@ -18,19 +18,6 @@ export interface UnitsSettings {
   lengthUnit: 'mm' | 'inch';
   angleUnit: 'degrees' | 'radians';
   temperatureUnit: 'celsius' | 'fahrenheit';
-  pressureUnit: 'bar' | 'psi' | 'mpa';
-  velocityUnit: 'm/s' | 'in/s';
-  frequencyDisplay: 'MHz' | 'kHz';
-}
-
-export interface DefaultsSettings {
-  defaultStandard: 'AMS-STD-2154E' | 'ASTM-A388' | 'BS-EN-10228-3' | 'BS-EN-10228-4';
-  defaultMaterial: string;
-  defaultFrequency: string;
-  defaultCouplant: string;
-  defaultProbeType: string;
-  autoFillEnabled: boolean;
-  autoCalculateEnabled: boolean;
 }
 
 export interface ExportSettings {
@@ -39,7 +26,6 @@ export interface ExportSettings {
   includeCoverPage: boolean;
   includeTableOfContents: boolean;
   includeDrawings: boolean;
-  include3DViews: boolean;
   pdfQuality: 'draft' | 'standard' | 'high';
   pageSize: 'A4' | 'Letter' | 'Legal';
   orientation: 'portrait' | 'landscape';
@@ -66,37 +52,12 @@ export interface NotificationSettings {
   soundEffects: boolean;
 }
 
-export interface ViewerSettings {
-  viewer3DEnabled: boolean;
-  viewer3DDefaultSize: 'S' | 'M' | 'L';
-  viewer3DAutoRotate: boolean;
-  viewer3DShowGrid: boolean;
-  viewer3DShowAxes: boolean;
-  viewer3DBackgroundColor: string;
-  drawingGridEnabled: boolean;
-  drawingSnapToGrid: boolean;
-  drawingGridSize: number;
-}
-
-export interface AdvancedSettings {
-  developerMode: boolean;
-  debugLogging: boolean;
-  experimentalFeatures: boolean;
-  cacheEnabled: boolean;
-  offlineMode: boolean;
-  dataRetentionDays: number;
-  maxRecentFiles: number;
-}
-
 export interface AppSettings {
   general: GeneralSettings;
   units: UnitsSettings;
-  defaults: DefaultsSettings;
   export: ExportSettings;
   company: CompanySettings;
   notifications: NotificationSettings;
-  viewer: ViewerSettings;
-  advanced: AdvancedSettings;
 }
 
 // ============================================================================
@@ -116,18 +77,6 @@ const defaultSettings: AppSettings = {
     lengthUnit: 'mm',
     angleUnit: 'degrees',
     temperatureUnit: 'celsius',
-    pressureUnit: 'bar',
-    velocityUnit: 'm/s',
-    frequencyDisplay: 'MHz',
-  },
-  defaults: {
-    defaultStandard: 'AMS-STD-2154E',
-    defaultMaterial: 'Aluminum 7075-T6',
-    defaultFrequency: '5.0',
-    defaultCouplant: 'Water',
-    defaultProbeType: 'Straight Beam',
-    autoFillEnabled: true,
-    autoCalculateEnabled: true,
   },
   export: {
     defaultExportFormat: 'pdf',
@@ -135,7 +84,6 @@ const defaultSettings: AppSettings = {
     includeCoverPage: true,
     includeTableOfContents: true,
     includeDrawings: true,
-    include3DViews: false,
     pdfQuality: 'standard',
     pageSize: 'A4',
     orientation: 'portrait',
@@ -159,26 +107,6 @@ const defaultSettings: AppSettings = {
     showTooltips: true,
     soundEffects: false,
   },
-  viewer: {
-    viewer3DEnabled: true,
-    viewer3DDefaultSize: 'M',
-    viewer3DAutoRotate: false,
-    viewer3DShowGrid: true,
-    viewer3DShowAxes: true,
-    viewer3DBackgroundColor: '#1a1a2e',
-    drawingGridEnabled: true,
-    drawingSnapToGrid: true,
-    drawingGridSize: 10,
-  },
-  advanced: {
-    developerMode: false,
-    debugLogging: false,
-    experimentalFeatures: false,
-    cacheEnabled: true,
-    offlineMode: false,
-    dataRetentionDays: 365,
-    maxRecentFiles: 10,
-  },
 };
 
 // ============================================================================
@@ -197,6 +125,8 @@ export interface SettingsContextType {
   isLoading: boolean;
 }
 
+// This context remains public for the existing hook while its persistence provider stays co-located.
+// eslint-disable-next-line react-refresh/only-export-components
 export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 // ============================================================================
@@ -296,7 +226,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const importSettings = (json: string): boolean => {
     try {
-      const imported = JSON.parse(json);
+      const imported: unknown = JSON.parse(json);
+      if (!isPlainObject(imported)) {
+        return false;
+      }
       setSettings(normalizeSettings(deepMerge(defaultSettings, imported)));
       return true;
     } catch {
@@ -326,27 +259,37 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 // UTILITIES
 // ============================================================================
 
-function deepMerge<T extends object>(target: T, source: Partial<T>): T {
-  const result = { ...target };
-  
-  for (const key in source) {
-    if (source[key] !== undefined) {
-      if (
-        typeof source[key] === 'object' &&
-        source[key] !== null &&
-        !Array.isArray(source[key]) &&
-        typeof target[key] === 'object' &&
-        target[key] !== null
-      ) {
-        (result as Record<string, unknown>)[key] = deepMerge(
-          target[key] as object,
-          source[key] as object
-        );
-      } else {
-        (result as Record<string, unknown>)[key] = source[key];
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function deepMerge<T extends object>(target: T, source: unknown): T {
+  if (!isPlainObject(source)) {
+    return { ...target };
+  }
+
+  const targetRecord = target as Record<string, unknown>;
+  const result: Record<string, unknown> = { ...targetRecord };
+
+  for (const key of Object.keys(targetRecord)) {
+    const targetValue = targetRecord[key];
+    const sourceValue = source[key];
+
+    if (sourceValue === undefined) {
+      continue;
+    }
+
+    if (isPlainObject(targetValue)) {
+      if (isPlainObject(sourceValue)) {
+        result[key] = deepMerge(targetValue, sourceValue);
       }
+      continue;
+    }
+
+    if (typeof sourceValue === typeof targetValue) {
+      result[key] = sourceValue;
     }
   }
-  
-  return result;
+
+  return result as T;
 }

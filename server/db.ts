@@ -6,27 +6,37 @@ import { config } from "dotenv";
 // Load environment variables
 config();
 
-if (!process.env.DATABASE_URL) {
+const databaseUrl = process.env.RTPT_DATABASE_URL;
+
+if (!databaseUrl) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "RTPT_DATABASE_URL must be set to the dedicated RT-PT Inspector database. Generic DATABASE_URL credentials are intentionally ignored.",
   );
 }
 
 // Check if using local database (no SSL needed) or cloud (SSL required)
-const isLocalDb = process.env.DATABASE_URL.includes('localhost') || 
-                  process.env.DATABASE_URL.includes('127.0.0.1') ||
-                  process.env.DATABASE_URL.includes('@postgres:') ||
+const isLocalDb = databaseUrl.includes('localhost') ||
+                  databaseUrl.includes('127.0.0.1') ||
+                  databaseUrl.includes('@postgres:') ||
                   process.env.DOCKER_ENV === 'true';
 
+const sslMode = process.env.RTPT_DATABASE_SSL_MODE || (isLocalDb ? 'disable' : 'verify-full');
+if (!['disable', 'require', 'verify-full'].includes(sslMode)) {
+  throw new Error('RTPT_DATABASE_SSL_MODE must be disable, require, or verify-full.');
+}
+
+const ssl = sslMode === 'disable'
+  ? false
+  : { rejectUnauthorized: sslMode === 'verify-full' };
+
 console.log('🔵 Database configuration:', {
-  url: process.env.DATABASE_URL.replace(/:[^:@]+@/, ':****@'),
   isLocalDb,
-  ssl: isLocalDb ? false : 'enabled'
+  sslMode,
 });
 
 export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  ssl: isLocalDb ? false : { rejectUnauthorized: false }
+  connectionString: databaseUrl,
+  ssl,
 });
 
 // Test connection on startup

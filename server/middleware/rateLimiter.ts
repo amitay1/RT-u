@@ -36,7 +36,7 @@ export function createRateLimiter(options: RateLimitOptions = {}) {
     keyGenerator = (req: Request) => {
       // Use IP + org_id for rate limiting
       const ip = req.headers['x-forwarded-for'] || req.ip;
-      const orgId = (req as any).orgId || 'no-org';
+      const orgId = req.orgId || 'no-org';
       return `${ip}:${orgId}`;
     },
     skipSuccessfulRequests = false,
@@ -76,7 +76,7 @@ export function createRateLimiter(options: RateLimitOptions = {}) {
       
       // Track response for conditional skipping
       const originalSend = res.send;
-      res.send = function(data: any) {
+      res.send = function(data: unknown) {
         const statusCode = res.statusCode;
         
         // Decrement if we should skip this request type
@@ -96,7 +96,7 @@ export function createRateLimiter(options: RateLimitOptions = {}) {
 
     // Track response for conditional skipping
     const originalSend = res.send;
-    res.send = function(data: any) {
+    res.send = function(data: unknown) {
       const statusCode = res.statusCode;
       
       // Decrement if we should skip this request type

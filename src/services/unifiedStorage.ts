@@ -10,17 +10,17 @@
  * 2. localStorage fallback - browser-specific (only if server unavailable)
  */
 
-const LOCAL_SERVER_URL = 'http://localhost:5000';
+const LOCAL_SERVER_URL = 'http://127.0.0.1:5000';
 const STORAGE_API_PATH = '/api/unified-storage';
 
 // Storage keys
 export const STORAGE_KEYS = {
-  SAVED_CARDS: 'scanmaster_saved_cards',
-  SETTINGS: 'scanmaster_settings',
-  INSPECTOR_PROFILES: 'scanmaster_inspector_profiles',
-  FIRST_RUN: 'scanmaster_first_run_completed',
-  FIRST_RUN_DATA: 'scanmaster_first_run_data',
-  USER_ID: 'scanmaster_user_id',
+  SAVED_CARDS: 'rtpt_inspector_saved_cards',
+  SETTINGS: 'rtpt_inspector_settings',
+  INSPECTOR_PROFILES: 'rtpt_inspector_profiles',
+  FIRST_RUN: 'rtpt_inspector_first_run_completed',
+  FIRST_RUN_DATA: 'rtpt_inspector_first_run_data',
+  USER_ID: 'rtpt_inspector_user_id',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

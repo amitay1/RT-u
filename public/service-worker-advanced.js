@@ -1,11 +1,11 @@
 // Advanced Service Worker with comprehensive offline support
 // Version 2.0.0 - Multi-tenant PWA with sync capabilities
 
-const CACHE_VERSION = 'scan-master-v2.0.0';
-const STATIC_CACHE = 'static-cache-v2';
-const DYNAMIC_CACHE = 'dynamic-cache-v2';
-const API_CACHE = 'api-cache-v2';
-const OFFLINE_QUEUE = 'offline-queue-v2';
+const CACHE_VERSION = 'rtpt-inspector-v1.0.0';
+const STATIC_CACHE = 'rtpt-inspector-static-v1';
+const DYNAMIC_CACHE = 'rtpt-inspector-dynamic-v1';
+const API_CACHE = 'rtpt-inspector-api-v1';
+const OFFLINE_QUEUE = 'rtpt-inspector-offline-queue-v1';
 
 // Static resources to cache on install
 const STATIC_RESOURCES = [
@@ -359,7 +359,7 @@ self.addEventListener('push', (event) => {
   };
   
   event.waitUntil(
-    self.registration.showNotification('Scan Master', options)
+    self.registration.showNotification('RT-PT Inspector', options)
   );
 });
 

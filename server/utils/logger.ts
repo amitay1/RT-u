@@ -1,6 +1,8 @@
 import winston from 'winston';
 import path from 'path';
 
+type LogContext = Record<string, unknown>;
+
 // Define log levels
 const levels = {
   error: 0,
@@ -89,7 +91,7 @@ export const stream = {
 };
 
 // Utility functions for structured logging
-export const logError = (error: Error, context?: any) => {
+export const logError = (error: Error, context?: LogContext) => {
   logger.error({
     message: error.message,
     stack: error.stack,
@@ -97,28 +99,28 @@ export const logError = (error: Error, context?: any) => {
   });
 };
 
-export const logWarning = (message: string, context?: any) => {
+export const logWarning = (message: string, context?: LogContext) => {
   logger.warn({
     message,
     ...context,
   });
 };
 
-export const logInfo = (message: string, context?: any) => {
+export const logInfo = (message: string, context?: LogContext) => {
   logger.info({
     message,
     ...context,
   });
 };
 
-export const logDebug = (message: string, context?: any) => {
+export const logDebug = (message: string, context?: LogContext) => {
   logger.debug({
     message,
     ...context,
   });
 };
 
-export const logHttp = (message: string, context?: any) => {
+export const logHttp = (message: string, context?: LogContext) => {
   logger.http({
     message,
     ...context,
@@ -126,7 +128,7 @@ export const logHttp = (message: string, context?: any) => {
 };
 
 // Audit logging for sensitive operations
-export const logAudit = (action: string, userId: string, orgId: string, details?: any) => {
+export const logAudit = (action: string, userId: string, orgId: string, details?: LogContext) => {
   logger.info({
     type: 'AUDIT',
     action,
@@ -138,7 +140,7 @@ export const logAudit = (action: string, userId: string, orgId: string, details?
 };
 
 // Performance logging
-export const logPerformance = (operation: string, duration: number, context?: any) => {
+export const logPerformance = (operation: string, duration: number, context?: LogContext) => {
   const level = duration > 1000 ? 'warn' : 'info';
   logger.log(level, {
     type: 'PERFORMANCE',

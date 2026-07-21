@@ -4,25 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>RT-PT Inspector — Radiographic &amp; Penetrant Technique Sheet Creator</title>
-    <meta name="description" content="RT-PT Inspector — desktop tool for building radiographic (ASTM E1742 / E2698) and liquid-penetrant (ASTM E1417) technique sheets.">
+    <meta name="description" content="RT-PT Inspector — controlled technique-sheet workspace for radiographic and liquid-penetrant inspection planning.">
     <meta name="author" content="Amitay Levi" />
     <meta name="theme-color" content="#115eb0" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="manifest" href="/manifest.json" />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content="RT-PT Inspector" />
     <meta property="og:description" content="Desktop technique-sheet creator for radiographic and penetrant NDT inspections." />
 
-    <script>
-      // Only register service worker in production
-      if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => console.log('Service Worker registered'))
-            .catch(err => console.log('Service Worker registration failed'));
-        });
-      }
-    </script>
 </head>
 
   <body>

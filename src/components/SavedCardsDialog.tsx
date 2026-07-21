@@ -1,6 +1,6 @@
 /**
  * Saved Cards Dialog
- * UI for managing saved technique/report cards with beautiful design
+ * UI for managing saved RT/PT technique cards.
  * Cards are filtered by profile - each profile sees only its own cards
  */
 
@@ -38,7 +38,9 @@ import {
 import {
   Search,
   FileText,
-  ClipboardList,
+  Film,
+  Monitor,
+  Droplets,
   Star,
   StarOff,
   Archive,
@@ -64,6 +66,7 @@ import { SavedCard, SavedCardsFilter } from '@/contexts/SavedCardsContext';
 import { useInspectorProfile } from '@/contexts/InspectorProfileContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import type { RtPtMethod } from '@/types/rtPtDocument';
 
 // ============================================================================
 // TYPES
@@ -74,6 +77,21 @@ interface SavedCardsDialogProps {
   onOpenChange: (open: boolean) => void;
   onLoadCard: (card: SavedCard) => void;
 }
+
+const METHOD_LABEL: Record<RtPtMethod, string> = {
+  'RT-Film': 'Film RT',
+  'RT-Digital': 'Digital RT',
+  PT: 'PT',
+};
+
+const safeFilename = (value: string): string => (
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'card'
+);
 
 // ============================================================================
 // BEAUTIFUL CARD COMPONENT
@@ -96,16 +114,21 @@ function BeautifulCardItem({
   onDelete: () => void;
   onExport: () => void;
 }) {
+  const method = card.data.method;
+  const MethodIcon = method === 'RT-Film' ? Film : method === 'RT-Digital' ? Monitor : Droplets;
+  const methodAccent = 'bg-primary';
+  const methodIconClass = 'border border-primary/20 bg-primary/10 text-primary';
+
   const getCompletionColor = (percent: number) => {
-    if (percent >= 80) return 'from-emerald-500 to-green-400';
-    if (percent >= 50) return 'from-amber-500 to-yellow-400';
-    return 'from-rose-500 to-red-400';
+    if (percent >= 80) return 'bg-success';
+    if (percent >= 50) return 'bg-warning';
+    return 'bg-destructive';
   };
 
   const getCompletionBg = (percent: number) => {
-    if (percent >= 80) return 'bg-emerald-500/10 border-emerald-500/30';
-    if (percent >= 50) return 'bg-amber-500/10 border-amber-500/30';
-    return 'bg-rose-500/10 border-rose-500/30';
+    if (percent >= 80) return 'border-success/30 bg-success/10';
+    if (percent >= 50) return 'border-warning/30 bg-warning/10';
+    return 'border-destructive/30 bg-destructive/10';
   };
 
   const formatDate = (dateStr: string) => {
@@ -127,55 +150,44 @@ function BeautifulCardItem({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.95 }}
       transition={{ duration: 0.2 }}
-      whileHover={{ scale: 1.01 }}
       className={cn(
-        "relative overflow-hidden rounded-[24px] border transition-all duration-300 cursor-pointer group",
-        "bg-[linear-gradient(180deg,rgba(18,25,38,0.96),rgba(11,16,25,0.98))]",
-        "hover:border-white/16 hover:bg-[linear-gradient(180deg,rgba(21,29,44,0.98),rgba(12,18,28,0.98))]",
-        "hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]",
-        card.isArchived ? "opacity-50 border-white/8" : "border-white/10",
-        card.isFavorite && "border-yellow-400/20"
+        "group relative cursor-pointer overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm",
+        "transition-[border-color,box-shadow,opacity] duration-200 hover:border-primary/40 hover:shadow-md focus-within:border-primary/50",
+        card.isArchived ? "border-border opacity-60" : "border-border",
+        card.isFavorite && "border-warning/40"
       )}
       onClick={onLoad}
     >
-      {/* Gradient Accent Line */}
+      {/* Method Accent Line */}
       <div className={cn(
-        "absolute top-0 left-0 right-0 h-1 bg-gradient-to-r",
-        card.type === 'technique' ? 'from-blue-500 via-cyan-500 to-teal-500' : 'from-purple-500 via-pink-500 to-rose-500'
+        "absolute inset-y-0 left-0 w-1",
+        methodAccent,
       )} />
 
-      {/* Favorite Star */}
-      {card.isFavorite && (
-        <div className="absolute top-3 left-3 z-10">
-          <Star className="w-5 h-5 text-yellow-400 fill-yellow-400 animate-pulse" />
-        </div>
-      )}
-
-      <div className="p-5">
+      <div className="p-4 pl-5 sm:p-5 sm:pl-6">
         {/* Header Row */}
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {/* Type Icon */}
             <div className={cn(
-              "flex-shrink-0 p-2.5 rounded-xl",
-              card.type === 'technique' 
-                ? 'bg-blue-500/20 text-blue-400' 
-                : 'bg-purple-500/20 text-purple-400'
+              "flex-shrink-0 rounded-md p-2.5",
+              methodIconClass,
             )}>
-              {card.type === 'technique' ? (
-                <FileText className="w-5 h-5" />
-              ) : (
-                <ClipboardList className="w-5 h-5" />
-              )}
+              <MethodIcon className="w-5 h-5" />
             </div>
             
             {/* Title & Description */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-white text-lg truncate leading-tight">
-                {card.name}
-              </h3>
+              <div className="flex min-w-0 items-center gap-2">
+                <h3 className="truncate text-lg font-semibold leading-tight text-card-foreground">
+                  {card.name}
+                </h3>
+                {card.isFavorite && (
+                  <Star className="h-4 w-4 flex-none fill-warning text-warning" />
+                )}
+              </div>
               {card.description && (
-                <p className="text-sm text-slate-400 line-clamp-2 mt-0.5">
+                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                   {card.description}
                 </p>
               )}
@@ -188,12 +200,13 @@ function BeautifulCardItem({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-8 w-8 rounded-xl border border-transparent opacity-0 group-hover:opacity-100 transition-opacity hover:border-white/10 hover:bg-white/[0.05]"
+                className="h-8 w-8 rounded-md border border-transparent text-muted-foreground opacity-70 transition-colors hover:border-border hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100"
+                aria-label={`Actions for ${card.name}`}
               >
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-slate-900 border-white/10">
+            <DropdownMenuContent align="end" className="w-48 border-border bg-popover text-popover-foreground">
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onLoad(); }}>
                 <FolderOpen className="w-4 h-4 mr-2" />
                 Open Card
@@ -235,7 +248,7 @@ function BeautifulCardItem({
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="text-red-400 focus:text-red-400"
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
@@ -246,58 +259,64 @@ function BeautifulCardItem({
 
         {/* Progress Section */}
         <div className={cn(
-          "rounded-2xl p-3.5 mb-4 border",
+          "mb-4 rounded-md border p-3.5",
           getCompletionBg(card.completionPercent)
         )}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-slate-300 flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 text-sm text-foreground">
               {card.completionPercent >= 80 ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <CheckCircle2 className="h-4 w-4 text-success" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-amber-400" />
+                <AlertCircle className={cn(
+                  "h-4 w-4",
+                  card.completionPercent >= 50 ? 'text-warning' : 'text-destructive',
+                )} />
               )}
               Progress
             </span>
             <span className={cn(
-              "font-bold text-lg",
-              card.completionPercent >= 80 ? 'text-emerald-400' : 
-              card.completionPercent >= 50 ? 'text-amber-400' : 'text-rose-400'
+              "text-lg font-semibold tabular-nums",
+              card.completionPercent >= 80 ? 'text-success' :
+              card.completionPercent >= 50 ? 'text-warning' : 'text-destructive'
             )}>
               {card.completionPercent}%
             </span>
           </div>
-          <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+          <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${card.completionPercent}%` }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className={cn("h-full rounded-full bg-gradient-to-r", getCompletionColor(card.completionPercent))}
+              className={cn("h-full rounded-sm", getCompletionColor(card.completionPercent))}
             />
           </div>
         </div>
 
         {/* Info Row */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-3 text-slate-400">
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground sm:gap-3">
             <span className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
               {formatDate(card.updatedAt)}
             </span>
-            <Badge variant="outline" className="text-xs border-white/10 bg-white/[0.03] text-slate-300">
+            <Badge variant="outline" className="rounded-md border-border bg-muted/50 text-xs text-muted-foreground">
               {card.standard}
+            </Badge>
+            <Badge variant="outline" className="rounded-md border-primary/30 bg-primary/10 text-xs text-primary">
+              {METHOD_LABEL[method]}
             </Badge>
           </div>
           
           {/* Tags */}
           {card.tags && card.tags.length > 0 && (
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {card.tags.slice(0, 2).map(tag => (
-                <Badge key={tag} className="text-xs border border-white/8 bg-white/[0.04] text-slate-300">
+                <Badge key={tag} variant="outline" className="rounded-md border-border bg-muted/40 text-xs text-muted-foreground">
                   {tag}
                 </Badge>
               ))}
               {card.tags.length > 2 && (
-                <Badge className="text-xs border border-white/8 bg-white/[0.04] text-slate-300">
+                <Badge variant="outline" className="rounded-md border-border bg-muted/40 text-xs text-muted-foreground">
                   +{card.tags.length - 2}
                 </Badge>
               )}
@@ -305,13 +324,10 @@ function BeautifulCardItem({
           )}
         </div>
 
-        {/* Load Button - appears on hover */}
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"
-        >
+        {/* Primary card action */}
+        <motion.div className="mt-4 border-t border-border pt-4">
           <Button 
-            className="w-full rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 gap-2"
+            className="w-full rounded-md gap-2"
             onClick={(e) => { e.stopPropagation(); onLoad(); }}
           >
             Open & Continue Editing
@@ -332,15 +348,15 @@ function EmptyState({ searchQuery, profileName }: { searchQuery: string; profile
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-white/[0.03] py-16 text-center"
+      className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-14 text-center"
     >
-      <div className="w-20 h-20 rounded-full bg-white/[0.04] flex items-center justify-center mb-6">
-        <FolderOpen className="w-10 h-10 text-slate-500" />
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg border border-border bg-muted/50">
+        <FolderOpen className="h-8 w-8 text-muted-foreground" />
       </div>
-      <h3 className="text-xl font-semibold text-white mb-2">
+      <h3 className="mb-2 text-xl font-semibold text-foreground">
         {searchQuery ? 'No cards found' : 'No saved cards'}
       </h3>
-      <p className="text-slate-400 max-w-sm">
+      <p className="max-w-sm text-muted-foreground">
         {searchQuery 
           ? 'Try searching with different keywords' 
           : profileName 
@@ -348,7 +364,7 @@ function EmptyState({ searchQuery, profileName }: { searchQuery: string; profile
             : 'Save your first card to continue working on it later'}
       </p>
       {!searchQuery && (
-        <div className="mt-6 flex items-center gap-2 text-sm text-slate-500">
+        <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
           <Sparkles className="w-4 h-4" />
           Tip: Click the save button (💾) in the toolbar
         </div>
@@ -377,7 +393,7 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
   const { currentProfile } = useInspectorProfile();
   
   // State
-  const [activeTab, setActiveTab] = useState<'all' | 'technique' | 'report'>('all');
+  const [activeMethod, setActiveMethod] = useState<RtPtMethod | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -387,21 +403,22 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
   
   // Filter cards
   const filter: SavedCardsFilter = useMemo(() => ({
-    type: activeTab === 'all' ? undefined : activeTab,
+    method: activeMethod,
     searchQuery: searchQuery || undefined,
     showArchived,
     showFavoritesOnly,
     sortBy,
     sortOrder,
-  }), [activeTab, searchQuery, showArchived, showFavoritesOnly, sortBy, sortOrder]);
+  }), [activeMethod, searchQuery, showArchived, showFavoritesOnly, sortBy, sortOrder]);
   
   const filteredCards = useMemo(() => getFilteredCards(filter), [getFilteredCards, filter]);
   
   // Stats
   const stats = useMemo(() => ({
     total: cards.filter(c => !c.isArchived).length,
-    techniques: cards.filter(c => c.type === 'technique' && !c.isArchived).length,
-    reports: cards.filter(c => c.type === 'report' && !c.isArchived).length,
+    film: cards.filter(c => c.data.method === 'RT-Film' && !c.isArchived).length,
+    digital: cards.filter(c => c.data.method === 'RT-Digital' && !c.isArchived).length,
+    pt: cards.filter(c => c.data.method === 'PT' && !c.isArchived).length,
     favorites: cards.filter(c => c.isFavorite && !c.isArchived).length,
     archived: cards.filter(c => c.isArchived).length,
   }), [cards]);
@@ -410,7 +427,6 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
   const handleLoad = (card: SavedCard) => {
     onLoadCard(card);
     onOpenChange(false);
-    toast.success(`Loaded: "${card.name}"`);
   };
   
   const handleDuplicate = (id: string) => {
@@ -435,10 +451,10 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${card?.name || 'card'}.json`;
+      a.download = `rtpt-${safeFilename(card?.name || 'card')}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Card exported successfully');
+      toast.success('RT-PT card exported successfully');
     }
   };
   
@@ -448,7 +464,7 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `scanmaster-cards-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `rtpt-inspector-cards-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`Exported ${cards.length} cards`);
@@ -463,18 +479,18 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
       if (file) {
         const reader = new FileReader();
         reader.onload = (e) => {
-          try {
-            const json = e.target?.result as string;
-            JSON.parse(json);
-            const count = importCards(json);
-            if (count > 0) {
-              toast.success(`Imported ${count} cards successfully`);
-            } else {
-              toast.error('No valid cards found in file');
-            }
-          } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            toast.error('Invalid JSON file');
+          const json = e.target?.result as string;
+          const report = importCards(json);
+          const description = report.errors.slice(0, 3).join('\n');
+          if (report.imported > 0 && report.rejected > 0) {
+            toast.warning(
+              `Imported ${report.imported} RT-PT card(s); rejected ${report.rejected}.`,
+              { description },
+            );
+          } else if (report.imported > 0) {
+            toast.success(`Imported ${report.imported} RT-PT card(s) successfully.`);
+          } else {
+            toast.error('No valid RT-PT cards were imported.', { description });
           }
         };
         reader.onerror = () => {
@@ -489,71 +505,71 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl h-[86vh] flex flex-col p-0 border border-white/10 bg-[linear-gradient(180deg,rgba(10,14,22,0.98),rgba(12,18,28,0.98))] shadow-[0_32px_80px_rgba(0,0,0,0.45)]">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] min-h-0 w-[calc(100vw-1rem)] max-w-6xl flex-col gap-0 overflow-hidden rounded-lg border border-border bg-background p-0 text-foreground shadow-xl sm:h-[min(880px,calc(100dvh-2rem))] sm:w-[calc(100vw-2rem)]">
           {/* Header */}
-          <DialogHeader className="px-6 py-5 border-b border-white/8 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_40%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(12,18,28,0.96))] backdrop-blur">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
-                  <div className="p-2.5 rounded-2xl bg-blue-500/15 ring-1 ring-blue-400/20">
-                    <FolderOpen className="w-6 h-6 text-blue-400" />
+          <DialogHeader className="flex-none border-b border-border bg-card px-4 py-4 pr-12 text-left sm:px-6 sm:py-5 sm:pr-14">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-card-foreground sm:text-2xl">
+                  <div className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-primary/20 bg-primary/10">
+                    <FolderOpen className="h-5 w-5 text-primary" />
                   </div>
-                  My Cards
+                  RT-PT Saved Cards
                 </DialogTitle>
-                <DialogDescription className="text-slate-400 mt-1 flex items-center gap-2">
+                <DialogDescription className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                   {currentProfile && (
                     <>
                       <User className="w-4 h-4" />
-                      <span className="text-blue-400 font-medium">{currentProfile.name}</span>
+                      <span className="font-medium text-foreground">{currentProfile.name}</span>
                       <span>•</span>
                     </>
                   )}
-                  {stats.total} cards • {stats.techniques} technique • {stats.reports} reports
+                  {stats.total} cards • {stats.film} Film RT • {stats.digital} Digital RT • {stats.pt} PT
                 </DialogDescription>
               </div>
               
               {/* Quick Stats */}
-              <div className="flex gap-3">
-                <div className="px-4 py-2.5 rounded-2xl bg-yellow-500/10 border border-yellow-400/20">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3">
+                <div className="min-w-28 rounded-md border border-warning/25 bg-warning/10 px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-yellow-400" />
-                    <span className="font-semibold text-yellow-400">{stats.favorites}</span>
+                    <Star className="h-4 w-4 text-warning" />
+                    <span className="font-semibold tabular-nums text-warning">{stats.favorites}</span>
                   </div>
-                  <div className="text-xs text-yellow-400/70">Favorites</div>
+                  <div className="text-xs text-muted-foreground">Favorites</div>
                 </div>
-                <div className="px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-400/20">
+                <div className="min-w-28 rounded-md border border-success/25 bg-success/10 px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-emerald-400" />
-                    <span className="font-semibold text-emerald-400">
+                    <FileCheck className="h-4 w-4 text-success" />
+                    <span className="font-semibold tabular-nums text-success">
                       {cards.filter(c => c.completionPercent >= 80).length}
                     </span>
                   </div>
-                  <div className="text-xs text-emerald-400/70">Completed</div>
+                  <div className="text-xs text-muted-foreground">Completed</div>
                 </div>
               </div>
             </div>
           </DialogHeader>
           
           {/* Toolbar */}
-          <div className="px-6 py-4 border-b border-white/8 space-y-4 bg-black/10">
+          <div className="flex-none space-y-3 border-b border-border bg-muted/20 px-4 py-4 sm:px-6">
             {/* Search and Actions */}
             <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <div className="relative min-w-[min(100%,16rem)] flex-1">
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search cards..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-11 rounded-2xl border-white/10 bg-white/[0.04] text-base text-slate-100 placeholder:text-slate-500"
+                  className="h-10 rounded-md border-input bg-background pl-10 text-base text-foreground"
                 />
               </div>
               
-              <Button variant="outline" onClick={handleImport} className="h-11 rounded-2xl gap-2 border-white/10 bg-white/[0.03] hover:bg-white/[0.05]">
+              <Button variant="outline" onClick={handleImport} className="h-10 rounded-md gap-2 bg-background">
                 <Upload className="w-4 h-4" />
                 Import
               </Button>
               
-              <Button variant="outline" onClick={handleExportAll} className="h-11 rounded-2xl gap-2 border-white/10 bg-white/[0.03] hover:bg-white/[0.05]" disabled={cards.length === 0}>
+              <Button variant="outline" onClick={handleExportAll} className="h-10 rounded-md gap-2 bg-background" disabled={cards.length === 0}>
                 <Download className="w-4 h-4" />
                 Export All
               </Button>
@@ -562,44 +578,53 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
             {/* Tabs and Filters */}
             <div className="flex flex-wrap items-center justify-between gap-4">
               {/* Type Tabs */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 <Button
-                  variant={activeTab === 'all' ? 'default' : 'ghost'}
+                  variant={activeMethod === 'all' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setActiveTab('all')}
-                  className={cn("rounded-2xl", activeTab === 'all' && 'bg-blue-600')}
+                  onClick={() => setActiveMethod('all')}
+                  className="rounded-md"
                 >
                   All ({stats.total})
                 </Button>
                 <Button
-                  variant={activeTab === 'technique' ? 'default' : 'ghost'}
+                  variant={activeMethod === 'RT-Film' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setActiveTab('technique')}
-                  className={cn(activeTab === 'technique' && 'bg-blue-600', "gap-1 rounded-2xl")}
+                  onClick={() => setActiveMethod('RT-Film')}
+                  className="gap-1 rounded-md"
                 >
-                  <FileText className="w-4 h-4" />
-                  Technique ({stats.techniques})
+                  <Film className="w-4 h-4" />
+                  Film RT ({stats.film})
                 </Button>
                 <Button
-                  variant={activeTab === 'report' ? 'default' : 'ghost'}
+                  variant={activeMethod === 'RT-Digital' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setActiveTab('report')}
-                  className={cn(activeTab === 'report' && 'bg-purple-600', "gap-1 rounded-2xl")}
+                  onClick={() => setActiveMethod('RT-Digital')}
+                  className="gap-1 rounded-md"
                 >
-                  <ClipboardList className="w-4 h-4" />
-                  Reports ({stats.reports})
+                  <Monitor className="w-4 h-4" />
+                  Digital RT ({stats.digital})
+                </Button>
+                <Button
+                  variant={activeMethod === 'PT' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setActiveMethod('PT')}
+                  className="gap-1 rounded-md"
+                >
+                  <Droplets className="w-4 h-4" />
+                  PT ({stats.pt})
                 </Button>
               </div>
               
               {/* Filters */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Button
                   variant={showFavoritesOnly ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                  className="gap-1 rounded-2xl"
+                  className="gap-1 rounded-md"
                 >
-                  <Star className={cn("w-4 h-4", showFavoritesOnly && "fill-yellow-400 text-yellow-400")} />
+                  <Star className={cn("w-4 h-4", showFavoritesOnly && "fill-warning text-warning")} />
                   Favorites
                 </Button>
                 
@@ -607,7 +632,7 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
                   variant={showArchived ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => setShowArchived(!showArchived)}
-                  className="gap-1 rounded-2xl"
+                  className="gap-1 rounded-md"
                 >
                   <Archive className="w-4 h-4" />
                   Archive ({stats.archived})
@@ -617,12 +642,12 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-1 rounded-2xl border border-white/8 bg-white/[0.03] hover:bg-white/[0.05]">
+                    <Button variant="outline" size="sm" className="gap-1 rounded-md bg-background">
                       {sortOrder === 'desc' ? <SortDesc className="w-4 h-4" /> : <SortAsc className="w-4 h-4" />}
                       {sortBy === 'updatedAt' ? 'Date' : sortBy === 'name' ? 'Name' : 'Progress'}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-slate-900 border-white/10">
+                  <DropdownMenuContent align="end" className="border-border bg-popover text-popover-foreground">
                     <DropdownMenuItem onClick={() => setSortBy('updatedAt')}>
                       <Clock className="w-4 h-4 mr-2" />
                       Update Date
@@ -647,12 +672,12 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
           </div>
           
           {/* Cards Grid */}
-          <ScrollArea className="flex-1 px-6 py-6">
+          <ScrollArea className="min-h-0 flex-1 bg-background px-4 py-5 sm:px-6">
             <AnimatePresence mode="popLayout">
               {filteredCards.length === 0 ? (
                 <EmptyState searchQuery={searchQuery} profileName={currentProfile?.name} />
               ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {filteredCards.map((card) => (
                     <BeautifulCardItem
                       key={card.id}
@@ -674,18 +699,18 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
       
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
-        <AlertDialogContent className="border border-white/10 bg-[linear-gradient(180deg,rgba(10,14,22,0.98),rgba(12,18,28,0.98))]">
+        <AlertDialogContent className="w-[calc(100vw-2rem)] rounded-lg border border-border bg-background text-foreground sm:w-full">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Delete this card?</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-400">
+            <AlertDialogTitle className="text-foreground">Delete this card?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               This action cannot be undone. The card will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className="border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06] hover:text-white">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-md border-input bg-background text-foreground">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>

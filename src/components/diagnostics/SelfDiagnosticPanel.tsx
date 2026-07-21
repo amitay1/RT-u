@@ -19,8 +19,6 @@ import {
   Download,
   Cpu,
   HardDrive,
-  Wifi,
-  Shield,
   Gauge,
   RefreshCw,
 } from 'lucide-react';
@@ -39,14 +37,12 @@ interface SelfDiagnosticPanelProps {
 const categoryIcons: Record<string, React.ReactNode> = {
   system: <Cpu className="h-4 w-4" />,
   application: <HardDrive className="h-4 w-4" />,
-  license: <Shield className="h-4 w-4" />,
   performance: <Gauge className="h-4 w-4" />,
 };
 
 const categoryLabels: Record<string, string> = {
   system: 'System Resources',
   application: 'Application Health',
-  license: 'License Status',
   performance: 'Performance',
 };
 
@@ -137,7 +133,7 @@ export function SelfDiagnosticPanel({ open, onOpenChange }: SelfDiagnosticPanelP
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `diagnostic_report_${Date.now()}.json`;
+    a.download = `rtpt-inspector-diagnostic-report-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -164,7 +160,7 @@ export function SelfDiagnosticPanel({ open, onOpenChange }: SelfDiagnosticPanelP
             <div>
               <DialogTitle>System Diagnostics</DialogTitle>
               <DialogDescription>
-                Run health checks on your Scan-Master installation
+                Run health checks on your RT-PT Inspector installation
               </DialogDescription>
             </div>
           </div>
@@ -180,7 +176,7 @@ export function SelfDiagnosticPanel({ open, onOpenChange }: SelfDiagnosticPanelP
               <h3 className="font-semibold text-lg mb-1">Ready to Run Diagnostics</h3>
               <p className="text-sm text-muted-foreground max-w-sm">
                 This will check your system resources, application health,
-                license status, and performance.
+                storage, and performance.
               </p>
             </div>
             <Button onClick={runDiagnostics} size="lg" className="mt-4">

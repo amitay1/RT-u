@@ -15,6 +15,8 @@ interface ErrorBoundaryContextType {
 
 const ErrorBoundaryContext = createContext<ErrorBoundaryContextType | null>(null);
 
+// This hook intentionally shares the provider module to keep the recovery API cohesive.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useErrorBoundary() {
   const context = useContext(ErrorBoundaryContext);
   if (!context) {
@@ -66,7 +68,7 @@ export class GlobalErrorBoundary extends Component<GlobalErrorBoundaryProps, Err
   markPendingRecovery() {
     try {
       const recoverySnapshots = JSON.parse(
-        localStorage.getItem('scanmaster_autosave') || '[]'
+        localStorage.getItem('rtpt_inspector_autosave') || '[]'
       );
 
       if (recoverySnapshots.length > 0) {
@@ -77,7 +79,7 @@ export class GlobalErrorBoundary extends Component<GlobalErrorBoundaryProps, Err
           lastCrashTime: new Date().toISOString(),
           crashCount: crashHistory.length,
         };
-        localStorage.setItem('scanmaster_crash_recovery', JSON.stringify(recoveryState));
+        localStorage.setItem('rtpt_inspector_crash_recovery', JSON.stringify(recoveryState));
       }
     } catch (e) {
       console.error('Failed to mark pending recovery:', e);

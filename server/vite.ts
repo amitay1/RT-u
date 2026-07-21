@@ -1,11 +1,12 @@
 import express, { type Express } from "express";
 import fs from "fs";
+import type { Server } from "http";
 import path from "path";
-import { createServer as createViteServer, type ViteDevServer } from "vite";
+import { createServer as createViteServer } from "vite";
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
-export async function setupVite(app: Express, server: any) {
+export async function setupVite(app: Express, server: Server) {
   const vite = await createViteServer({
     server: {
       middlewareMode: true,

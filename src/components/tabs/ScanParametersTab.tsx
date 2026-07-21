@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -16,6 +15,12 @@ import { includeCurrentOption } from "@/utils/selectOptions";
 import { calculateWaterPath } from "@/utils/waterPathCalculator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import {
+  getV2500PassCount,
+  getV2500ScanPlanForStandard,
+  PW_V2500_SIGNAL_RULES,
+} from "@/rules/pw/pwScanPlans";
+import { PW_HPT_TRANSDUCER_SETUP } from "@/rules/pw/pwTransducers";
 
 interface ScanParametersTabProps {
   data: ScanParametersData;
@@ -33,7 +38,7 @@ interface ScanParametersTabProps {
 
 // Get standard label
 const getStandardLabel = (standard: StandardType): string => {
-  const labels: Record<StandardType, string> = {
+  const labels: Partial<Record<StandardType, string>> = {
     "MIL-STD-2154": "MIL-STD-2154",
     "AMS-STD-2154E": "AMS-STD-2154E",
     "ASTM-A388": "ASTM A388/A388M",
@@ -88,7 +93,10 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
     return { speedOk, overlapOk, coverageOk, coverageAccepted };
   }, [data.scanSpeed, data.scanIndex, data.coverage, hasSpeedLimit, hasOverlapRequirement, maxSpeed, scanParams]);
 
-  const updateField = (field: keyof ScanParametersData, value: any) => {
+  const updateField = (
+    field: keyof ScanParametersData,
+    value: ScanParametersData[keyof ScanParametersData],
+  ) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -111,6 +119,14 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
   // Hidden per UI request in Scan Parameters
   const showPhasedArray = false;
   const isPwNdip = standard === "NDIP-1226" || standard === "NDIP-1227";
+  const activePwScanPlan = useMemo(
+    () => getV2500ScanPlanForStandard(standard),
+    [standard],
+  );
+  const activePwWaterPathMm = activePwScanPlan
+    ? Number((activePwScanPlan.waterPath * 25.4).toFixed(1))
+    : undefined;
+  const activePwPassCount = activePwScanPlan ? getV2500PassCount(activePwScanPlan) : 0;
   // Show bubbler fields when bubbler technique is selected
   const showBubblerFields = !isPwNdip && data.technique === "bubbler";
   const isAustenitic = standard === "BS-EN-10228-4";
@@ -149,9 +165,18 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
     }
 
     const nextScanMethods = ["immersion"];
+    const nextGainSettings = `${PW_V2500_SIGNAL_RULES.referenceReflector} set to ${PW_V2500_SIGNAL_RULES.calibrationTargetFsh}% FSH; record C-scan indications >=${PW_V2500_SIGNAL_RULES.recordableIndicationFsh}% FSH.`;
+    const nextAlarmGateSettings = activePwScanPlan
+      ? `DAC gates per ${activePwScanPlan.ndipReference}; evaluation floor ${PW_V2500_SIGNAL_RULES.evaluationFloorFsh}% FSH; post-calibration tolerance +/-${PW_V2500_SIGNAL_RULES.postCalibrationToleranceDb} dB.`
+      : data.alarmGateSettings;
     const needsNormalization =
       data.scanMethod !== "immersion" ||
       data.technique !== "conventional" ||
+      data.scanPattern !== "bidirectional" ||
+      data.coverage !== scanParams.coverageRequired ||
+      (activePwWaterPathMm !== undefined && data.waterPath !== activePwWaterPathMm) ||
+      data.gainSettings !== nextGainSettings ||
+      data.alarmGateSettings !== nextAlarmGateSettings ||
       JSON.stringify(data.scanMethods || []) !== JSON.stringify(nextScanMethods);
 
     if (!needsNormalization) {
@@ -163,12 +188,26 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
       scanMethod: "immersion",
       scanMethods: nextScanMethods,
       technique: "conventional",
+      scanPattern: "bidirectional",
+      coverage: scanParams.coverageRequired,
+      waterPath: activePwWaterPathMm ?? data.waterPath,
+      gainSettings: nextGainSettings,
+      alarmGateSettings: nextAlarmGateSettings,
     });
-  }, [data, isPwNdip, onChange]);
+  }, [activePwScanPlan, activePwWaterPathMm, data, isPwNdip, onChange, scanParams.coverageRequired]);
 
   // Auto-calculate water path when immersion is selected and inputs are available
   const isImmersion = (data.scanMethods || []).includes("immersion");
   const autoWaterPath = useMemo(() => {
+    if (activePwScanPlan && activePwWaterPathMm !== undefined) {
+      return {
+        recommended: activePwWaterPathMm,
+        min: activePwWaterPathMm,
+        max: activePwWaterPathMm,
+        nearFieldWater: activePwWaterPathMm,
+        reasoning: `${activePwScanPlan.ndipReference} locks the immersion water path to ${activePwScanPlan.waterPath.toFixed(1)} in (${activePwWaterPathMm} mm), matching the ${activePwScanPlan.waterPath.toFixed(1)} in focal length before probe angulation.`,
+      };
+    }
     if (!isImmersion) return null;
     const freq = equipmentData?.frequency ? parseFloat(equipmentData.frequency) : 0;
     const diameter = equipmentData?.transducerDiameter ?? 0;
@@ -179,7 +218,7 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
       partThickness: thickness,
       materialVelocity,
     });
-  }, [isImmersion, equipmentData?.frequency, equipmentData?.transducerDiameter, partThickness, materialVelocity]);
+  }, [activePwScanPlan, activePwWaterPathMm, isImmersion, equipmentData?.frequency, equipmentData?.transducerDiameter, partThickness, materialVelocity]);
 
   // Apply auto-calculated water path when inputs change (unless user overrode manually)
   useEffect(() => {
@@ -252,6 +291,46 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
                 <li>Record actual scan paths in documentation</li>
                 <li>Orthogonal grid pattern recommended</li>
               </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activePwScanPlan && (
+        <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-cyan-400 mt-0.5 flex-shrink-0" />
+            <div className="space-y-3 w-full">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  PW V2500 NDIP Scan Rules
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {activePwScanPlan.description} is an automated immersion workflow: {activePwScanPlan.scanZones.length} zones, {activePwPassCount} passes, each zone scanned at +45 and -45 shear wave.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-md border border-cyan-500/20 bg-background/70 p-2">
+                  <div className="text-muted-foreground">Water path</div>
+                  <div className="font-semibold">{activePwScanPlan.waterPath.toFixed(1)} in / {activePwWaterPathMm} mm</div>
+                  <div className="text-muted-foreground">matches focal length</div>
+                </div>
+                <div className="rounded-md border border-cyan-500/20 bg-background/70 p-2">
+                  <div className="text-muted-foreground">Snell setup</div>
+                  <div className="font-semibold">{PW_HPT_TRANSDUCER_SETUP.incidentAngle.toFixed(1)} deg water</div>
+                  <div className="text-muted-foreground">to 45 deg shear</div>
+                </div>
+                <div className="rounded-md border border-cyan-500/20 bg-background/70 p-2">
+                  <div className="text-muted-foreground">Coverage rule</div>
+                  <div className="font-semibold">{activePwScanPlan.maxScanIncrement.toFixed(3)} in max</div>
+                  <div className="text-muted-foreground">scan and index</div>
+                </div>
+                <div className="rounded-md border border-cyan-500/20 bg-background/70 p-2">
+                  <div className="text-muted-foreground">Signal rule</div>
+                  <div className="font-semibold">{PW_V2500_SIGNAL_RULES.calibrationTargetFsh}% / {PW_V2500_SIGNAL_RULES.recordableIndicationFsh}% FSH</div>
+                  <div className="text-muted-foreground">calibrate / flag</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -465,12 +544,14 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400 gap-1 cursor-help">
-                              <Sparkles className="h-3 w-3" /> Auto-Calculated
+                              <Sparkles className="h-3 w-3" /> {activePwScanPlan ? "NDIP Locked" : "Auto-Calculated"}
                             </Badge>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-xs">
                             <p className="text-xs">{waterPathReasoning}</p>
-                            <p className="text-xs text-muted-foreground mt-1">Range: {autoWaterPath.min}–{autoWaterPath.max}mm</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {activePwScanPlan ? "Fixed" : "Range"}: {autoWaterPath.min}-{autoWaterPath.max}mm
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -752,7 +833,11 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
           <FieldWithHelp
             label="Water Path (mm)"
             fieldKey="waterPath"
-            help={isAustenitic ? "25-75mm typical for focused probes in austenitic materials" : undefined}
+            help={
+              activePwScanPlan
+                ? `Locked by ${activePwScanPlan.ndipReference}: ${activePwScanPlan.waterPath.toFixed(1)} in (${activePwWaterPathMm} mm), matching the focal length before probe angulation.`
+                : isAustenitic ? "25-75mm typical for focused probes in austenitic materials" : undefined
+            }
           >
             <div className="space-y-1">
               <Input
@@ -767,12 +852,14 @@ export const ScanParametersTab = ({ data, onChange, standard = "AMS-STD-2154E", 
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400 gap-1 cursor-help">
-                        <Sparkles className="h-3 w-3" /> Auto-Calculated
+                        <Sparkles className="h-3 w-3" /> {activePwScanPlan ? "NDIP Locked" : "Auto-Calculated"}
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs">
                       <p className="text-xs">{waterPathReasoning}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Range: {autoWaterPath.min}–{autoWaterPath.max}mm</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {activePwScanPlan ? "Fixed" : "Range"}: {autoWaterPath.min}-{autoWaterPath.max}mm
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

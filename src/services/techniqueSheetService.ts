@@ -1,17 +1,11 @@
-import type {
-  StandardType,
-  InspectionSetupData,
-  EquipmentData,
-  CalibrationData,
-  ScanParametersData,
-  AcceptanceCriteriaData,
-  DocumentationData,
-  ScanPlanData,
-} from "@/types/techniqueSheet";
-import type { ScanDetailsData } from "@/types/scanDetails";
-import type { InspectionReportData } from "@/types/inspectionReport";
+import { decodeRtPtDocument } from "@/lib/rtPtDocumentCodec";
+import type { RtPtDocumentV3 } from "@/types/rtPtDocument";
 
 const API_BASE = "/api/technique-sheets";
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  typeof value === "object" && value !== null && !Array.isArray(value)
+);
 
 interface RequestOptions {
   path: string;
@@ -68,17 +62,22 @@ async function request<T>({ path, method = "GET", body, userId, orgId }: Request
   if (!response.ok) {
     let errorMessage = `Request failed with status ${response.status}`;
     try {
-      const errorBody = await readJsonOrThrow<any>(response);
-      if (typeof errorBody?.error === "string") {
+      const errorBody = await readJsonOrThrow<unknown>(response);
+      if (!isRecord(errorBody)) throw new Error("Invalid error response");
+      if (typeof errorBody.error === "string") {
         errorMessage = errorBody.error;
       }
       // Log details if available
-      if (errorBody?.details) {
+      if (errorBody.details) {
         console.error('Validation errors:', errorBody.details);
         // Include first error detail in message if available
         if (Array.isArray(errorBody.details) && errorBody.details.length > 0) {
           const firstError = errorBody.details[0];
-          errorMessage += `: ${firstError.path?.join('.')} - ${firstError.message}`;
+          if (isRecord(firstError)) {
+            const path = Array.isArray(firstError.path) ? firstError.path.join('.') : 'data';
+            const message = typeof firstError.message === 'string' ? firstError.message : 'validation failed';
+            errorMessage += `: ${path} - ${message}`;
+          }
         }
       }
     } catch (error) {
@@ -94,27 +93,8 @@ async function request<T>({ path, method = "GET", body, userId, orgId }: Request
   return readJsonOrThrow<T>(response);
 }
 
-export interface TechniqueSheetPartData {
-  inspectionSetup: InspectionSetupData;
-  equipment: EquipmentData;
-  calibration: CalibrationData;
-  scanParameters: ScanParametersData;
-  acceptanceCriteria: AcceptanceCriteriaData;
-  documentation: DocumentationData;
-  scanDetails: ScanDetailsData;
-  scanPlan?: ScanPlanData;
-}
-
-export interface TechniqueSheetCardData {
-  standard: StandardType;
-  activeTab: string;
-  reportMode: "Technique" | "Report";
-  isSplitMode: boolean;
-  activePart: "A" | "B";
-  partA: TechniqueSheetPartData;
-  partB: TechniqueSheetPartData;
-  inspectionReport: InspectionReportData;
-}
+/** @deprecated Import RtPtDocumentV3 directly in new code. */
+export type PersistedTechniqueSheetData = RtPtDocumentV3;
 
 export interface TechniqueSheetRecord {
   id: string;
@@ -122,7 +102,7 @@ export interface TechniqueSheetRecord {
   orgId: string | null;
   sheetName: string;
   standard: string | null;
-  data: TechniqueSheetCardData;
+  data: RtPtDocumentV3;
   status: string | null;
   createdAt: string;
   updatedAt: string;
@@ -142,8 +122,8 @@ export interface OrganizationSummary {
 export interface SaveTechniqueSheetInput {
   sheetId?: string;
   sheetName: string;
-  standard: StandardType;
-  data: TechniqueSheetCardData;
+  standard: string;
+  data: RtPtDocumentV3;
   status?: string;
   userId: string;
   orgId: string;
@@ -162,6 +142,36 @@ const ensureOrgId = (orgId?: string): string => {
   return orgId;
 };
 
+function decodeDocumentOrThrow(value: unknown, boundary: string): RtPtDocumentV3 {
+  const decoded = decodeRtPtDocument(value);
+  if (decoded.status !== "success") {
+    throw new Error(`${boundary}: ${decoded.message}`);
+  }
+  return decoded.document;
+}
+
+function decodeRecordOrThrow(value: unknown, boundary: string): TechniqueSheetRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${boundary}: the server response is not a technique-sheet record.`);
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    ...record,
+    data: decodeDocumentOrThrow(record.data, `${boundary} data`),
+  } as unknown as TechniqueSheetRecord;
+}
+
+function decodeRecordListOrThrow(value: unknown): TechniqueSheetRecord[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Load saved cards response: the server response is not an array.");
+  }
+
+  return value.map((record, index) => (
+    decodeRecordOrThrow(record, `Saved card ${index + 1}`)
+  ));
+}
+
 export const techniqueSheetService = {
   async fetchOrganizations(userId: string): Promise<OrganizationSummary[]> {
     return request<OrganizationSummary[]>({
@@ -171,19 +181,21 @@ export const techniqueSheetService = {
   },
 
   async loadTechniqueSheets(userId: string, orgId: string): Promise<TechniqueSheetRecord[]> {
-    return request<TechniqueSheetRecord[]>({
+    const response = await request<unknown>({
       path: API_BASE,
       userId,
       orgId: ensureOrgId(orgId),
     });
+    return decodeRecordListOrThrow(response);
   },
 
   async loadTechniqueSheet({ sheetId, userId, orgId }: LoadTechniqueSheetParams): Promise<TechniqueSheetRecord> {
-    return request<TechniqueSheetRecord>({
+    const response = await request<unknown>({
       path: `${API_BASE}/${sheetId}`,
       userId,
       orgId: ensureOrgId(orgId),
     });
+    return decodeRecordOrThrow(response, `Saved card "${sheetId}"`);
   },
 
   async deleteTechniqueSheet(sheetId: string, userId: string, orgId: string): Promise<void> {
@@ -196,29 +208,32 @@ export const techniqueSheetService = {
   },
 
   async saveTechniqueSheet({ sheetId, sheetName, standard, data, status = "draft", userId, orgId }: SaveTechniqueSheetInput): Promise<TechniqueSheetRecord> {
+    const validatedData = decodeDocumentOrThrow(data, "Save request data");
     const payload = {
       sheetName,
       standard,
-      data,
+      data: validatedData,
       status,
     };
 
     if (sheetId) {
-      return request<TechniqueSheetRecord>({
+      const response = await request<unknown>({
         path: `${API_BASE}/${sheetId}`,
         method: "PATCH",
         body: payload,
         userId,
         orgId: ensureOrgId(orgId),
       });
+      return decodeRecordOrThrow(response, `Updated saved card "${sheetId}"`);
     }
 
-    return request<TechniqueSheetRecord>({
+    const response = await request<unknown>({
       path: API_BASE,
       method: "POST",
       body: payload,
       userId,
       orgId: ensureOrgId(orgId),
     });
+    return decodeRecordOrThrow(response, "Created saved card");
   },
 };

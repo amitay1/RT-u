@@ -51,7 +51,7 @@ export interface DiagnosticsExport {
   recentActivity?: string[];
 }
 
-const CRASH_HISTORY_KEY = 'scanmaster_crash_history';
+const CRASH_HISTORY_KEY = 'rtpt_inspector_crash_history';
 const MAX_CRASH_REPORTS = 50;
 const APP_VERSION = '1.0.102'; // Should be imported from package.json in production
 
@@ -256,7 +256,7 @@ class CrashReporterService {
 
     if (options?.includeSettings) {
       try {
-        const settings = localStorage.getItem('scanmaster_settings');
+        const settings = localStorage.getItem('rtpt_inspector_settings');
         if (settings) {
           diagnostics.settings = JSON.parse(settings);
         }
@@ -288,7 +288,7 @@ class CrashReporterService {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename || `scanmaster_diagnostics_${Date.now()}.json`;
+    a.download = filename || `rtpt_inspector_diagnostics_${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -300,7 +300,7 @@ class CrashReporterService {
    */
   private getRecentActivityLog(): string[] {
     try {
-      const log = localStorage.getItem('scanmaster_activity_log');
+      const log = localStorage.getItem('rtpt_inspector_activity_log');
       return log ? JSON.parse(log) : [];
     } catch {
       return [];
@@ -318,7 +318,7 @@ class CrashReporterService {
 
       // Keep only last 100 activities
       const trimmed = log.slice(0, 100);
-      localStorage.setItem('scanmaster_activity_log', JSON.stringify(trimmed));
+      localStorage.setItem('rtpt_inspector_activity_log', JSON.stringify(trimmed));
     } catch {
       // Ignore logging errors
     }

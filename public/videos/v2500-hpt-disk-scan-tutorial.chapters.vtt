@@ -1,47 +1,79 @@
 WEBVTT
 
-NOTE Chapters for V2500 HPT Disk Stage 1 — Immersion Scan Tutorial
+NOTE Chapters for V2500 HPT Disk Stage 1 — Immersion Scan Tutorial (Unity 5-min cinematic)
 
 Chapter 1
-00:00:00.000 --> 00:00:07.580
-Introduction
+00:00:00.000 --> 00:00:08.000
+Title
 
 Chapter 2
-00:00:07.580 --> 00:00:16.970
-Step 1 — Setup the Immersion Tank
+00:00:08.000 --> 00:00:30.000
+Why Immersion?
 
 Chapter 3
-00:00:16.970 --> 00:00:26.210
-Step 2 — Open the Scan Plan
+00:00:30.000 --> 00:00:51.000
+Water Path (8 inch)
 
 Chapter 4
-00:00:26.210 --> 00:00:38.410
-Step 3 — Anatomy of the Disk
+00:00:51.000 --> 00:01:13.000
+Snell's Law (18.9 to 45)
 
 Chapter 5
-00:00:38.410 --> 00:00:53.180
-Step 4 — Zone E · +45° Pass
+00:01:13.000 --> 00:01:36.000
+Both Directions plus or minus 45
 
 Chapter 6
-00:00:53.180 --> 00:01:02.810
-Step 5 — Zone E · −45° Pass
+00:01:36.000 --> 00:01:48.000
+Anatomy 5 Zones (E A B C D)
 
 Chapter 7
-00:01:02.810 --> 00:01:14.640
-Step 6 — Zones A through D
+00:01:48.000 --> 00:02:09.000
+The 0.020 inch Rule
 
 Chapter 8
-00:01:14.640 --> 00:01:27.780
-Step 7 — Live C-Scan Capture
+00:02:09.000 --> 00:02:34.000
+FSH Explained
 
 Chapter 9
-00:01:27.780 --> 00:01:38.340
-Inspection Results
+00:02:34.000 --> 00:03:00.000
+Calibration Philosophy
 
 Chapter 10
-00:01:38.340 --> 00:01:45.540
-Step 8 — Save the Scan Data
+00:03:00.000 --> 00:03:09.000
+Equipment Build
 
 Chapter 11
-00:01:45.540 --> 00:01:50.160
+00:03:09.000 --> 00:03:18.000
+Open Scan Plan
+
+Chapter 12
+00:03:18.000 --> 00:03:33.000
+Zone E plus 45 Pass
+
+Chapter 13
+00:03:33.000 --> 00:03:43.000
+Zone E minus 45 Pass
+
+Chapter 14
+00:03:43.000 --> 00:03:55.000
+Zones A to D Montage
+
+Chapter 15
+00:03:55.000 --> 00:04:15.000
+A-Scan vs C-Scan
+
+Chapter 16
+00:04:15.000 --> 00:04:28.000
+Live C-Scan Capture
+
+Chapter 17
+00:04:28.000 --> 00:04:38.000
+Inspection Results
+
+Chapter 18
+00:04:38.000 --> 00:04:45.000
+Save Scan Data
+
+Chapter 19
+00:04:45.000 --> 00:04:49.000
 Inspection Complete

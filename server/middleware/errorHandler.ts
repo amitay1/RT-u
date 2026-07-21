@@ -1,13 +1,30 @@
+import type { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
 import { logError } from '../utils/logger';
+
+interface ErrorDetails {
+  message?: string;
+  code?: string;
+  name?: string;
+  statusCode?: number;
+  isOperational?: boolean;
+  details?: unknown;
+  stack?: string;
+}
+
+type AsyncRequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => unknown | Promise<unknown>;
 
 // Custom error class
 export class AppError extends Error {
   statusCode: number;
   isOperational: boolean;
-  details?: any;
+  details?: unknown;
 
-  constructor(message: string, statusCode: number, isOperational = true, details?: any) {
+  constructor(message: string, statusCode: number, isOperational = true, details?: unknown) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
@@ -17,7 +34,7 @@ export class AppError extends Error {
 }
 
 // Async error wrapper for route handlers
-export const asyncHandler = (fn: Function) => {
+export const asyncHandler = (fn: AsyncRequestHandler) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
@@ -30,52 +47,56 @@ export const notFoundHandler = (req: Request, res: Response, next: NextFunction)
 };
 
 // Global error handler
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  let error = { ...err };
-  error.message = err.message;
+export const errorHandler = (err: unknown, req: Request, res: Response, next: NextFunction) => {
+  const sourceError: ErrorDetails = typeof err === 'object' && err !== null
+    ? err as ErrorDetails
+    : { message: String(err) };
+  let error: ErrorDetails = { ...sourceError };
+  error.message = sourceError.message;
+  const trackedRequest = req as Request & { requestId?: string };
 
   // Log error
-  logError(err, {
+  logError(err instanceof Error ? err : new Error(String(err)), {
     url: req.url,
     method: req.method,
     ip: req.ip,
-    userId: (req as any).userId,
-    orgId: (req as any).orgId,
-    requestId: (req as any).requestId,
+    userId: req.userId,
+    orgId: req.orgId,
+    requestId: trackedRequest.requestId,
   });
 
   // PostgreSQL/Drizzle specific errors
-  if (err.code === '23505') {
+  if (sourceError.code === '23505') {
     // PostgreSQL unique violation
     const message = 'Duplicate field value entered';
     error = new AppError(message, 400);
   }
 
-  if (err.code === '23503') {
+  if (sourceError.code === '23503') {
     // PostgreSQL foreign key violation
     const message = 'Referenced resource not found';
     error = new AppError(message, 400);
   }
 
-  if (err.code === '22P02') {
+  if (sourceError.code === '22P02') {
     // PostgreSQL invalid text representation (e.g., invalid UUID)
     const message = 'Invalid input format';
     error = new AppError(message, 400);
   }
 
   // JWT errors
-  if (err.name === 'JsonWebTokenError') {
+  if (sourceError.name === 'JsonWebTokenError') {
     const message = 'Invalid token. Please log in again.';
     error = new AppError(message, 401);
   }
 
-  if (err.name === 'TokenExpiredError') {
+  if (sourceError.name === 'TokenExpiredError') {
     const message = 'Your token has expired. Please log in again.';
     error = new AppError(message, 401);
   }
 
   // Rate limit error
-  if (err.statusCode === 429) {
+  if (sourceError.statusCode === 429) {
     error = new AppError('Too many requests. Please try again later.', 429);
   }
 
@@ -97,8 +118,8 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
       success: false,
       error: message,
       details: error.details,
-      stack: err.stack,
-      raw: err,
+      stack: sourceError.stack,
+      raw: sourceError,
     });
   }
 };
@@ -122,7 +143,7 @@ export const handleUncaughtException = () => {
 
 // Unhandled rejection handler
 export const handleUnhandledRejection = () => {
-  process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  process.on('unhandledRejection', (reason: unknown, _promise: Promise<unknown>) => {
     logError(new Error(`Unhandled Rejection: ${reason}`), { 
       type: 'UNHANDLED_REJECTION',
       reason,
@@ -144,7 +165,7 @@ export const handleUnhandledRejection = () => {
 };
 
 // Graceful shutdown handler
-export const handleGracefulShutdown = (server: any) => {
+export const handleGracefulShutdown = (server: Server) => {
   const gracefulShutdown = (signal: string) => {
     console.log(`\n${signal} received. Starting graceful shutdown...`);
     

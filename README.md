@@ -1,148 +1,75 @@
-# ScanMaster - NDT Ultrasonic Testing Software
+# RT-PT Inspector
 
-**Professional Technique Sheet Generator for Non-Destructive Testing**
+Standalone desktop application, with a same-origin local browser/PWA mode, for creating radiographic and liquid-penetrant NDT technique sheets.
 
-ScanMaster is a comprehensive web application for creating, managing, and exporting ultrasonic testing technique sheets compliant with aerospace and industrial NDT standards.
+The signed Electron desktop package is the supported production enforcement boundary: licensing, protected storage, downloads, and controlled exports are rechecked by the main process. Local browser/PWA mode requires the licensed loopback service and freshly revalidates before save/export actions, but client-executed browser code is not a tamper-resistant DRM boundary against a workstation owner who can modify the bundle or runtime. Use the signed desktop package wherever adversarial local enforcement is required.
 
-## 🚀 Features
+## Inspection workspaces
 
-### Standards Compliance
-- ✅ **AMS-STD-2154E** (Aerospace Material Specification)
-- ✅ **ASTM A388** (Steel Forgings)
-- ✅ **BS-EN-10228-3** (European Steel Standards)
-- ✅ **BS-EN-10228-4** (European Steel Standards)
+- RT Film — reference suggestions for practices such as ASTM E1742
+- RT Digital — reference suggestions for practices such as ASTM E2698
+- Liquid Penetrant Testing — reference suggestions for practices such as ASTM E1417
 
-### Shape Library (27+ Geometries)
-- Cylinders, Tubes, Rings, Disks
-- Plates, Bars, Boxes, Spheres
-- Cones, Pyramids, Hexagons, Ellipses
-- Forgings, Profiles, Irregular shapes
-- Real-time technical drawing generation
+These suggestions are not an automatic claim of compliance. The controlled reference, applicable revision, and customer/procedure requirements must be entered, reviewed, and approved for each document.
 
-### Key Capabilities
-- 📊 **Automated technique sheets** with smart field dependencies
-- 🎨 **Live technical drawings** with dimension annotations
-- 📝 **PDF/DOCX export** with professional formatting
-- 🔍 **Calibration block catalog** with recommendations
-- 📐 **A-Scan & C-Scan generators**
-- 🎯 **Scan coverage visualization**
-- 🔐 **Multi-tenant SaaS** with Supabase authentication
-- 💳 **Lemon Squeezy payment integration** (in progress)
-- 📱 **PWA support** with offline mode
-- 🖥️ **Electron desktop app**
+RT-PT Inspector is a separate product from Scan-Master. It has its own application identity, data namespace, repository, installers, releases, and update channel.
 
-## 🛠️ Tech Stack
+## Development
 
-- **Frontend:** React 18.3.1 + TypeScript + Vite 7.0.5
-- **UI:** shadcn/ui + Tailwind CSS + Radix UI
-- **Backend:** Express + Supabase PostgreSQL
-- **Drawing:** Konva.js for technical drawings
-- **3D:** Three.js for shape visualization
-- **Export:** jsPDF + Docxtemplater
-- **Deployment:** Docker, AWS, GCP, Netlify
-
-## 📦 Installation
-
-```sh
-# Clone the repository
-git clone https://github.com/amitay1/ScanMasterMain.git
-
-# Navigate to project
-cd ScanMasterMain
-
-# Install dependencies
+```powershell
 npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your Supabase credentials
-
-# Start development server
 npm run dev
 ```
 
-## 🔧 Environment Setup
+Quality checks:
 
-Required environment variables:
-```env
-DATABASE_URL=your_supabase_connection_string
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-JWT_SECRET=your_jwt_secret
-LEMON_SQUEEZY_API_KEY=your_lemon_squeezy_key
+```powershell
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
-See `.env.production.template` for complete configuration guide.
+The active production renderer is generated only under `rtpt-dist/`. The legacy `dist/` directory is not served or packaged by RT-PT Inspector.
 
-## 📚 Documentation
+## Desktop builds
 
-- [Project Structure](./docs/PROJECT_STRUCTURE.md) - repository layout and ownership
-- [Production Readiness Report](./docs/PRODUCTION_READINESS_REPORT.md) - 83% ready, see critical fixes
-- [Completion Report](./docs/COMPLETION_REPORT_OPTION_B.md) - Recent updates summary
-- [Auto-Fill Documentation](./docs/AUTO_FILL_DOCUMENTATION.md) - Smart field logic
-- [Advanced Drawing Status](./docs/ADVANCED_DRAWING_STATUS.md) - Technical drawing capabilities
-- [Deployment Guide](./docs/DEPLOYMENT.md) - Docker, AWS, GCP instructions
-- [Roadmap](./docs/ROADMAP.md) - Future features
-- [Licensing System](./docs/licensing/README_LICENSING.md) - licensing and update-server overview
-
-## 🚢 Deployment
-
-### Docker
-```sh
-docker-compose up -d
+```powershell
+npm run electron:dev
+npm run dist:win
 ```
 
-### AWS Lambda
-```sh
-npm run deploy:aws
+Windows artifacts are named `RTPT-Inspector-Setup-<version>.exe` and are installed under the independent Electron application ID `com.amitay.rtptinspector`.
+
+## Independent updates
+
+Production builds check only the RT-PT Inspector release channel:
+
+`https://github.com/amitay1/RT-u/releases`
+
+Production Windows releases require an Authenticode signing configuration supplied by the controlled release environment (for example, electron-builder `CSC_LINK` credentials or a configured certificate-store/cloud signing provider). The independently approved signer certificate thumbprint must be supplied as `RTPT_WINDOWS_SIGNER_SHA1`; release verification rejects another signer or a signature without a trusted timestamp. No certificate or private key is stored in this repository.
+
+Production releases also require two independently controlled trust anchors: the Ed25519 license-verification public key at `electron/rtpt-license-public-key.pem` with `RTPT_LICENSE_PUBLIC_KEY_SHA256`, and the offline-update public key at `electron/update-public-key.pem` with `RTPT_UPDATE_PUBLIC_KEY_SHA256`. Run `npm run license:key:verify` and `npm run update:key:verify` to validate them before packaging. Both private keys and customer activation packages must remain outside the repository and every installer; see [electron/RTPT_LICENSE_SECURITY.md](electron/RTPT_LICENSE_SECURITY.md) and [electron/OFFLINE_UPDATE_SECURITY.md](electron/OFFLINE_UPDATE_SECURITY.md).
+
+Run the read-only preflight, then create a release from a clean working tree:
+
+```powershell
+npm run release:dry
+npm run release
 ```
 
-### Google Cloud Run
-```sh
-npm run deploy:gcp
+`release:dry` does not change `package.json`, `package-lock.json`, Git state, build directories, or GitHub. The production command validates the project and packaged contents, verifies the final Authenticode signature, stages only the two version files, and publishes RT-PT artifacts to `amitay1/RT-u` without overwriting existing assets. It does not access or publish Scan-Master releases.
+
+For an unsigned local development package that can never commit, tag, push, or publish:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1 -AllowUnsignedDevelopmentBuild
 ```
 
-### Desktop App (Electron)
-```sh
-npm run electron:build
-```
+This explicit development mode may proceed without the controlled license or update trust anchors, but reports that licensing and USB updates are unusable. The resulting application remains activation-blocked and cannot install offline updates.
 
-## 📄 Legal
+Signed USB update folders are built separately beneath `release-workspace/offline`. The offline builder requires the final Authenticode-signed installer, the pinned public key at `electron/update-public-key.pem`, and the matching private manifest-signing key supplied from outside the repository. It hashes the final installer and signs the exact `update-info.json` bytes.
 
-- [Terms of Service Template](./legal/TERMS_OF_SERVICE_TEMPLATE.md)
-- [Privacy Policy Template](./legal/PRIVACY_POLICY_TEMPLATE.md)
-- [EULA Template](./legal/EULA_TEMPLATE.md)
+## Data isolation
 
-**⚠️ These templates require attorney review before use!**
-
-## 🤝 Contributing
-
-This is a private commercial project. For inquiries: amitay.mail@gmail.com
-
-## 📝 License
-
-Proprietary - All Rights Reserved
-
-## 🔐 Security
-
-- Environment-based configuration
-- JWT authentication
-- Rate limiting & CORS protection
-- Input validation & sanitization
-- SQL injection prevention
-
-## 📞 Support
-
-For technical support or sales inquiries, contact: amitay.mail@gmail.com
-
----
-
-**Built with ❤️ for NDT professionals worldwide**
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Browser data uses only the `rtpt_inspector_*` namespace, and Electron data is isolated by the application ID. There is no automatic legacy-data migration. V1 or V2 RT/PT documents can be imported explicitly and migrated to the V3 controlled model; only V3 documents are written. UT and Scan-Master data are never copied into this product.

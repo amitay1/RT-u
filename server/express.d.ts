@@ -8,3 +8,25 @@ declare namespace Express {
     orgId?: string | null;
   }
 }
+
+declare module 'cors' {
+  import type { RequestHandler } from 'express';
+
+  export default function cors(options?: unknown): RequestHandler;
+}
+
+declare module 'morgan' {
+  import type { RequestHandler } from 'express';
+
+  interface MorganOptions {
+    stream?: { write: (message: string) => void };
+  }
+
+  export default function morgan(format: string, options?: MorganOptions): RequestHandler;
+}
+
+declare module 'compression' {
+  import type { RequestHandler } from 'express';
+
+  export default function compression(options?: unknown): RequestHandler;
+}

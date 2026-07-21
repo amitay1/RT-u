@@ -1,5 +1,5 @@
 {
-  "name": "scan-master-electron",
+  "name": "rt-pt-inspector-electron",
   "main": "main.cjs",
   "type": "commonjs"
 }

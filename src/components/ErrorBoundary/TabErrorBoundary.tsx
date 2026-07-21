@@ -52,11 +52,11 @@ export class TabErrorBoundary extends Component<TabErrorBoundaryProps, TabErrorB
       };
 
       const history = JSON.parse(
-        localStorage.getItem('scanmaster_crash_history') || '[]'
+        localStorage.getItem('rtpt_inspector_crash_history') || '[]'
       );
       history.unshift(tabCrashInfo);
       localStorage.setItem(
-        'scanmaster_crash_history',
+        'rtpt_inspector_crash_history',
         JSON.stringify(history.slice(0, 50))
       );
     } catch (e) {
@@ -117,6 +117,8 @@ interface TabErrorBoundaryWrapperProps {
   fallback?: ReactNode;
 }
 
+// This HOC intentionally remains beside the boundary whose behavior it configures.
+// eslint-disable-next-line react-refresh/only-export-components
 export function withTabErrorBoundary<P extends object>(
   WrappedComponent: React.ComponentType<P>,
   tabName: string

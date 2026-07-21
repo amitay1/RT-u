@@ -93,21 +93,11 @@ export function useSettingsApply() {
     return showUnit ? `${valueInCelsius.toFixed(decimals)}°C` : valueInCelsius.toFixed(decimals);
   }, [settings.units.temperatureUnit]);
 
-  // Format frequency
-  const formatFrequency = useCallback((valueInMHz: number, showUnit = true, decimals = 2): string => {
-    if (settings.units.frequencyDisplay === 'kHz') {
-      const kHz = valueInMHz * 1000;
-      return showUnit ? `${kHz.toFixed(0)} kHz` : kHz.toFixed(0);
-    }
-    return showUnit ? `${valueInMHz.toFixed(decimals)} MHz` : valueInMHz.toFixed(decimals);
-  }, [settings.units.frequencyDisplay]);
-
   // Get current unit labels
   const getUnitLabels = useCallback(() => ({
     length: settings.units.lengthUnit === 'mm' ? 'mm' : 'in',
     angle: settings.units.angleUnit === 'degrees' ? '°' : 'rad',
     temperature: settings.units.temperatureUnit === 'celsius' ? '°C' : '°F',
-    frequency: settings.units.frequencyDisplay === 'MHz' ? 'MHz' : 'kHz',
   }), [settings.units]);
 
   // Get current date/time
@@ -137,7 +127,6 @@ export function useSettingsApply() {
     parseLengthToMm,
     formatAngle,
     formatTemperature,
-    formatFrequency,
     getUnitLabels,
     
     // Direct access to settings
@@ -157,11 +146,6 @@ export function useSettingsApply() {
     defaultExportFormat: settings.export.defaultExportFormat,
     pageSize: settings.export.pageSize,
     includeCompanyLogo: settings.export.includeCompanyLogo,
-    
-    // Viewer settings
-    showGrid: settings.viewer.viewer3DShowGrid,
-    showAxes: settings.viewer.viewer3DShowAxes,
-    autoRotate: settings.viewer.viewer3DAutoRotate,
   };
 }
 

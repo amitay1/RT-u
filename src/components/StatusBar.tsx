@@ -56,25 +56,25 @@ export const StatusBar = ({
     switch (autoSaveStatus) {
       case "pending":
         return {
-          icon: <Cloud className="h-5 w-5 text-muted-foreground" />,
+          icon: <Cloud className="h-4 w-4 text-muted-foreground" />,
           text: "Changes pending...",
           color: "text-muted-foreground",
         };
       case "saving":
         return {
-          icon: <Loader2 className="h-5 w-5 animate-spin text-blue-500" />,
+          icon: <Loader2 className="h-4 w-4 animate-spin text-primary" />,
           text: "Saving...",
-          color: "text-blue-500",
+          color: "text-primary",
         };
       case "saved":
         return {
-          icon: <Cloud className="h-5 w-5 text-success" />,
+          icon: <Cloud className="h-4 w-4 text-success" />,
           text: lastSaved ? `Saved at ${lastSaved.toLocaleTimeString()}` : "Saved",
           color: "text-success",
         };
       case "error":
         return {
-          icon: <CloudOff className="h-5 w-5 text-destructive" />,
+          icon: <CloudOff className="h-4 w-4 text-destructive" />,
           text: "Save failed",
           color: "text-destructive",
         };
@@ -85,73 +85,74 @@ export const StatusBar = ({
 
   const autoSaveDisplay = getAutoSaveDisplay();
   const progressStateLabel =
-    completionPercent >= 100 ? "Complete" : completionPercent >= 75 ? "Almost Done" : completionPercent > 0 ? "In Progress" : "Ready";
+    completionPercent >= 100 ? "Fields complete" : completionPercent >= 75 ? "Almost complete" : completionPercent > 0 ? "In progress" : "Not started";
   const progressToneClass =
-    completionPercent >= 100 ? "text-emerald-400" : completionPercent >= 75 ? "text-cyan-300" : completionPercent > 0 ? "text-amber-300" : "text-slate-400";
+    completionPercent > 0 ? "text-primary" : "text-muted-foreground";
 
   return (
-    <div className="status-ribbon flex h-11 flex-shrink-0 items-center gap-2 overflow-hidden px-2 text-xs text-muted-foreground md:h-12 md:gap-3 md:px-4 md:text-sm">
-      <div className="flex flex-shrink-0 items-center gap-2 rounded-full border border-border/80 bg-black/10 px-2.5 py-1.5 md:px-3">
+    <footer className="status-ribbon flex h-11 flex-shrink-0 items-center gap-2 overflow-hidden px-2 text-xs text-muted-foreground md:gap-3 md:px-4" aria-label="Application status">
+      <span className="sr-only" role="status" aria-live="polite">
+        {isOnline ? 'Online' : 'Offline'}{autoSaveDisplay ? `. ${autoSaveDisplay.text}` : ''}. Required field completion {Math.round(completionPercent)} percent. Controlled release readiness is verified separately.
+      </span>
+      <div className="flex flex-shrink-0 items-center gap-2 rounded-md border border-border/75 bg-muted/30 px-2.5 py-1.5">
         {isOnline ? (
           <>
-            <Wifi className="h-4 w-4 md:h-5 md:w-5 text-success" />
-            <span className="hidden text-sm font-semibold text-success md:text-base sm:inline">Online</span>
+            <Wifi className="h-4 w-4 text-success" />
+            <span className="hidden text-sm font-medium text-foreground sm:inline">Online</span>
           </>
         ) : (
           <>
-            <WifiOff className="h-4 w-4 md:h-5 md:w-5 text-warning" />
-            <span className="hidden text-sm font-semibold text-warning md:text-base sm:inline">Offline</span>
+            <WifiOff className="h-4 w-4 text-warning" />
+            <span className="hidden text-sm font-medium text-warning sm:inline">Offline</span>
           </>
         )}
       </div>
 
-      <Separator orientation="vertical" className="mx-1 h-5 md:mx-3 md:h-6" />
+      <Separator orientation="vertical" className="mx-1 h-5 md:mx-2" />
 
       {autoSaveDisplay && (
         <>
-          <div className="hidden items-center gap-2 rounded-full border border-border/80 bg-black/10 px-3 py-1.5 lg:flex">
+          <div className="hidden items-center gap-2 rounded-md border border-border/75 bg-muted/30 px-3 py-1.5 lg:flex">
             {autoSaveDisplay.icon}
-            <span className={`${autoSaveDisplay.color} text-sm`}>{autoSaveDisplay.text}</span>
+            <span className={`${autoSaveDisplay.color} text-xs font-medium`}>{autoSaveDisplay.text}</span>
           </div>
-          <Separator orientation="vertical" className="mx-1 hidden h-5 lg:block md:mx-3 md:h-6" />
+          <Separator orientation="vertical" className="mx-1 hidden h-5 lg:block md:mx-2" />
         </>
       )}
 
-      <div className="min-w-0 flex-1 flex items-center justify-center">
-        <div className="flex min-w-0 w-full max-w-[640px] items-center gap-2 rounded-full border border-border/80 bg-black/15 px-2.5 py-1.5 backdrop-blur-xl md:gap-3 md:px-3">
+      <div className="flex min-w-0 flex-1 items-center justify-center">
+        <div className="flex w-full min-w-0 max-w-[680px] items-center gap-2 rounded-md border border-border/75 bg-muted/30 px-2.5 py-1.5 md:gap-3 md:px-3">
           {completionPercent === 100 ? (
-            <CheckCircle className="h-5 w-5 flex-shrink-0 text-success" />
+            <CheckCircle className="h-4 w-4 flex-shrink-0 text-primary" />
           ) : (
-            <AlertCircle className="h-5 w-5 flex-shrink-0 text-warning" />
+            <AlertCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
           )}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <span className="hidden truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground md:block">
-                Completion Dock
-              </span>
-              <span className={`text-xs font-semibold ${progressToneClass}`}>{progressStateLabel}</span>
-            </div>
-            <div className="mt-1.5 flex items-center gap-3">
-              <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-slate-950/80">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="hidden shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">Required fields</span>
+            <div
+              className="relative h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-background/80"
+              role="progressbar"
+              aria-label="Required technique fields completed"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(completionPercent)}
+              aria-valuetext={`${requiredFieldsComplete} of ${totalRequiredFields} required fields, ${Math.round(completionPercent)} percent`}
+            >
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-sky-400 shadow-[0_0_18px_rgba(34,211,238,0.28)] transition-all duration-300"
+                  className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300"
                   style={{ width: `${Math.max(0, Math.min(100, completionPercent))}%` }}
                 />
-              </div>
-              <span className="shrink-0 font-mono text-xs font-semibold text-foreground md:text-sm">
-                {Math.round(completionPercent)}%
-              </span>
-              <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
-                {requiredFieldsComplete}/{totalRequiredFields}
-              </span>
             </div>
+            <span className={`hidden shrink-0 text-xs font-semibold sm:inline ${progressToneClass}`}>{progressStateLabel}</span>
+            <span className="shrink-0 font-mono text-xs font-semibold text-foreground">{Math.round(completionPercent)}%</span>
+            <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">{requiredFieldsComplete}/{totalRequiredFields}</span>
           </div>
         </div>
       </div>
 
-      <span className="hidden rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 font-mono text-sm font-semibold text-primary sm:inline-flex md:text-base">
+      <span className="hidden rounded-md border border-border/75 bg-muted/30 px-2.5 py-1.5 font-mono text-xs font-semibold text-muted-foreground sm:inline-flex">
         {appVersion}
       </span>
-    </div>
+    </footer>
   );
 };

@@ -4,11 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { signUpSchema, signInSchema } from '@/lib/validationSchemas';
-import { Loader2, ArrowLeft, ScanLine } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CircleAlert,
+  Droplets,
+  FileCheck2,
+  Loader2,
+  LockKeyhole,
+  Monitor,
+  ScanLine,
+  ShieldCheck,
+} from 'lucide-react';
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -105,21 +115,6 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      // Dev mode bypass DISABLED for production
-      // To re-enable (NOT RECOMMENDED): uncomment the following
-      /*
-      if (validation.data.email === '0' && validation.data.password === '0' && 
-          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-        localStorage.setItem('dev_mode', 'true');
-        toast.success('Signed in successfully! (Development Mode)');
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
-        setLoading(false);
-        return;
-      }
-      */
-
       const { error } = await supabase.auth.signInWithPassword({
         email: validation.data.email,
         password: validation.data.password,
@@ -141,239 +136,249 @@ export default function Auth() {
     }
   };
 
-  const welcomeText = "Welcome to Scan Master";
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-        delayChildren: 0.2,
-      },
-    },
-  };
-
-  const letterVariants = {
-    hidden: { 
-      opacity: 0, 
-      y: 50, 
-      scale: 0.5,
-      rotate: -180 
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      rotate: 0,
-      transition: {
-        type: "spring" as const,
-        damping: 12,
-        stiffness: 200,
-      },
-    },
-  };
-
-  const scanLineVariants = {
-    animate: {
-      x: ["0%", "100%"],
-      opacity: [0, 1, 1, 0],
-      transition: {
-        x: {
-          duration: 3,
-          repeat: Infinity,
-          ease: "linear" as const,
-        },
-        opacity: {
-          duration: 3,
-          repeat: Infinity,
-          ease: "easeInOut" as const,
-        },
-      },
-    },
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        {/* Animated Welcome Text */}
-        <motion.div
-          className="mb-8 text-center relative"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-        >
-          <motion.div className="relative inline-block">
-            {/* Glowing background effect */}
-            <motion.div
-              className="absolute inset-0 blur-2xl"
-              animate={{
-                background: [
-                  "radial-gradient(circle, rgba(59,130,246,0.5) 0%, transparent 70%)",
-                  "radial-gradient(circle, rgba(147,51,234,0.5) 0%, transparent 70%)",
-                  "radial-gradient(circle, rgba(59,130,246,0.5) 0%, transparent 70%)",
-                ],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut" as const,
-              }}
-            />
-            
-            {/* Main text with letter animation */}
-            <h1 className="text-4xl md:text-5xl font-bold relative">
-              {welcomeText.split("").map((char, index) => (
-                <motion.span
-                  key={index}
-                  variants={letterVariants}
-                  className="inline-block bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent"
-                  style={{
-                    textShadow: "0 0 20px rgba(147,51,234,0.5)",
-                  }}
-                >
-                  {char === " " ? "\u00A0" : char}
-                </motion.span>
-              ))}
-            </h1>
+    <div className="relative h-full min-h-0 overflow-y-auto bg-background">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,hsl(var(--primary)/0.08),transparent_34%),linear-gradient(135deg,hsl(var(--canvas-top))_0%,hsl(var(--background))_52%,hsl(var(--canvas-bottom))_100%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-[0.035]"
+        style={{
+          backgroundImage:
+            'linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)',
+          backgroundSize: '56px 56px',
+          maskImage: 'linear-gradient(to bottom, black, transparent 72%)',
+        }}
+      />
 
-            {/* Scanning line effect */}
-            <motion.div
-              className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2 }}
-            >
-              <motion.div
-                className="absolute top-0 left-0 h-full w-1 bg-gradient-to-b from-transparent via-cyan-400 to-transparent"
-                variants={scanLineVariants}
-                animate="animate"
-                style={{
-                  boxShadow: "0 0 15px 5px rgba(6,182,212,0.8)",
-                }}
-              />
-            </motion.div>
-          </motion.div>
-
-          {/* Icon animation */}
-          <motion.div
-            className="mt-4 flex justify-center"
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{
-              delay: 1.5,
-              type: "spring" as const,
-              stiffness: 200,
-              damping: 15,
-            }}
-          >
-            <motion.div
-              animate={{
-                rotate: [0, 360],
-              }}
-              transition={{
-                duration: 20,
-                repeat: Infinity,
-                ease: "linear" as const,
-              }}
-            >
-              <ScanLine className="h-8 w-8 text-cyan-400" />
-            </motion.div>
-          </motion.div>
-        </motion.div>
-
+      <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center px-4 sm:px-6 lg:h-20 lg:px-10">
         <Button
           variant="ghost"
-          className="mb-4"
+          className="h-10 gap-2 rounded-lg border border-transparent px-3 text-muted-foreground hover:border-border/70 hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
           onClick={() => navigate('/')}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="h-4 w-4" />
           Back to Home
         </Button>
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>{isSignUp ? 'Create Account' : 'Sign In'}</CardTitle>
-            <CardDescription>
-              {isSignUp
-                ? 'Create an account to save and manage your inspection technique sheets'
-                : 'Sign in to access your inspection technique sheets'}
-            </CardDescription>
-          </CardHeader>
-        <CardContent>
-          <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName" data-testid="input-fullname"
-                  type="text"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  disabled={loading}
-                  className={errors.fullName ? 'border-destructive' : ''}
-                />
-                {errors.fullName && (
-                  <p className="text-sm text-destructive">{errors.fullName}</p>
-                )}
+      </header>
+
+      <main className="relative z-10 mx-auto grid min-h-full w-full max-w-[1440px] lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
+        <section className="hidden min-h-full flex-col justify-between px-10 pb-12 pt-28 lg:flex xl:px-16 xl:pb-16 xl:pt-32">
+          <div className="max-w-2xl">
+            <div className="mb-10 flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.08)]">
+                <ScanLine className="h-6 w-6 text-primary" strokeWidth={1.75} />
               </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="text"
-                placeholder="inspector@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                className={errors.email ? 'border-destructive' : ''}
-                data-testid="input-email"
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email}</p>
-              )}
+              <div>
+                <h1 className="text-sm font-semibold tracking-[0.16em] text-foreground">
+                  RT-PT INSPECTOR
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">Controlled NDT workspace</p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password" data-testid="input-password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                className={errors.password ? 'border-destructive' : ''}
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
+            <div className="max-w-xl">
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-primary/90">
+                Technique planning &amp; control
+              </p>
+              <h2 className="text-4xl font-semibold leading-[1.12] tracking-[-0.035em] text-foreground xl:text-5xl">
+                Inspection documentation with clarity built in.
+              </h2>
+              <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground xl:text-lg">
+                Prepare, review and manage RT/PT technique sheets in a focused workspace designed for disciplined inspection planning.
+              </p>
             </div>
 
-            <Button type="submit" className="w-full" data-testid="submit-button" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSignUp ? 'Sign Up' : 'Sign In'}
-            </Button>
+            <div className="mt-10 grid max-w-2xl grid-cols-3 gap-3">
+              <div className="rounded-xl border border-border/70 bg-card/40 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
+                <FileCheck2 className="h-5 w-5 text-primary/80" strokeWidth={1.75} />
+                <p className="mt-5 text-sm font-semibold text-foreground">RT Film</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Technique planning</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-card/40 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
+                <Monitor className="h-5 w-5 text-primary/80" strokeWidth={1.75} />
+                <p className="mt-5 text-sm font-semibold text-foreground">Digital / DDA</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">X-ray workflows</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-card/40 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
+                <Droplets className="h-5 w-5 text-primary/80" strokeWidth={1.75} />
+                <p className="mt-5 text-sm font-semibold text-foreground">Liquid PT</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">Process control</p>
+              </div>
+            </div>
+          </div>
 
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setErrors({});
-              }}
-              disabled={loading}
-            >
-              {isSignUp
-                ? 'Already have an account? Sign In'
-                : "Don't have an account? Sign Up"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-      </div>
+          <div className="flex max-w-2xl items-center gap-3 border-t border-border/60 pt-6 text-sm text-muted-foreground">
+            <ShieldCheck className="h-5 w-5 shrink-0 text-primary/80" strokeWidth={1.75} />
+            <span>Independent RT/PT workspace</span>
+            <span aria-hidden="true" className="h-1 w-1 rounded-full bg-border" />
+            <span>Controlled document access</span>
+          </div>
+        </section>
+
+        <section className="flex min-h-full items-center justify-center px-4 pb-10 pt-20 sm:px-8 sm:pb-14 lg:border-l lg:border-border/60 lg:bg-card/10 lg:px-10 lg:py-24 xl:px-16">
+          <div className="w-full max-w-[500px]">
+            <div className="mb-6 flex items-center gap-3 lg:hidden">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/25 bg-primary/10">
+                <ScanLine className="h-5 w-5 text-primary" strokeWidth={1.75} />
+              </div>
+              <div>
+                <h1 className="text-sm font-semibold tracking-[0.12em] text-foreground">RT-PT INSPECTOR</h1>
+                <p className="text-xs text-muted-foreground">Controlled NDT workspace</p>
+              </div>
+            </div>
+
+            <Card className="w-full overflow-hidden border-border/80 bg-card/95 shadow-xl backdrop-blur-xl">
+              <CardHeader className="space-y-0 border-b border-border/70 px-6 py-6 sm:px-8 sm:py-7">
+                <div className="mb-5 flex items-center justify-between gap-4">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-secondary/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    <LockKeyhole className="h-3.5 w-3.5 text-primary/80" />
+                    Secure workspace access
+                  </div>
+                  <span className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground/80">
+                    RT/PT
+                  </span>
+                </div>
+                <h2 className="text-2xl font-semibold leading-tight tracking-[-0.025em] sm:text-[1.75rem]">
+                  {isSignUp ? 'Create your account' : 'Welcome back'}
+                </h2>
+                <CardDescription className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                  {isSignUp
+                    ? 'Create an account to save and manage your RT/PT inspection technique sheets'
+                    : 'Sign in to access your RT/PT inspection technique sheets'}
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="px-6 py-6 sm:px-8 sm:py-7">
+                <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-5">
+                  {isSignUp && (
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName" className="text-sm font-medium text-foreground">
+                        Full Name
+                      </Label>
+                      <Input
+                        id="fullName"
+                        data-testid="input-fullname"
+                        type="text"
+                        placeholder="John Doe"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        disabled={loading}
+                        aria-invalid={Boolean(errors.fullName)}
+                        aria-describedby={errors.fullName ? 'fullName-error' : undefined}
+                        className={`h-11 rounded-lg bg-background/70 px-3 focus-visible:ring-2 focus-visible:ring-offset-0 ${
+                          errors.fullName
+                            ? 'border-destructive/80 bg-destructive/5 hover:border-destructive/80 focus-visible:border-destructive focus-visible:ring-destructive/25'
+                            : 'border-input hover:border-muted-foreground/60 focus-visible:border-primary/70 focus-visible:ring-primary/25'
+                        }`}
+                      />
+                      {errors.fullName && (
+                        <p id="fullName-error" role="alert" className="flex items-start gap-2 text-sm leading-5 text-destructive">
+                          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                          {errors.fullName}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium text-foreground">
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="text"
+                      placeholder="inspector@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={loading}
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? 'email-error' : undefined}
+                      className={`h-11 rounded-lg bg-background/70 px-3 focus-visible:ring-2 focus-visible:ring-offset-0 ${
+                        errors.email
+                          ? 'border-destructive/80 bg-destructive/5 hover:border-destructive/80 focus-visible:border-destructive focus-visible:ring-destructive/25'
+                          : 'border-input hover:border-muted-foreground/60 focus-visible:border-primary/70 focus-visible:ring-primary/25'
+                      }`}
+                      data-testid="input-email"
+                    />
+                    {errors.email && (
+                      <p id="email-error" role="alert" className="flex items-start gap-2 text-sm leading-5 text-destructive">
+                        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        {errors.email}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                      Password
+                    </Label>
+                    <Input
+                      id="password"
+                      data-testid="input-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={errors.password ? 'password-error' : undefined}
+                      className={`h-11 rounded-lg bg-background/70 px-3 focus-visible:ring-2 focus-visible:ring-offset-0 ${
+                        errors.password
+                          ? 'border-destructive/80 bg-destructive/5 hover:border-destructive/80 focus-visible:border-destructive focus-visible:ring-destructive/25'
+                          : 'border-input hover:border-muted-foreground/60 focus-visible:border-primary/70 focus-visible:ring-primary/25'
+                      }`}
+                    />
+                    {errors.password && (
+                      <p id="password-error" role="alert" className="flex items-start gap-2 text-sm leading-5 text-destructive">
+                        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        {errors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <Button
+                      type="submit"
+                      className="h-11 w-full justify-between rounded-lg px-4 font-semibold shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+                      data-testid="submit-button"
+                      disabled={loading}
+                    >
+                      <span className="flex items-center gap-2">
+                        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {isSignUp ? 'Sign Up' : 'Sign In'}
+                      </span>
+                      {!loading && <ArrowRight className="h-4 w-4" />}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full rounded-lg border-border/90 bg-secondary/30 text-foreground hover:border-primary/30 hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/30"
+                      onClick={() => {
+                        setIsSignUp(!isSignUp);
+                        setErrors({});
+                      }}
+                      disabled={loading}
+                    >
+                      {isSignUp
+                        ? 'Already have an account? Sign In'
+                        : "Don't have an account? Sign Up"}
+                    </Button>
+                  </div>
+                </form>
+
+                <div className="mt-6 flex items-start gap-2 border-t border-border/60 pt-5 text-xs leading-5 text-muted-foreground">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary/75" strokeWidth={1.75} />
+                  <p>Your session is used only to access your RT/PT inspection workspace.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

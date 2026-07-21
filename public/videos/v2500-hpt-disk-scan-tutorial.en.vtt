@@ -1,8 +1,9 @@
 WEBVTT
 
-NOTE V2500 HPT Disk Stage 1 — Immersion Scan Tutorial
+NOTE V2500 HPT Disk Stage 1 — Immersion Scan Tutorial (v2 educational)
 NOTE Language: English (en)
 NOTE Source: Rachel narration via ElevenLabs eleven_multilingual_v2
+NOTE Total: 19 scenes · ~4:43 · 8 concept scenes + practical scan flow
 
 1
 00:00:00.300 --> 00:00:03.500
@@ -10,141 +11,292 @@ V2500 HPT Disk · Stage 1.
 
 2
 00:00:03.500 --> 00:00:07.000
-Immersion scan plan — a full walkthrough.
+Immersion scan plan — the full walkthrough.
 
 3
-00:00:07.580 --> 00:00:10.500
-Step 1. Setup the immersion tank.
+00:00:08.080 --> 00:00:11.500
+Before we start, why immersion testing?
 
 4
-00:00:10.500 --> 00:00:13.500
-Mount the disk on the turntable, fill the tank,
+00:00:11.500 --> 00:00:16.000
+Contact ultrasonic uses gel as the couplant.
 
 5
-00:00:13.500 --> 00:00:16.500
-and position the probe at an 8-inch water path.
+00:00:16.000 --> 00:00:21.000
+The gel thickness changes from spot to spot,
+and so does the energy entering the part.
 
 6
-00:00:16.970 --> 00:00:19.500
-Step 2. Open the scan plan.
+00:00:21.000 --> 00:00:25.000
+Immersion solves this. The water layer becomes
+a constant, repeatable, controllable couplant.
 
 7
-00:00:19.500 --> 00:00:22.500
-Select the V2500 Stage 1 preset —
+00:00:25.000 --> 00:00:29.000
+Every pulse sees the same acoustic path.
 
 8
-00:00:22.500 --> 00:00:26.000
-five zones populate automatically from procedure NDIP 1226.
+00:00:30.130 --> 00:00:34.000
+Water path: eight inches.
+That number is not arbitrary.
 
 9
-00:00:26.210 --> 00:00:29.000
-Step 3. Anatomy of the disk.
+00:00:34.000 --> 00:00:40.000
+It matches the focal length of the transducer —
+the IAE2P16679, five megahertz, eight-inch focal.
 
 10
-00:00:29.000 --> 00:00:31.000
-Five inspection zones —
+00:00:40.000 --> 00:00:46.000
+With the disk surface at the focal point,
+the beam diameter is minimum, resolution is maximum.
 
 11
-00:00:31.000 --> 00:00:33.000
-E, the upper web transition.
+00:00:51.080 --> 00:00:55.000
+The probe fires straight down. But we want
+a forty-five-degree shear wave inside the steel.
 
 12
-00:00:33.000 --> 00:00:34.500
-A, the upper chamfer.
+00:00:55.000 --> 00:00:59.500
+Snell's law gives us the trick.
 
 13
-00:00:34.500 --> 00:00:36.000
-B, the upper land.
+00:00:59.500 --> 00:01:04.500
+We tilt the mirror so the beam enters the water
+at eighteen point nine degrees.
 
 14
-00:00:36.000 --> 00:00:37.500
-C, the bore entry.
+00:01:04.500 --> 00:01:10.000
+At the water-to-steel interface, the angle bends,
+and inside the steel the shear wave is exactly 45°.
 
 15
-00:00:37.500 --> 00:00:38.300
-D, the bore inner diameter.
+00:01:10.000 --> 00:01:12.000
+Perpendicular to typical bore cracks.
 
 16
-00:00:38.410 --> 00:00:41.500
-Step 4. Zone E plus 45-degree pass.
+00:01:13.050 --> 00:01:18.000
+Why scan each surface twice — plus 45° and minus 45°?
 
 17
-00:00:41.500 --> 00:00:45.500
-The probe approaches at plus 45 degrees,
-the disk rotates 360,
+00:01:18.000 --> 00:01:23.000
+Cracks have an orientation. A crack tilted
+the wrong way is invisible to one beam direction.
 
 18
-00:00:45.500 --> 00:00:49.500
-and the probe steps radially in two-hundredths-inch increments.
+00:01:23.000 --> 00:01:30.000
+Scanning both directions turns the orientation problem
+into guaranteed coverage. This is not optional.
 
 19
-00:00:49.500 --> 00:00:53.000
-Every position is logged into the C-scan.
+00:01:30.000 --> 00:01:35.000
+It is the difference between inspection and theatre.
 
 20
-00:00:53.180 --> 00:00:56.500
-Step 5. Zone E minus 45-degree pass.
+00:01:35.780 --> 00:01:39.000
+Anatomy of the disk. Five inspection zones —
 
 21
-00:00:56.500 --> 00:01:00.500
-The mirror flips, and we repeat the sweep in the opposite direction
+00:01:39.000 --> 00:01:41.000
+E, the upper web transition.
 
 22
-00:01:00.500 --> 00:01:02.700
-for full bidirectional coverage.
+00:01:41.000 --> 00:01:42.500
+A, the upper chamfer.
 
 23
-00:01:02.810 --> 00:01:06.500
-Step 6. Zones A through D.
+00:01:42.500 --> 00:01:44.000
+B, the upper land.
 
 24
-00:01:06.500 --> 00:01:10.500
-Each zone is scanned twice, plus and minus 45 degrees —
+00:01:44.000 --> 00:01:45.500
+C, the bore entry.
 
 25
-00:01:10.500 --> 00:01:14.500
-ten passes in total.
+00:01:45.500 --> 00:01:47.000
+D, the bore inner diameter.
 
 26
-00:01:14.640 --> 00:01:17.500
-Step 7. Live C-scan capture.
+00:01:47.980 --> 00:01:51.000
+Two-hundredths of an inch.
+Scan increment — no larger.
 
 27
-00:01:17.500 --> 00:01:21.500
-The colormap builds up as the probe moves —
+00:01:51.000 --> 00:01:54.000
+Index increment per revolution — no larger.
 
 28
-00:01:21.500 --> 00:01:25.500
-peak amplitude per position, indications above 20% FSH are flagged.
+00:01:54.000 --> 00:01:59.000
+Why? Because the focused beam diameter at the
+focal point is about forty thousandths of an inch.
 
 29
-00:01:25.500 --> 00:01:27.700
-Watch the data come in.
+00:01:59.000 --> 00:02:04.000
+Spacing each pass at half-beam guarantees no gap.
 
 30
-00:01:27.780 --> 00:01:31.000
-Inspection results.
+00:02:04.000 --> 00:02:08.000
+Drop below this rule and you create blind alleys
+for cracks to hide.
 
 31
-00:01:31.000 --> 00:01:35.000
-Five C-scan strips, one per zone —
+00:02:08.840 --> 00:02:13.000
+Full screen height. F-S-H. The amplifier maps
+the strongest signal to one hundred percent.
 
 32
-00:01:35.000 --> 00:01:38.300
-no reportable indications, this disk is clean.
+00:02:13.000 --> 00:02:18.000
+Calibration sets the reference reflector
+to eighty percent FSH.
 
 33
-00:01:38.410 --> 00:01:41.500
-Step 8. Save the scan data.
+00:02:18.000 --> 00:02:22.500
+Anything above twenty percent is flagged.
+Anything below is noise.
 
 34
-00:01:41.500 --> 00:01:45.400
-Enter the part serial number and click Save.
+00:02:22.500 --> 00:02:30.000
+The twenty-percent floor sits above the typical
+noise band, so we report real signals, not hiss.
 
 35
-00:01:45.540 --> 00:01:48.000
-Inspection complete.
+00:02:34.240 --> 00:02:38.000
+Why calibrate at all? Because raw amplitude
+has no meaning.
 
 36
-00:01:48.000 --> 00:01:50.000
+00:02:38.000 --> 00:02:43.000
+The number on the screen depends on probe wear,
+water condition, even temperature.
+
+37
+00:02:43.000 --> 00:02:48.000
+So we anchor the system to a known reflector —
+flat-bottom-hole number one.
+
+38
+00:02:48.000 --> 00:02:54.000
+And we adjust gain until that reflector
+reads exactly eighty percent FSH.
+
+39
+00:02:54.000 --> 00:02:59.000
+Every signal afterwards is read
+relative to that anchor.
+
+40
+00:02:59.820 --> 00:03:04.000
+With the theory understood, we set up
+the physical equipment.
+
+41
+00:03:04.000 --> 00:03:08.500
+Mount the disk on the turntable, fill the tank,
+position the probe at the eight-inch water path.
+
+42
+00:03:09.210 --> 00:03:13.000
+Open the scan plan. Select the V2500
+Stage 1 preset —
+
+43
+00:03:13.000 --> 00:03:17.500
+five zones populate automatically
+from procedure NDIP 1226.
+
+44
+00:03:18.450 --> 00:03:20.500
+Zone E plus 45° pass.
+
+45
+00:03:20.500 --> 00:03:24.000
+The probe approaches at plus 45°,
+
+46
+00:03:24.000 --> 00:03:28.000
+the disk rotates 360°,
+
+47
+00:03:28.000 --> 00:03:32.000
+and the probe steps radially
+in two-hundredths-inch increments.
+
+48
+00:03:33.220 --> 00:03:36.000
+Zone E minus 45° pass.
+
+49
+00:03:36.000 --> 00:03:40.000
+The mirror flips, and we repeat the sweep
+in the opposite direction.
+
+50
+00:03:40.000 --> 00:03:42.000
+Full bidirectional coverage.
+
+51
+00:03:42.850 --> 00:03:45.500
+Zones A through D.
+
+52
+00:03:45.500 --> 00:03:50.000
+Each zone is scanned twice — plus and minus 45°.
+
+53
+00:03:50.000 --> 00:03:53.500
+Ten passes in total.
+
+54
+00:03:54.680 --> 00:03:58.000
+Two views of the same signal.
+
+55
+00:03:58.000 --> 00:04:03.000
+The A-scan is amplitude over time — what
+the echo looks like at this one position.
+
+56
+00:04:03.000 --> 00:04:08.500
+The C-scan is a top-down map — peak amplitude
+at every position the probe has visited.
+
+57
+00:04:08.500 --> 00:04:13.500
+The A-scan finds the indication.
+The C-scan tells you where it is.
+
+58
+00:04:14.710 --> 00:04:18.000
+Live C-scan capture. The colormap builds up
+as the probe moves.
+
+59
+00:04:18.000 --> 00:04:23.000
+Peak amplitude per position. Indications
+above 20% FSH are flagged.
+
+60
+00:04:23.000 --> 00:04:27.000
+Watch the data come in.
+
+61
+00:04:27.850 --> 00:04:31.500
+Inspection results. Five C-scan strips,
+one per zone.
+
+62
+00:04:31.500 --> 00:04:37.000
+No reportable indications.
+This disk is clean.
+
+63
+00:04:38.410 --> 00:04:42.000
+Save the scan data. Enter the part
+serial number and click Save.
+
+64
+00:04:45.610 --> 00:04:47.500
+Inspection complete.
+
+65
+00:04:47.500 --> 00:04:49.500
 Five zones, ten passes, zero indications.

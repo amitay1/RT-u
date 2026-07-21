@@ -1,86 +1,121 @@
-import type {
-  LengthUnit,
-  InspectionStage,
-  InspectorLevel,
-  AcceptReject,
+import {
+  emptyRtPtAcceptancePlan,
+  emptyRtPtGeneralInfo,
+  type LengthUnit,
+  type NumberOrEmpty,
+  type RtPtAcceptancePlan,
+  type RtPtGeneralInfo,
+  type TemperatureUnit,
+  type TimeUnit,
 } from './rtFilm';
 
-export type { LengthUnit, InspectionStage, InspectorLevel, AcceptReject };
-
+export type { LengthUnit, NumberOrEmpty, TemperatureUnit, TimeUnit };
 export type PenetrantType = 'Type I' | 'Type II' | '';
 export type PenetrantMethod = 'A' | 'B' | 'C' | 'D' | '';
-export type SensitivityLevel = '1' | '2' | '3' | '4' | '';
-export type DeveloperType = 'Dry' | 'Water' | 'Non-aqueous' | '';
-export type CleanerType = 'Solvent' | 'Water' | '';
-export type CleaningMethod = 'Solvent' | 'Alkaline' | '';
-export type SurfaceCondition = 'As-welded' | 'Machined' | '';
-export type DryingMethod = 'Air' | 'Oven' | '';
-export type ApplicationMethod = 'Spray' | 'Dip' | 'Brush' | '';
-export type RemovalMethod = 'Water wash' | 'Solvent' | '';
-export type DeveloperApplication = 'Spray' | 'Dust' | '';
-export type IndicationType = 'Linear' | 'Rounded' | '';
-export type LightType = 'UV' | 'White' | '';
-export type PostCleaningMethod = 'Water' | 'Solvent' | '';
+export type SensitivityLevel = '1/2' | '1' | '2' | '3' | '4' | '';
+export type PtGeneralInfo = RtPtGeneralInfo;
+export type PtAcceptance = RtPtAcceptancePlan;
 
-export interface PtGeneralInfo {
-  partName: string;
-  partNumber: string;
-  material: string;
-  thickness: number | '';
-  thicknessUnit: LengthUnit;
-  drawingReference: string;
-  procedureNumber: string;
-  inspectionStage: InspectionStage;
-  inspectorLevel: InspectorLevel;
-  date: string;
+export interface PtApprovedProduct {
+  manufacturer: string;
+  designation: string;
 }
 
 export interface PtMaterials {
   penetrantType: PenetrantType;
   method: PenetrantMethod;
   sensitivityLevel: SensitivityLevel;
-  developerType: DeveloperType;
-  cleanerType: CleanerType;
+  systemFamily: string;
+  qualificationReference: string;
+  developerForm: string;
+  penetrant: PtApprovedProduct;
+  cleaner: PtApprovedProduct;
+  remover: PtApprovedProduct;
+  emulsifier: PtApprovedProduct;
+  developer: PtApprovedProduct;
 }
 
 export interface PtSurfacePreparation {
-  cleaningMethod: CleaningMethod;
-  surfaceCondition: SurfaceCondition;
-  dryingMethod: DryingMethod;
+  cleaningMethod: string;
+  cleaningDetails: string;
+  cleaningRestrictions: string;
+  surfaceCondition: string;
+  dryingMethod: string;
+  dryingTime: NumberOrEmpty;
+  dryingTimeUnit: TimeUnit;
+  dryingTemperature: NumberOrEmpty;
+  dryingTemperatureUnit: TemperatureUnit;
 }
 
 export interface PtApplication {
-  applicationMethod: ApplicationMethod;
-  dwellTime: number | '';
-  removalMethod: RemovalMethod;
-  rinsePressure: number | '';
-  rinseTemperature: number | '';
+  applicationMethod: string;
+  dwellTime: NumberOrEmpty;
+  dwellTimeUnit: TimeUnit;
+  partTemperatureMin: NumberOrEmpty;
+  partTemperatureMax: NumberOrEmpty;
+  partTemperatureUnit: TemperatureUnit;
+  penetrantTemperatureMin: NumberOrEmpty;
+  penetrantTemperatureMax: NumberOrEmpty;
+  penetrantTemperatureUnit: TemperatureUnit;
+}
+
+export interface PtMethodARinse {
+  instructions: string;
+  pressureMin: NumberOrEmpty;
+  pressureMax: NumberOrEmpty;
+  pressureUnit: string;
+  temperatureMin: NumberOrEmpty;
+  temperatureMax: NumberOrEmpty;
+  temperatureUnit: TemperatureUnit;
+}
+
+export interface PtMethodBdEmulsifier {
+  type: string;
+  concentration: NumberOrEmpty;
+  concentrationUnit: string;
+  contactTime: NumberOrEmpty;
+  contactTimeUnit: TimeUnit;
+  applicationMethod: string;
+  postEmulsifierRinseInstructions: string;
+}
+
+export interface PtMethodCRemoval {
+  removerInstructions: string;
+}
+
+export interface PtMethodDRinses {
+  preRinseInstructions: string;
+  finalRinseInstructions: string;
+}
+
+export interface PtRemoval {
+  methodA: PtMethodARinse;
+  methodBD: PtMethodBdEmulsifier;
+  methodC: PtMethodCRemoval;
+  methodD: PtMethodDRinses;
 }
 
 export interface PtDevelopment {
-  developerApplication: DeveloperApplication;
-  developmentTime: number | '';
-  indicationType: IndicationType;
-  indicationSize: number | '';
+  developerApplication: string;
+  developmentTime: NumberOrEmpty;
+  developmentTimeUnit: TimeUnit;
+  instructions: string;
 }
 
 export interface PtInspectionConditions {
-  lightType: LightType;
-  uvIntensity: number | '';
-  whiteLight: number | '';
-}
-
-export interface PtAcceptance {
-  acceptanceStandard: string;
-  linearIndications: number | '';
-  roundedIndications: number | '';
+  requiredUvAMin: NumberOrEmpty;
+  uvAUnit: string;
+  ambientVisibleLightMax: NumberOrEmpty;
+  whiteLightMin: NumberOrEmpty;
+  visibleLightUnit: string;
+  darkAdaptationTime: NumberOrEmpty;
+  darkAdaptationTimeUnit: TimeUnit;
+  equipmentRequirements: string;
 }
 
 export interface PtPostCleaning {
-  postCleaningMethod: PostCleaningMethod;
-  result: AcceptReject;
-  inspector: string;
-  date: string;
+  instructions: string;
+  corrosionProtection: string;
 }
 
 export interface PtSheet {
@@ -88,64 +123,94 @@ export interface PtSheet {
   materials: PtMaterials;
   surfacePrep: PtSurfacePreparation;
   application: PtApplication;
+  removal: PtRemoval;
   development: PtDevelopment;
   conditions: PtInspectionConditions;
   acceptance: PtAcceptance;
   postCleaning: PtPostCleaning;
+  techniqueNotes: string;
 }
 
+export type PtTechnique = PtSheet;
+
+const emptyProduct = (): PtApprovedProduct => ({ manufacturer: '', designation: '' });
+
 export const emptyPtSheet: PtSheet = {
-  general: {
-    partName: '',
-    partNumber: '',
-    material: '',
-    thickness: '',
-    thicknessUnit: 'mm',
-    drawingReference: '',
-    procedureNumber: '',
-    inspectionStage: '',
-    inspectorLevel: '',
-    date: '',
-  },
+  general: { ...emptyRtPtGeneralInfo },
   materials: {
     penetrantType: '',
     method: '',
     sensitivityLevel: '',
-    developerType: '',
-    cleanerType: '',
+    systemFamily: '',
+    qualificationReference: '',
+    developerForm: '',
+    penetrant: emptyProduct(),
+    cleaner: emptyProduct(),
+    remover: emptyProduct(),
+    emulsifier: emptyProduct(),
+    developer: emptyProduct(),
   },
   surfacePrep: {
     cleaningMethod: '',
+    cleaningDetails: '',
+    cleaningRestrictions: '',
     surfaceCondition: '',
     dryingMethod: '',
+    dryingTime: '',
+    dryingTimeUnit: '',
+    dryingTemperature: '',
+    dryingTemperatureUnit: '',
   },
   application: {
     applicationMethod: '',
     dwellTime: '',
-    removalMethod: '',
-    rinsePressure: '',
-    rinseTemperature: '',
+    dwellTimeUnit: '',
+    partTemperatureMin: '',
+    partTemperatureMax: '',
+    partTemperatureUnit: '',
+    penetrantTemperatureMin: '',
+    penetrantTemperatureMax: '',
+    penetrantTemperatureUnit: '',
+  },
+  removal: {
+    methodA: {
+      instructions: '',
+      pressureMin: '',
+      pressureMax: '',
+      pressureUnit: '',
+      temperatureMin: '',
+      temperatureMax: '',
+      temperatureUnit: '',
+    },
+    methodBD: {
+      type: '',
+      concentration: '',
+      concentrationUnit: '',
+      contactTime: '',
+      contactTimeUnit: '',
+      applicationMethod: '',
+      postEmulsifierRinseInstructions: '',
+    },
+    methodC: { removerInstructions: '' },
+    methodD: { preRinseInstructions: '', finalRinseInstructions: '' },
   },
   development: {
     developerApplication: '',
     developmentTime: '',
-    indicationType: '',
-    indicationSize: '',
+    developmentTimeUnit: '',
+    instructions: '',
   },
   conditions: {
-    lightType: '',
-    uvIntensity: '',
-    whiteLight: '',
+    requiredUvAMin: '',
+    uvAUnit: '',
+    ambientVisibleLightMax: '',
+    whiteLightMin: '',
+    visibleLightUnit: '',
+    darkAdaptationTime: '',
+    darkAdaptationTimeUnit: '',
+    equipmentRequirements: '',
   },
-  acceptance: {
-    acceptanceStandard: '',
-    linearIndications: '',
-    roundedIndications: '',
-  },
-  postCleaning: {
-    postCleaningMethod: '',
-    result: '',
-    inspector: '',
-    date: '',
-  },
+  acceptance: { ...emptyRtPtAcceptancePlan },
+  postCleaning: { instructions: '', corrosionProtection: '' },
+  techniqueNotes: '',
 };

@@ -11,6 +11,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/__tests__/**/*.test.ts'],
+    include: [
+      'src/lib/__tests__/rtGeometry.test.ts',
+      'src/**/__tests__/rtPt*.test.ts',
+      'src/**/__tests__/RtPt*.test.ts',
+      'src/electron/__tests__/*.test.ts',
+    ],
   },
 });

@@ -24,11 +24,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Play, Pause, RotateCcw, Plus, Minus } from "lucide-react";
+import {
+  getV2500PassCount,
+  PW_V2500_SIGNAL_RULES,
+  PW_V2500_STAGE1_SCAN_PLAN,
+} from "@/rules/pw/pwScanPlans";
+import { PW_HPT_TRANSDUCER_SETUP } from "@/rules/pw/pwTransducers";
 
 // ─────────────────────────── Constants (NDIP-1226 Rev F) ───────────────────────────
-const BORE_RADIUS = 2.91;         // inches
-const WATER_PATH = 8.0;           // inches
-const MAX_SCAN_INC = 0.02;        // inches per rev
+const BORE_RADIUS = PW_V2500_STAGE1_SCAN_PLAN.boreRadius; // inches
+const WATER_PATH = PW_V2500_STAGE1_SCAN_PLAN.waterPath; // inches
+const MAX_SCAN_INC = PW_V2500_STAGE1_SCAN_PLAN.maxScanIncrement; // inches per rev
+const MAX_INDEX_INC = PW_V2500_STAGE1_SCAN_PLAN.maxIndexIncrement; // inches per rev
+const INCIDENT_ANGLE = PW_HPT_TRANSDUCER_SETUP.incidentAngle;
+const REFRACTED_ANGLE = PW_HPT_TRANSDUCER_SETUP.refractedAngle;
+const PASS_COUNT = getV2500PassCount(PW_V2500_STAGE1_SCAN_PLAN);
 const ZONES = ["E", "A", "B", "C", "D"] as const;
 type ZoneId = (typeof ZONES)[number];
 
@@ -444,6 +454,17 @@ function CScanStrip({ zone, scanT, angle }: { zone: ZoneId; scanT: number; angle
     ctx.fillStyle = "#00e5ff";
     ctx.font = "bold 11px Segoe UI, Arial";
     ctx.fillText(`C-SCAN · ZONE ${zone} · ${angle > 0 ? "+45°" : "−45°"}`, 6, 13);
+    const currentX = Math.min(w - 1, Math.max(0, cols));
+    ctx.strokeStyle = "#f8e71c";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(currentX, 18);
+    ctx.lineTo(currentX, h);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ff4d6d";
+    ctx.font = "bold 10px Segoe UI, Arial";
+    ctx.fillText(`flag >=${PW_V2500_SIGNAL_RULES.recordableIndicationFsh}% FSH`, w - 92, 13);
   }, [zone, scanT, angle]);
 
   return (
@@ -462,6 +483,52 @@ function CScanStrip({ zone, scanT, angle }: { zone: ZoneId; scanT: number; angle
 }
 
 // ─────────────────────────── Main exported component ───────────────────────────
+function FshScale() {
+  const calibration = PW_V2500_SIGNAL_RULES.calibrationTargetFsh;
+  const threshold = PW_V2500_SIGNAL_RULES.recordableIndicationFsh;
+  const noise = PW_V2500_SIGNAL_RULES.averageNoiseLimitFsh;
+
+  return (
+    <div className="rounded-md border border-slate-700 bg-slate-950/70 p-3">
+      <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase text-slate-300">
+        <span>FSH signal scale</span>
+        <span className="font-mono text-cyan-300">{calibration}% ref</span>
+      </div>
+      <div className="relative h-28 rounded bg-slate-900">
+        <div className="absolute left-0 right-0 top-0 border-t border-slate-500" />
+        <div
+          className="absolute left-0 right-0 border-t border-yellow-300"
+          style={{ top: `${100 - calibration}%` }}
+        />
+        <div
+          className="absolute left-0 right-0 border-t border-rose-400"
+          style={{ top: `${100 - threshold}%` }}
+        />
+        <div
+          className="absolute left-0 right-0 border-t border-cyan-500/70"
+          style={{ top: `${100 - noise}%` }}
+        />
+        <div
+          className="absolute bottom-0 left-8 w-10 rounded-t bg-cyan-400/70"
+          style={{ height: `${threshold}%` }}
+        />
+        <div
+          className="absolute bottom-0 left-24 w-10 rounded-t bg-yellow-300/80"
+          style={{ height: `${calibration}%` }}
+        />
+        <div className="absolute right-2 top-1 text-[10px] text-slate-400">100%</div>
+        <div className="absolute right-2 text-[10px] text-yellow-200" style={{ top: `${100 - calibration - 4}%` }}>
+          {calibration}% cal
+        </div>
+        <div className="absolute right-2 text-[10px] text-rose-300" style={{ top: `${100 - threshold - 4}%` }}>
+          {threshold}% flag
+        </div>
+        <div className="absolute right-2 bottom-1 text-[10px] text-cyan-300">noise band</div>
+      </div>
+    </div>
+  );
+}
+
 export function V2500ScanSimulator() {
   const [zone, setZone] = useState<ZoneId>("E");
   const [angle, setAngle] = useState<1 | -1>(1); // sign: +45 / -45
@@ -515,15 +582,15 @@ export function V2500ScanSimulator() {
       <div className="flex items-center justify-between p-4 border-b border-cyan-900/40">
         <div>
           <h3 className="font-bold text-lg text-cyan-300">
-            V2500 HPT Disk — Interactive Scan Simulator
+            V2500 HPT Disk - Interactive Scan Simulator
           </h3>
           <p className="text-xs text-slate-400">
-            5 zones · ±45° shear wave · NDIP-1226 Rev F · 10 passes per disk
+            5 zones | +/-45 shear wave | NDIP-1226 Rev F | {PASS_COUNT} passes per disk
           </p>
         </div>
         <div className="text-xs text-cyan-300 font-mono">
-          BORE Ø {(BORE_RADIUS * 2).toFixed(2)}″ · WP {WATER_PATH.toFixed(1)}″ ·
-          SCAN INC {MAX_SCAN_INC}″
+          BORE DIA {(BORE_RADIUS * 2).toFixed(2)} in | WP {WATER_PATH.toFixed(1)} in |
+          INC {MAX_SCAN_INC.toFixed(3)} in
         </div>
       </div>
 
@@ -650,7 +717,7 @@ export function V2500ScanSimulator() {
               className="col-span-1"
               title="Previous pass"
             >
-              ‹
+              Prev
             </Button>
             <Button
               size="sm"
@@ -667,7 +734,7 @@ export function V2500ScanSimulator() {
               className="col-span-1"
               title="Next pass"
             >
-              ›
+              Next
             </Button>
           </div>
 
@@ -675,11 +742,35 @@ export function V2500ScanSimulator() {
             <RotateCcw className="h-3 w-3 mr-2" />Reset
           </Button>
 
+          <div className="rounded-md border border-cyan-900/40 bg-slate-950/60 p-3 text-xs">
+            <div className="mb-2 font-bold uppercase text-slate-300">Procedure locks</div>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <div className="text-slate-500">Water path</div>
+                <div className="font-mono text-cyan-300">{WATER_PATH.toFixed(1)} in</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Snell setup</div>
+                <div className="font-mono text-cyan-300">{INCIDENT_ANGLE.toFixed(1)} -&gt; {REFRACTED_ANGLE} deg</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Scan/index max</div>
+                <div className="font-mono text-cyan-300">{MAX_SCAN_INC.toFixed(3)} / {MAX_INDEX_INC.toFixed(3)} in</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Pass count</div>
+                <div className="font-mono text-cyan-300">{PASS_COUNT} total</div>
+              </div>
+            </div>
+          </div>
+
+          <FshScale />
+
           {/* C-scan strip */}
           <div className="mt-2">
             <CScanStrip zone={zone} scanT={scanT} angle={angle * 45} />
             <div className="mt-1 text-[10px] text-slate-500 font-mono">
-              Faux colormap — peak amplitude per circumferential step.
+              Peak amplitude per position; pixels at or above {PW_V2500_SIGNAL_RULES.recordableIndicationFsh}% FSH are reportable.
             </div>
           </div>
         </div>
@@ -688,10 +779,10 @@ export function V2500ScanSimulator() {
       {/* Footer */}
       <div className="px-4 py-2 border-t border-cyan-900/30 bg-slate-950/40 text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2">
         <span>
-          Each zone scanned twice (+45° / −45°). 10 passes total per disk.
+          Each zone is scanned twice (+45 / -45). {PASS_COUNT} passes total per disk.
         </span>
         <span className="font-mono text-slate-500">
-          Source: src/rules/pw/pwScanPlans.ts · Asset: Engine V2500-A5-0765-Model.stl (P/N 2A5001)
+          Source: src/rules/pw/pwScanPlans.ts | Asset: Engine V2500-A5-0765-Model.stl (P/N 2A5001)
         </span>
       </div>
     </Card>

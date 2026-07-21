@@ -1,0 +1,111 @@
+1
+00:00:00,000 --> 00:00:08,000
+V2500 HPT DISK
+Immersion Scan Plan - Stage 1 - NDIP-1226 Rev F
+
+2
+00:00:08,000 --> 00:00:30,000
+WHY IMMERSION?
+Water = repeatable couplant
+Every pulse sees the same 8 inches
+
+3
+00:00:30,000 --> 00:00:51,000
+WATER PATH
+8 inch = transducer focal length
+Focal point ON the disk = min beam diameter
+
+4
+00:00:51,000 --> 00:01:13,000
+SNELL'S LAW
+18.9 degree to 45 degree at water-steel interface
+Perpendicular to typical bore cracks
+
+5
+00:01:13,000 --> 00:01:36,000
+BOTH DIRECTIONS
+Defect orientation independence
+Each surface scanned twice - 10 passes total
+
+6
+00:01:36,000 --> 00:01:48,000
+ANATOMY - 5 ZONES
+E - A - B - C - D
+Five surfaces - NDIP Figure 2
+
+7
+00:01:48,000 --> 00:02:09,000
+THE 0.020 INCH RULE
+Step less than half beam diameter
+0.020 step on 0.040 beam = full coverage
+
+8
+00:02:09,000 --> 00:02:34,000
+FSH - FULL SCREEN HEIGHT
+80% calibration - 20% report floor
+Relative, not absolute amplitude
+
+9
+00:02:34,000 --> 00:03:00,000
+CALIBRATION PHILOSOPHY
+FBH-1 -> gain -> 80% FSH
+Anchor every signal to a known reflector
+
+10
+00:03:00,000 --> 00:03:09,000
+EQUIPMENT BUILD
+Mount disk - Fill tank - 8 inch water path
+
+11
+00:03:09,000 --> 00:03:18,000
+OPEN SCAN PLAN
+Select V2500 Stage 1 preset
+5 zones loaded - NDIP-1226 Rev F
+
+12
+00:03:18,000 --> 00:03:33,000
+ZONE E - +45 PASS
+Probe sweeps - 0.020 inch radial - 360 degrees
+Pass 1 of 10
+
+13
+00:03:33,000 --> 00:03:43,000
+ZONE E - -45 PASS
+Mirror reverses - Bidirectional coverage
+Pass 2 of 10 - Bidirectional
+
+14
+00:03:43,000 --> 00:03:55,000
+ZONES A -> D
+Each surface +/-45 - 10 passes total
+10 PASSES TOTAL
+
+15
+00:03:55,000 --> 00:04:15,000
+A-SCAN vs C-SCAN
+Time-amplitude vs Position-peak
+A finds it. C tells you where it is.
+
+16
+00:04:15,000 --> 00:04:28,000
+LIVE C-SCAN CAPTURE
+Peak per position - >=20% FSH flagged
+0 indications
+
+17
+00:04:28,000 --> 00:04:38,000
+INSPECTION RESULTS
+5 zones - 10 passes - 0 indications
+ACCEPT
+
+18
+00:04:38,000 --> 00:04:45,000
+SAVE THE SCAN DATA
+Part serial + date - Archive
+Traceable record
+
+19
+00:04:45,000 --> 00:04:49,000
+INSPECTION COMPLETE
+V2500 HPT Disk - Stage 1
+

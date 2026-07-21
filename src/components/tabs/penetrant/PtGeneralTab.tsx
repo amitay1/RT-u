@@ -19,16 +19,29 @@ export const PtGeneralTab = ({ data, onChange }: Props) => {
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField label="Part Name" value={data.partName} onChange={v => set('partName', v)} />
         <TextField label="Part Number" value={data.partNumber} onChange={v => set('partNumber', v)} />
+        <TextField label="Vendor / Supplier Code" value={data.vendorCode} onChange={v => set('vendorCode', v)} />
+        <TextField
+          label="Part Revision / Configuration"
+          value={data.partRevisionOrConfiguration}
+          onChange={v => set('partRevisionOrConfiguration', v)}
+        />
         <TextField label="Material" value={data.material} onChange={v => set('material', v)} />
-        <div className="grid grid-cols-[1fr_120px] gap-2">
+        <TextField label="Surface Finish / Condition" value={data.surfaceFinish} onChange={v => set('surfaceFinish', v)} />
+        <TextField label="Inspection Area" value={data.inspectionArea} onChange={v => set('inspectionArea', v)} />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_120px]">
           <NumberField label="Thickness" value={data.thickness} onChange={v => set('thickness', v)} unit={data.thicknessUnit} />
           <SelectField label="Unit" value={data.thicknessUnit} onChange={v => set('thicknessUnit', v)} options={[{ label: 'mm', value: 'mm' }, { label: 'inch', value: 'inch' }]} />
         </div>
         <TextField label="Drawing Reference" value={data.drawingReference} onChange={v => set('drawingReference', v)} />
         <TextField label="Procedure Number" value={data.procedureNumber} onChange={v => set('procedureNumber', v)} />
-        <SelectField label="Inspection Stage" value={data.inspectionStage} onChange={v => set('inspectionStage', v)} options={['In-process', 'Final']} />
         <SelectField
-          label="Inspector Level"
+          label="Planned Inspection Stage"
+          value={data.inspectionStage}
+          onChange={v => set('inspectionStage', v)}
+          options={['In-process', 'Final', 'Maintenance / in-service']}
+        />
+        <SelectField
+          label="Required Personnel Level"
           value={data.inspectorLevel}
           onChange={v => set('inspectorLevel', v)}
           options={[
@@ -37,7 +50,7 @@ export const PtGeneralTab = ({ data, onChange }: Props) => {
             { label: 'Level III', value: 'III' },
           ]}
         />
-        <DateField label="Date" value={data.date} onChange={v => set('date', v)} />
+        <DateField label="Planned Inspection Date" value={data.date} onChange={v => set('date', v)} />
       </CardContent>
     </Card>
   );

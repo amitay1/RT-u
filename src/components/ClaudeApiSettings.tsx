@@ -78,7 +78,7 @@ export function ClaudeApiSettings({ open, onOpenChange, onKeyConfigured }: Claud
         if (result.success) {
           setSuccess(true);
           setHasKey(true);
-          setMaskedKey(apiKey.substring(0, 15) + '...');
+          setMaskedKey(`••••${apiKey.slice(-4)}`);
           setApiKey('');
           onKeyConfigured?.();
 
@@ -95,7 +95,7 @@ export function ClaudeApiSettings({ open, onOpenChange, onKeyConfigured }: Claud
         localStorage.setItem('claude_api_key', apiKey);
         setSuccess(true);
         setHasKey(true);
-        setMaskedKey(apiKey.substring(0, 15) + '...');
+        setMaskedKey(`••••${apiKey.slice(-4)}`);
         setApiKey('');
         onKeyConfigured?.();
 

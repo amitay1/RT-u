@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const FIRST_RUN_KEY = 'scanmaster_first_run_completed';
-const FIRST_RUN_DATA_KEY = 'scanmaster_first_run_data';
+const FIRST_RUN_KEY = 'rtpt_inspector_first_run_completed';
+const FIRST_RUN_DATA_KEY = 'rtpt_inspector_first_run_data';
 
 export interface FirstRunData {
   completedAt?: string;

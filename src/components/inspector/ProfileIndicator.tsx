@@ -40,9 +40,15 @@ export function ProfileIndicator({ variant = 'default', className }: ProfileIndi
                 variant="outline"
                 size="sm"
                 onClick={() => setShowSelection(true)}
-                className={cn('gap-2', className)}
+                aria-label="Select inspector profile"
+                className={cn(
+                  'h-9 gap-2 rounded-md border-border bg-card px-2.5 text-foreground shadow-sm hover:border-ring/50 hover:bg-accent',
+                  className
+                )}
               >
-                <User className="h-4 w-4" />
+                <span className="grid h-6 w-6 place-items-center rounded-sm border border-border bg-muted/60 text-muted-foreground">
+                  <User className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
                 {variant === 'default' && <span>Select Profile</span>}
               </Button>
             </TooltipTrigger>
@@ -73,12 +79,17 @@ export function ProfileIndicator({ variant = 'default', className }: ProfileIndi
                 <Button
                   variant="outline"
                   size="sm"
-                  className={cn('min-w-0 gap-2 px-2', className)}
+                  aria-label={`Current inspector: ${currentProfile.name}. Open profile menu`}
+                  className={cn(
+                    'group h-9 min-w-0 gap-2 rounded-md border-border bg-card px-2 text-foreground shadow-sm',
+                    'hover:border-ring/50 hover:bg-accent data-[state=open]:border-ring/60 data-[state=open]:bg-accent',
+                    className
+                  )}
                 >
                   <div
                     className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold',
-                      'bg-primary text-primary-foreground'
+                      'grid h-6 w-6 shrink-0 place-items-center rounded-sm border text-xs font-semibold tabular-nums',
+                      'border-primary/35 bg-primary/10 text-primary'
                     )}
                   >
                     {currentProfile.initials}
@@ -88,7 +99,7 @@ export function ProfileIndicator({ variant = 'default', className }: ProfileIndi
                       {currentProfile.name}
                     </span>
                   )}
-                  <ChevronDown className="h-3 w-3 opacity-50" />
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
@@ -103,14 +114,14 @@ export function ProfileIndicator({ variant = 'default', className }: ProfileIndi
           </Tooltip>
         </TooltipProvider>
 
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-64 rounded-lg border-border bg-popover p-1.5 text-popover-foreground shadow-lg">
           {/* Current Profile Info */}
-          <DropdownMenuLabel className="font-normal">
+          <DropdownMenuLabel className="rounded-md bg-muted/35 px-3 py-3 font-normal">
             <div className="flex items-center gap-3">
               <div
                 className={cn(
-                  'w-10 h-10 rounded-full flex items-center justify-center font-semibold',
-                  'bg-primary/10 text-primary'
+                  'grid h-10 w-10 shrink-0 place-items-center rounded-md border font-semibold tabular-nums',
+                  'border-primary/35 bg-primary/10 text-primary'
                 )}
               >
                 {currentProfile.initials}
@@ -132,33 +143,32 @@ export function ProfileIndicator({ variant = 'default', className }: ProfileIndi
           {/* Quick Switch to Other Profiles */}
           {otherProfiles.length > 0 && (
             <>
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
+              <DropdownMenuLabel className="px-2.5 pb-1 pt-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Switch Profile
               </DropdownMenuLabel>
               {otherProfiles.slice(0, 3).map((profile) => (
                 <DropdownMenuItem
                   key={profile.id}
                   onClick={() => selectProfile(profile.id)}
-                  className="gap-2"
+                  className="min-h-9 gap-3 rounded-md px-2.5 py-2"
                 >
                   <div
                     className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
-                      'bg-muted text-muted-foreground'
+                      'grid h-7 w-7 shrink-0 place-items-center rounded-sm border border-border bg-muted/60 text-xs font-medium text-muted-foreground'
                     )}
                   >
                     {profile.initials}
                   </div>
                   <span className="flex-1 truncate">{profile.name}</span>
                   {profile.isDefault && (
-                    <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                    <Star className="h-3.5 w-3.5 fill-warning text-warning" aria-label="Default profile" />
                   )}
                 </DropdownMenuItem>
               ))}
               {otherProfiles.length > 3 && (
                 <DropdownMenuItem
                   onClick={() => setShowSelection(true)}
-                  className="text-muted-foreground"
+                  className="min-h-9 rounded-md px-2.5 py-2 text-muted-foreground"
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   View all profiles...
@@ -169,12 +179,12 @@ export function ProfileIndicator({ variant = 'default', className }: ProfileIndi
           )}
 
           {/* Actions */}
-          <DropdownMenuItem onClick={() => setShowSelection(true)}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <DropdownMenuItem onClick={() => setShowSelection(true)} className="min-h-9 rounded-md px-2.5 py-2">
+            <RefreshCw className="h-4 w-4 mr-2 text-muted-foreground" />
             Change Profile
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setShowManager(true)}>
-            <Settings className="h-4 w-4 mr-2" />
+          <DropdownMenuItem onClick={() => setShowManager(true)} className="min-h-9 rounded-md px-2.5 py-2">
+            <Settings className="h-4 w-4 mr-2 text-muted-foreground" />
             Manage Profiles
           </DropdownMenuItem>
         </DropdownMenuContent>

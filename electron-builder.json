@@ -2,6 +2,14 @@
     "appId": "com.amitay.rtptinspector",
     "productName": "RT-PT Inspector",
     "artifactName": "RTPT-Inspector-Setup-${version}.${ext}",
+    "publish": [
+        {
+            "provider": "github",
+            "owner": "amitay1",
+            "repo": "RT-u",
+            "releaseType": "release"
+        }
+    ],
     "directories": {
         "output": "release-build"
     },
@@ -10,28 +18,33 @@
         "type": "commonjs"
     },
     "files": [
-        "dist/**/*",
-        "!dist/standards/MRO/**",
+        "rtpt-dist/**/*",
+        "build/icon.png",
+        "!rtpt-dist/standards/MRO/**",
+        "electron/rtpt-license-service.cjs",
+        "electron/rtpt-license-public-key.pem",
+        "electron/update-public-key.pem",
         "electron/**/*",
-        "server/**/*",
-        "shared/**/*",
-        "node_modules/**/*",
+        "!electron/license-manager.cjs",
+        "!electron/**/*private*.pem",
+        "!electron/**/*.key",
+        "!electron/**/*.p12",
+        "!electron/**/*.pfx",
+        "!electron/**/*.rtpt-license.json",
+        "!electron/**/*.rtpt-license",
+        "!electron/**/activation-packages{,/**/*}",
+        "!server{,/**/*}",
+        "!shared{,/**/*}",
+        "!**/node_modules/@jscad{,/**/*}",
+        "!**/node_modules/@react-three{,/**/*}",
+        "!**/node_modules/{three,three-csg-ts,makerjs,paper,dxf-writer,docx,mammoth,opentype.js,pdfjs-dist}{,/**/*}",
         "package.json"
     ],
     "asarUnpack": [
-        "dist/**/*"
+        "rtpt-dist/**/*"
     ],
-    "mac": {
-        "category": "public.app-category.productivity",
-        "icon": "build/icon.icns",
-        "hardenedRuntime": true,
-        "gatekeeperAssess": false,
-        "entitlements": "build/entitlements.mac.plist",
-        "entitlementsInherit": "build/entitlements.mac.plist"
-    },
     "win": {
         "icon": "public/app.ico",
-        "signAndEditExecutable": false,
         "target": [
             {
                 "target": "nsis",
@@ -47,30 +60,12 @@
             }
         ]
     },
-    "linux": {
-        "target": [
-            {
-                "target": "AppImage",
-                "arch": [
-                    "x64"
-                ]
-            },
-            {
-                "target": "deb",
-                "arch": [
-                    "x64"
-                ]
-            }
-        ],
-        "category": "Development",
-        "icon": "build"
-    },
     "nsis": {
         "oneClick": true,
         "allowToChangeInstallationDirectory": false,
         "createDesktopShortcut": true,
         "createStartMenuShortcut": true,
-        "differentialPackage": false,
+        "differentialPackage": true,
         "runAfterFinish": true,
         "deleteAppDataOnUninstall": false,
         "perMachine": false,

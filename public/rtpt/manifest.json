@@ -1,0 +1,28 @@
+{
+  "name": "RT-PT Inspector",
+  "short_name": "RT-PT Inspector",
+  "description": "Radiographic and liquid-penetrant technique-sheet workspace.",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/rtpt-inspector",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#115eb0",
+  "orientation": "any",
+  "categories": ["business", "productivity"],
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -30,14 +30,11 @@ import { cn } from '@/lib/utils';
 
 // Type definitions for the electron API
 interface UpdatePackageInfo {
-  path: string;
+  id: string;
   version: string;
   isNewer: boolean;
   releaseDate: string;
   changelog: string;
-  installerFile: string;
-  checksumFile: string;
-  signatureFile?: string;
   size: number;
   actualSize?: number;
   minVersion?: string;
@@ -76,9 +73,9 @@ const getElectronAPI = () => {
     offlineUpdate: {
       browse: () => Promise<{ cancelled?: boolean; path?: string }>;
       scan: (path: string) => Promise<ScanResult>;
-      validate: (pkg: UpdatePackageInfo) => Promise<ValidationResult>;
-      install: (pkg: UpdatePackageInfo, options: { silent?: boolean; autoRestart?: boolean }) => Promise<{ success: boolean; error?: string; message?: string }>;
-      getDisplayInfo: (pkg: UpdatePackageInfo) => Promise<{
+      validate: (packageId: string) => Promise<ValidationResult>;
+      install: (packageId: string, options: { silent?: boolean; autoRestart?: boolean }) => Promise<{ success: boolean; error?: string; message?: string }>;
+      getDisplayInfo: (packageId: string) => Promise<{
         version: string;
         currentVersion: string;
         isNewer: boolean;
@@ -107,7 +104,8 @@ export function OfflineUpdateDialog({ open, onOpenChange }: OfflineUpdateDialogP
   const [currentVersion, setCurrentVersion] = useState<string>('');
 
   const electron = getElectronAPI();
-  const isElectronAvailable = !!electron?.offlineUpdate;
+  const offlineUpdate = electron?.offlineUpdate;
+  const isElectronAvailable = !!offlineUpdate;
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -121,37 +119,37 @@ export function OfflineUpdateDialog({ open, onOpenChange }: OfflineUpdateDialogP
       setError(null);
 
       // Get current version
-      if (electron?.offlineUpdate) {
-        electron.offlineUpdate.getCurrentVersion().then(setCurrentVersion);
+      if (offlineUpdate) {
+        offlineUpdate.getCurrentVersion().then(setCurrentVersion);
       }
     }
-  }, [open]);
+  }, [offlineUpdate, open]);
 
   // Setup progress listener
   useEffect(() => {
-    if (!electron?.offlineUpdate) return;
+    if (!offlineUpdate) return;
 
-    electron.offlineUpdate.onProgress((prog) => {
+    offlineUpdate.onProgress((prog) => {
       setProgress({ percent: prog.percent, message: prog.message });
     });
 
     return () => {
-      electron.offlineUpdate.removeProgressListener();
+      offlineUpdate.removeProgressListener();
     };
-  }, []);
+  }, [offlineUpdate]);
 
   const handleBrowse = useCallback(async () => {
-    if (!electron?.offlineUpdate) return;
+    if (!offlineUpdate) return;
 
     try {
-      const result = await electron.offlineUpdate.browse();
+      const result = await offlineUpdate.browse();
       if (result.cancelled || !result.path) return;
 
       setScanPath(result.path);
       setStage('scanning');
       setProgress({ percent: 0, message: 'Scanning for update packages...' });
 
-      const scanResult = await electron.offlineUpdate.scan(result.path);
+      const scanResult = await offlineUpdate.scan(result.path);
       setScanResult(scanResult);
 
       if (scanResult.found && scanResult.packages.length > 0) {
@@ -164,17 +162,17 @@ export function OfflineUpdateDialog({ open, onOpenChange }: OfflineUpdateDialogP
       setError(`Failed to scan: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setStage('error');
     }
-  }, [electron]);
+  }, [offlineUpdate]);
 
   const handleSelectPackage = useCallback(async (pkg: UpdatePackageInfo) => {
-    if (!electron?.offlineUpdate) return;
+    if (!offlineUpdate) return;
 
     setSelectedPackage(pkg);
     setStage('validating');
     setProgress({ percent: 0, message: 'Validating update package...' });
 
     try {
-      const validationResult = await electron.offlineUpdate.validate(pkg);
+      const validationResult = await offlineUpdate.validate(pkg.id);
       setValidation(validationResult);
 
       if (validationResult.valid) {
@@ -187,16 +185,16 @@ export function OfflineUpdateDialog({ open, onOpenChange }: OfflineUpdateDialogP
       setError(`Validation error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setStage('error');
     }
-  }, [electron]);
+  }, [offlineUpdate]);
 
   const handleInstall = useCallback(async () => {
-    if (!electron?.offlineUpdate || !selectedPackage) return;
+    if (!offlineUpdate || !selectedPackage) return;
 
     setStage('installing');
     setProgress({ percent: 0, message: 'Starting installation...' });
 
     try {
-      const result = await electron.offlineUpdate.install(selectedPackage, {
+      const result = await offlineUpdate.install(selectedPackage.id, {
         silent: false,
         autoRestart: true,
       });
@@ -211,7 +209,7 @@ export function OfflineUpdateDialog({ open, onOpenChange }: OfflineUpdateDialogP
       setError(`Installation error: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setStage('error');
     }
-  }, [electron, selectedPackage]);
+  }, [offlineUpdate, selectedPackage]);
 
   const handleRetry = useCallback(() => {
     setStage('browse');
@@ -331,9 +329,9 @@ export function OfflineUpdateDialog({ open, onOpenChange }: OfflineUpdateDialogP
             </div>
             <ScrollArea className="h-[300px] pr-4">
               <div className="space-y-3">
-                {scanResult.packages.map((pkg, index) => (
+                {scanResult.packages.map((pkg) => (
                   <div
-                    key={index}
+                    key={pkg.id}
                     className={cn(
                       'p-4 rounded-lg border cursor-pointer transition-colors',
                       'hover:bg-muted/50',

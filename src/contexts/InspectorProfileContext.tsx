@@ -95,10 +95,10 @@ function getUserIdSync(): string {
     return cachedUserId;
   }
   // Fallback to localStorage for immediate access
-  let userId = localStorage.getItem('scanmaster_user_id');
+  let userId = localStorage.getItem('rtpt_inspector_user_id');
   if (!userId) {
     userId = generateUUID();
-    localStorage.setItem('scanmaster_user_id', userId);
+    localStorage.setItem('rtpt_inspector_user_id', userId);
   }
   cachedUserId = userId;
   return userId;
@@ -116,8 +116,10 @@ export function InspectorProfileProvider({ children }: InspectorProfileProviderP
   const [isLoading, setIsLoading] = useState(true);
   const initialLoadDone = useRef(false);
   // Check if offline mode is enabled via env variable or if we're in Electron
-  const isOfflineMode = import.meta.env.VITE_ENABLE_OFFLINE_MODE === 'true' ||
-                        typeof window !== 'undefined' && (window as any).electronAPI;
+  const isOfflineMode = import.meta.env.VITE_RTPT_ENABLE_OFFLINE_MODE === 'true' ||
+                        (typeof window !== 'undefined' && (
+                          window.electron?.isElectron === true || Boolean(window.electronAPI)
+                        ));
   const [useServerSync, setUseServerSync] = useState(!isOfflineMode); // Disable server sync in offline mode
 
   // Fetch profiles from server
@@ -280,8 +282,15 @@ export function InspectorProfileProvider({ children }: InspectorProfileProviderP
     }
 
     setProfiles(prev => [...prev, newProfile]);
+    // Creating an inspector from the workstation profile flow must select that exact
+    // profile in the same update cycle. Calling selectProfile here would read
+    // the previous profiles closure before React commits the new entry.
+    setCurrentProfileId(newProfile.id);
+    if (rememberSelection) {
+      setLastUsedProfileId(newProfile.id);
+    }
     return newProfile;
-  }, [profiles.length, useServerSync]);
+  }, [profiles.length, rememberSelection, useServerSync]);
 
   const updateProfile = useCallback((id: string, data: InspectorProfileFormData) => {
     const updatedData = {
@@ -408,6 +417,8 @@ export function InspectorProfileProvider({ children }: InspectorProfileProviderP
   );
 }
 
+// This hook intentionally shares the provider module so its private context stays encapsulated.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInspectorProfile(): InspectorProfileContextValue {
   const context = useContext(InspectorProfileContext);
   if (!context) {

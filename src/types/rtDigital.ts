@@ -1,166 +1,263 @@
-import type {
-  LengthUnit,
-  InspectionStage,
-  InspectorLevel,
-  RadiationType,
-  CalibrationStatus,
-  IqiType,
-  IqiStandard,
-  AcceptReject,
+import {
+  emptyRtPtAcceptancePlan,
+  emptyRtPtGeneralInfo,
+  type CurrentUnit,
+  type DetectorLengthUnit,
+  type LengthUnit,
+  type NumberOrEmpty,
+  type RtPtAcceptancePlan,
+  type RtPtGeneralInfo,
+  type TechniqueType,
+  type TimeUnit,
+  type VoltageUnit,
 } from './rtFilm';
 
-export type { LengthUnit, InspectionStage, InspectorLevel, RadiationType, CalibrationStatus, IqiType, IqiStandard, AcceptReject };
+export type {
+  CurrentUnit,
+  DetectorLengthUnit,
+  LengthUnit,
+  NumberOrEmpty,
+  TimeUnit,
+  VoltageUnit,
+};
 
-export type DdaType = 'Flat Panel' | 'CCD' | 'CMOS' | '';
-export type DetectorMode = 'Full' | 'Binned' | '';
-export type NoiseReduction = 'None' | 'Low' | 'Medium' | 'High' | '';
-export type OnOff = 'On' | 'Off' | '';
-export type ImageFormat = 'DICONDE' | 'TIFF' | '';
-export type DigitalRequiredSensitivity = '1-1T' | '2-2T' | '';
-export type YesNo = 'Yes' | 'No' | '';
-export type DetectorCorrection = 'Gain' | 'Offset' | 'Gain + Offset' | '';
+export type RtDigitalGeneralInfo = RtPtGeneralInfo;
+export type RtDigitalAcceptance = RtPtAcceptancePlan;
+export type RtDigitalWorkflow = 'Static' | '';
+export type DigitalTimeUnit = TimeUnit | 'ms';
 
-export interface RtDigitalGeneralInfo {
-  partName: string;
-  partNumber: string;
-  material: string;
-  thickness: number | '';
-  thicknessUnit: LengthUnit;
-  drawingReference: string;
-  procedureNumber: string;
-  inspectionStage: InspectionStage;
-  inspectorLevel: InspectorLevel;
-  date: string;
-}
-
-export interface RtDigitalExposureSetup {
-  radiationType: RadiationType;
-  tubeVoltage: number | '';
-  tubeCurrent: number | '';
-  exposureTime: number | '';
-  frameRate: number | '';
-  framesAveraged: number | '';
-  sdd: number | '';
-  sod: number | '';
-  odd: number | '';
-  magnificationAuto: boolean;
-  magnification: number | '';
-  focalSpotSize: number | '';
-  filters: string;
-  coverage: number | '';
-}
-
-export interface RtDigitalSystemConfig {
-  ddaType: DdaType;
+export interface RtDigitalSource {
+  sourceType: 'X-ray' | '';
   manufacturer: string;
   model: string;
-  pixelSize: number | '';
-  detectorMode: DetectorMode;
-  gainSetting: number | '';
-  calibrationStatus: CalibrationStatus;
+  serialNumber: string;
+  calibrationRequirement: string;
+  focalSpotSize: NumberOrEmpty;
+  focalSpotSizeUnit: LengthUnit;
 }
 
-export interface RtDigitalDetector {
-  spatialResolutionSRb: number | '';
-  pixelDensity: number | '';
-  imageUnsharpness: number | '';
-  badPixelCorrection: YesNo;
-  detectorCorrections: DetectorCorrection;
+export interface RtDigitalAcquisitionDefaults {
+  wallTechnique: TechniqueType;
+  sdd: NumberOrEmpty;
+  sddUnit: LengthUnit;
+  sod: NumberOrEmpty;
+  sodUnit: LengthUnit;
+  odd: NumberOrEmpty;
+  oddUnit: LengthUnit;
+  magnificationAuto: boolean;
+  magnification: NumberOrEmpty;
+  thicknessDescription: string;
+  thicknessMin: NumberOrEmpty;
+  thicknessMax: NumberOrEmpty;
+  thicknessUnit: LengthUnit;
+  requiredUg: NumberOrEmpty;
+  requiredUgUnit: LengthUnit;
+  tubeVoltage: NumberOrEmpty;
+  tubeVoltageUnit: VoltageUnit;
+  tubeCurrent: NumberOrEmpty;
+  tubeCurrentUnit: CurrentUnit;
+  exposureTime: NumberOrEmpty;
+  exposureTimeUnit: DigitalTimeUnit;
+  integrationTime: NumberOrEmpty;
+  integrationTimeUnit: DigitalTimeUnit;
+  frameCount: NumberOrEmpty;
+  framesAveraged: NumberOrEmpty;
+  /** Static acquisition does not require a rate; retain it only when a qualified setup uses it. */
+  frameRate?: NumberOrEmpty;
+  filter: string;
+  collimation: string;
+  iqiOverride: string;
+  coverage: string;
+  imageNaming: string;
+  markingInstructions: string;
+  notes: string;
+}
+
+export interface RtDigitalAcquisition extends RtDigitalAcquisitionDefaults {
+  id: string;
+  viewId: string;
+  description: string;
+  orientation: string;
+  inspectionZone: string;
+  referenceAttachmentId: string;
+}
+
+export interface RtDigitalSystem {
+  ddaType: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  activeAreaWidth: NumberOrEmpty;
+  activeAreaHeight: NumberOrEmpty;
+  activeAreaUnit: LengthUnit;
+  matrixColumns: NumberOrEmpty;
+  matrixRows: NumberOrEmpty;
+  pixelSize: NumberOrEmpty;
+  pixelSizeUnit: DetectorLengthUnit;
+  bitDepth: NumberOrEmpty;
+  detectorMode: string;
+  softwareName: string;
+  softwareVersion: string;
+  systemQualificationReference: string;
+  performanceBaselineReference: string;
+}
+
+export interface RtDigitalReferenceStatus {
+  reference: string;
+  date: string;
+  dueDate: string;
+  status: string;
+}
+
+export interface RtDigitalDetectorPerformance {
+  detectorSrb: NumberOrEmpty;
+  detectorSrbUnit: DetectorLengthUnit;
+  imageSrb: NumberOrEmpty;
+  imageSrbUnit: DetectorLengthUnit;
+  badPixelMap: RtDigitalReferenceStatus;
+  calibration: RtDigitalReferenceStatus;
+  stability: RtDigitalReferenceStatus;
 }
 
 export interface RtDigitalImageProcessing {
-  windowLevel: number | '';
-  windowWidth: number | '';
-  zoom: number | '';
-  noiseReduction: NoiseReduction;
-  contrastEnhancement: OnOff;
-  imageFormat: ImageFormat;
+  windowLevel: NumberOrEmpty;
+  windowWidth: NumberOrEmpty;
+  zoom: NumberOrEmpty;
+  noiseReduction: string;
+  contrastEnhancement: string;
+  processingProcedure: string;
 }
 
-export interface RtDigitalIqc {
-  iqiType: IqiType;
-  iqiStandard: IqiStandard;
-  requiredSensitivity: DigitalRequiredSensitivity;
-  cnr: number | '';
+export interface RtDigitalDisplayAndStorage {
+  displayManufacturer: string;
+  displayModel: string;
+  displaySerialNumber: string;
+  viewerSoftware: string;
+  viewerSoftwareVersion: string;
+  displayQualificationReference: string;
+  storageFormat: string;
+  archiveLocation: string;
+  retentionPeriod: string;
+  rawDataPreservation: string;
+  dicondeProfileReference: string;
 }
 
-export interface RtDigitalAcceptance {
-  acceptanceStandard: string;
-  qualityLevel: string;
-  singleDiscontinuity: number | '';
-  singleDiscontinuityUnit: LengthUnit;
-  multipleDiscontinuities: number | '';
-  multipleDiscontinuitiesUnit: LengthUnit;
-  linearIndications: number | '';
-  linearIndicationsUnit: LengthUnit;
-  specialRequirements: string;
-}
-
-export interface RtDigitalIdentification {
-  filmNumber: string;
-  exposureNumber: number | '';
-  partIdentification: string;
-  inspectionDate: string;
-  inspector: string;
-  result: AcceptReject;
-  remarks: string;
+export interface RtDigitalIqi {
+  type: string;
+  standard: string;
+  designation: string;
+  material: string;
+  thickness: NumberOrEmpty;
+  thicknessUnit: LengthUnit;
+  placement: string;
+  requiredSensitivity: string;
+  requiredUg: NumberOrEmpty;
+  requiredUgUnit: LengthUnit;
+  requiredSnrOrNormalizedSnr: string;
+  requiredContrastSensitivityOrCnr: string;
 }
 
 export interface RtDigitalSheet {
   general: RtDigitalGeneralInfo;
-  exposure: RtDigitalExposureSetup;
-  system: RtDigitalSystemConfig;
-  detector: RtDigitalDetector;
+  workflow: RtDigitalWorkflow;
+  source: RtDigitalSource;
+  acquisitionDefaults: RtDigitalAcquisitionDefaults;
+  system: RtDigitalSystem;
+  detectorPerformance: RtDigitalDetectorPerformance;
   imageProcessing: RtDigitalImageProcessing;
-  iqc: RtDigitalIqc;
+  displayAndStorage: RtDigitalDisplayAndStorage;
+  iqi: RtDigitalIqi;
   acceptance: RtDigitalAcceptance;
-  identification: RtDigitalIdentification;
+  acquisitions: RtDigitalAcquisition[];
+  techniqueNotes: string;
 }
 
+export type RtDigitalTechnique = RtDigitalSheet;
+/** @deprecated Use RtDigitalAcquisitionDefaults or RtDigitalAcquisition. */
+export type RtDigitalExposureSetup = RtDigitalAcquisitionDefaults;
+
+export const emptyRtDigitalAcquisitionDefaults: RtDigitalAcquisitionDefaults = {
+  wallTechnique: '',
+  sdd: '',
+  sddUnit: 'mm',
+  sod: '',
+  sodUnit: 'mm',
+  odd: '',
+  oddUnit: 'mm',
+  magnificationAuto: true,
+  magnification: '',
+  thicknessDescription: '',
+  thicknessMin: '',
+  thicknessMax: '',
+  thicknessUnit: 'mm',
+  requiredUg: '',
+  requiredUgUnit: 'mm',
+  tubeVoltage: '',
+  tubeVoltageUnit: 'kV',
+  tubeCurrent: '',
+  tubeCurrentUnit: 'mA',
+  exposureTime: '',
+  exposureTimeUnit: '',
+  integrationTime: '',
+  integrationTimeUnit: '',
+  frameCount: '',
+  framesAveraged: '',
+  filter: '',
+  collimation: '',
+  iqiOverride: '',
+  coverage: '',
+  imageNaming: '',
+  markingInstructions: '',
+  notes: '',
+};
+
+const emptyReferenceStatus = (): RtDigitalReferenceStatus => ({
+  reference: '',
+  date: '',
+  dueDate: '',
+  status: '',
+});
+
 export const emptyRtDigitalSheet: RtDigitalSheet = {
-  general: {
-    partName: '',
-    partNumber: '',
-    material: '',
-    thickness: '',
-    thicknessUnit: 'mm',
-    drawingReference: '',
-    procedureNumber: '',
-    inspectionStage: '',
-    inspectorLevel: '',
-    date: '',
-  },
-  exposure: {
-    radiationType: '',
-    tubeVoltage: '',
-    tubeCurrent: '',
-    exposureTime: '',
-    frameRate: '',
-    framesAveraged: '',
-    sdd: '',
-    sod: '',
-    odd: '',
-    magnificationAuto: true,
-    magnification: '',
+  general: { ...emptyRtPtGeneralInfo },
+  workflow: '',
+  source: {
+    sourceType: '',
+    manufacturer: '',
+    model: '',
+    serialNumber: '',
+    calibrationRequirement: '',
     focalSpotSize: '',
-    filters: '',
-    coverage: '',
+    focalSpotSizeUnit: 'mm',
   },
+  acquisitionDefaults: { ...emptyRtDigitalAcquisitionDefaults },
   system: {
     ddaType: '',
     manufacturer: '',
     model: '',
+    serialNumber: '',
+    activeAreaWidth: '',
+    activeAreaHeight: '',
+    activeAreaUnit: 'mm',
+    matrixColumns: '',
+    matrixRows: '',
     pixelSize: '',
+    pixelSizeUnit: 'um',
+    bitDepth: '',
     detectorMode: '',
-    gainSetting: '',
-    calibrationStatus: '',
+    softwareName: '',
+    softwareVersion: '',
+    systemQualificationReference: '',
+    performanceBaselineReference: '',
   },
-  detector: {
-    spatialResolutionSRb: '',
-    pixelDensity: '',
-    imageUnsharpness: '',
-    badPixelCorrection: '',
-    detectorCorrections: '',
+  detectorPerformance: {
+    detectorSrb: '',
+    detectorSrbUnit: 'um',
+    imageSrb: '',
+    imageSrbUnit: 'um',
+    badPixelMap: emptyReferenceStatus(),
+    calibration: emptyReferenceStatus(),
+    stability: emptyReferenceStatus(),
   },
   imageProcessing: {
     windowLevel: '',
@@ -168,32 +265,36 @@ export const emptyRtDigitalSheet: RtDigitalSheet = {
     zoom: '',
     noiseReduction: '',
     contrastEnhancement: '',
-    imageFormat: '',
+    processingProcedure: '',
   },
-  iqc: {
-    iqiType: '',
-    iqiStandard: '',
+  displayAndStorage: {
+    displayManufacturer: '',
+    displayModel: '',
+    displaySerialNumber: '',
+    viewerSoftware: '',
+    viewerSoftwareVersion: '',
+    displayQualificationReference: '',
+    storageFormat: '',
+    archiveLocation: '',
+    retentionPeriod: '',
+    rawDataPreservation: '',
+    dicondeProfileReference: '',
+  },
+  iqi: {
+    type: '',
+    standard: '',
+    designation: '',
+    material: '',
+    thickness: '',
+    thicknessUnit: 'mm',
+    placement: '',
     requiredSensitivity: '',
-    cnr: '',
+    requiredUg: '',
+    requiredUgUnit: 'mm',
+    requiredSnrOrNormalizedSnr: '',
+    requiredContrastSensitivityOrCnr: '',
   },
-  acceptance: {
-    acceptanceStandard: '',
-    qualityLevel: '',
-    singleDiscontinuity: '',
-    singleDiscontinuityUnit: 'mm',
-    multipleDiscontinuities: '',
-    multipleDiscontinuitiesUnit: 'mm',
-    linearIndications: '',
-    linearIndicationsUnit: 'mm',
-    specialRequirements: '',
-  },
-  identification: {
-    filmNumber: '',
-    exposureNumber: '',
-    partIdentification: '',
-    inspectionDate: '',
-    inspector: '',
-    result: '',
-    remarks: '',
-  },
+  acceptance: { ...emptyRtPtAcceptancePlan },
+  acquisitions: [],
+  techniqueNotes: '',
 };

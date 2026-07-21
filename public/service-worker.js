@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scan-master-v2';
+const CACHE_NAME = 'rtpt-inspector-v1';
 
 self.addEventListener('install', (event) => {
   // Wait for user approval before activating - no auto-update

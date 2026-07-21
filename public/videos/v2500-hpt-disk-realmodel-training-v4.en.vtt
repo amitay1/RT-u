@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:07.000 line:92% position:50% align:center size:72%
+English training version: real STL render, moving camera views, and NDIP-1226 Figure 2 surface mapping.
+
+00:00:07.000 --> 00:00:20.000 line:92% position:50% align:center size:72%
+The STL provides geometry. E, A, B, C and D come from the approved procedure and ScanMaster plan.
+
+00:00:20.000 --> 00:00:34.000 line:92% position:50% align:center size:72%
+Open the ScanMaster workflow, load Stage 1, and verify P/N 2A5001 with NDIP-1226 Rev F.
+
+00:00:34.000 --> 00:00:48.000 line:92% position:50% align:center size:72%
+Before scanning: FBH #1, 80 percent FSH, water path, incidence angle, DAC or TCG, then live scan.
+
+00:00:48.000 --> 00:01:07.000 line:92% position:50% align:center size:72%
+The camera moves into the bore area: E web transition, A chamfer, B upper land, C entry chamfer, D bore ID.
+
+00:01:07.000 --> 00:01:30.000 line:92% position:50% align:center size:72%
+Each surface is scanned in +45 and -45. After each full rotation, index by no more than 0.020 inch.
+
+00:01:30.000 --> 00:01:44.000 line:92% position:50% align:center size:72%
+Review C-scan, TOF, noise or dropout, post-calibration and traceability before saving.

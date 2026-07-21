@@ -4,10 +4,15 @@ const { contextBridge, ipcRenderer } = require('electron');
 const updateListeners = new Set();
 const appCloseRequestListeners = new Set();
 const updateInstallPreparationListeners = new Set();
+const rtPtLicenseBridge = Object.freeze({
+  getStatus: () => ipcRenderer.invoke('rtpt-license-get-status'),
+  activate: (token) => ipcRenderer.invoke('rtpt-license-activate', token),
+  deactivate: () => ipcRenderer.invoke('rtpt-license-deactivate'),
+});
 
 // Listen for update status from main process
 ipcRenderer.on('update-status', (event, status) => {
-  updateListeners.forEach(callback => callback(event, status));
+  updateListeners.forEach(callback => callback(undefined, status));
 });
 
 ipcRenderer.on('app-close-requested', () => {
@@ -21,29 +26,7 @@ ipcRenderer.on('prepare-update-install', (event, payload) => {
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Send messages to main process
-  send: (channel, data) => {
-    const validChannels = ['new-sheet', 'export-pdf', 'save-file', 'open-file'];
-    if (validChannels.includes(channel)) {
-      ipcRenderer.send(channel, data);
-    }
-  },
-
-  // Receive messages from main process
-  on: (channel, callback) => {
-    const validChannels = ['new-sheet', 'export-pdf', 'file-saved', 'file-opened', 'update-status', 'display-info', 'window-resized'];
-    if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, (event, ...args) => callback(...args));
-    }
-  },
-
-  // Remove listeners
-  removeAllListeners: (channel) => {
-    const validChannels = ['new-sheet', 'export-pdf', 'file-saved', 'file-opened', 'update-status'];
-    if (validChannels.includes(channel)) {
-      ipcRenderer.removeAllListeners(channel);
-    }
-  },
+  rtptLicense: rtPtLicenseBridge,
 
   // Auto-updater API
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
@@ -80,6 +63,7 @@ contextBridge.exposeInMainWorld('electron', {
   // Flag to identify Electron environment
   isElectron: true,
   platform: process.platform,
+  rtptLicense: rtPtLicenseBridge,
 
   // Version info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -96,10 +80,6 @@ contextBridge.exposeInMainWorld('electron', {
   // Update info
   getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
 
-  // Update settings
-  getUpdateSettings: () => ipcRenderer.invoke('get-update-settings'),
-  setUpdateSettings: (settings) => ipcRenderer.invoke('set-update-settings', settings),
-
   // Scheduled restart management
   scheduleRestart: (delaySeconds) => ipcRenderer.invoke('schedule-restart', delaySeconds),
   cancelScheduledRestart: () => ipcRenderer.invoke('cancel-scheduled-restart'),
@@ -110,20 +90,6 @@ contextBridge.exposeInMainWorld('electron', {
   },
   removeUpdateListener: (callback) => {
     updateListeners.delete(callback);
-  },
-
-  // License Management API
-  license: {
-    check: () => ipcRenderer.invoke('license:check'),
-    activate: (licenseKey) => ipcRenderer.invoke('license:activate', licenseKey),
-    getInfo: () => ipcRenderer.invoke('license:getInfo'),
-    hasStandard: (standardCode) => ipcRenderer.invoke('license:hasStandard', standardCode),
-    getStandards: () => ipcRenderer.invoke('license:getStandards'),
-    deactivate: () => ipcRenderer.invoke('license:deactivate'),
-    // Offline Activation
-    generateActivationRequest: () => ipcRenderer.invoke('license:generateActivationRequest'),
-    activateOffline: (licenseKey, responseCode) => ipcRenderer.invoke('license:activateOffline', licenseKey, responseCode),
-    getMachineInfo: () => ipcRenderer.invoke('license:getMachineInfo')
   },
 
   // Window controls
@@ -148,24 +114,13 @@ contextBridge.exposeInMainWorld('electron', {
   // File operations - for PDF export etc.
   savePDF: (data, filename) => ipcRenderer.invoke('save-pdf', { data, filename }),
 
-  // Claude Vision API (Secure - API key stays in main process)
-  claude: {
-    analyzeDrawing: (imageBase64, mediaType) =>
-      ipcRenderer.invoke('claude:analyzeDrawing', { imageBase64, mediaType }),
-    checkStatus: () => ipcRenderer.invoke('claude:checkStatus'),
-    // API Key Management
-    saveApiKey: (apiKey) => ipcRenderer.invoke('claude:saveApiKey', apiKey),
-    loadApiKey: () => ipcRenderer.invoke('claude:loadApiKey'),
-    deleteApiKey: () => ipcRenderer.invoke('claude:deleteApiKey'),
-  },
-
   // Offline Update API (USB Updates for air-gapped factories)
   offlineUpdate: {
     browse: () => ipcRenderer.invoke('offline-update:browse'),
     scan: (directoryPath) => ipcRenderer.invoke('offline-update:scan', directoryPath),
-    validate: (packageInfo) => ipcRenderer.invoke('offline-update:validate', packageInfo),
-    install: (packageInfo, options) => ipcRenderer.invoke('offline-update:install', packageInfo, options),
-    getDisplayInfo: (packageInfo) => ipcRenderer.invoke('offline-update:getDisplayInfo', packageInfo),
+    validate: (packageId) => ipcRenderer.invoke('offline-update:validate', packageId),
+    install: (packageId, options) => ipcRenderer.invoke('offline-update:install', packageId, options),
+    getDisplayInfo: (packageId) => ipcRenderer.invoke('offline-update:getDisplayInfo', packageId),
     getCurrentVersion: () => ipcRenderer.invoke('offline-update:getCurrentVersion'),
     onProgress: (callback) => {
       ipcRenderer.on('offline-update-progress', (event, progress) => callback(progress));

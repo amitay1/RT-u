@@ -1,73 +1,25 @@
-const { app, BrowserWindow, Menu, shell, dialog, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain, screen, safeStorage } = require('electron');
 const path = require('path');
 const express = require('express');
 const fs = require('fs');
-const LicenseManager = require('./license-manager.cjs');
+const crypto = require('crypto');
 const OfflineUpdater = require('./offline-updater.cjs');
+const {
+  createRtPtLicenseService,
+  PRODUCT: RT_PT_LICENSE_PRODUCT,
+  APP_ID: RT_PT_LICENSE_APP_ID,
+} = require('./rtpt-license-service.cjs');
 
-// Load environment variables from .env files
-// Order: .env.local > .env (for API keys like Claude)
-function loadEnvFiles() {
-  try {
-    const dotenv = require('dotenv');
-    const appRoot = path.join(__dirname, '..');
+const EMBEDDED_SERVER_HOST = '127.0.0.1';
+const EMBEDDED_SERVER_PORT = 5000;
+const EMBEDDED_SERVER_ORIGIN = `http://${EMBEDDED_SERVER_HOST}:${EMBEDDED_SERVER_PORT}`;
+const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['https:', 'mailto:']);
 
-    console.log('📁 Looking for .env files in:', appRoot);
-
-    // Try .env first (base config)
-    const envPath = path.join(appRoot, '.env');
-    if (fs.existsSync(envPath)) {
-      const result = dotenv.config({ path: envPath, override: true });
-      console.log('✅ Loaded .env:', result.error ? result.error.message : 'OK');
-    } else {
-      console.log('⚠️ .env not found at:', envPath);
-    }
-
-    // Then .env.local (overrides - user's private keys)
-    const localEnvPath = path.join(appRoot, '.env.local');
-    if (fs.existsSync(localEnvPath)) {
-      const result = dotenv.config({ path: localEnvPath, override: true });
-      console.log('✅ Loaded .env.local:', result.error ? result.error.message : 'OK');
-    } else {
-      console.log('⚠️ .env.local not found at:', localEnvPath);
-    }
-
-    // Debug: show if API key is loaded (masked)
-    const apiKey = process.env.VITE_ANTHROPIC_API_KEY;
-    if (apiKey) {
-      console.log('🔑 VITE_ANTHROPIC_API_KEY loaded:', apiKey.substring(0, 15) + '...');
-    } else {
-      console.log('❌ VITE_ANTHROPIC_API_KEY not found in environment');
-    }
-  } catch (err) {
-    console.log('⚠️ Could not load .env files:', err.message);
-  }
-}
-
-// Load from project folder immediately
-loadEnvFiles();
-
-// Function to load user-specific API keys (called after app.ready)
-function loadUserApiKeys() {
-  try {
-    const dotenv = require('dotenv');
-    const userDataEnv = path.join(app.getPath('userData'), 'api-keys.env');
-    if (fs.existsSync(userDataEnv)) {
-      dotenv.config({ path: userDataEnv });
-      console.log('✅ Loaded api-keys.env from user data');
-    }
-  } catch (err) {
-    console.log('⚠️ Could not load user API keys:', err.message);
-  }
-}
-
-// GPU stability flags - keep GPU enabled for WebGL but with safe settings
-app.commandLine.appendSwitch('disable-gpu-sandbox');
+// GPU stability flags - keep GPU enabled for WebGL without disabling Chromium's sandbox
 app.commandLine.appendSwitch('disable-gpu-watchdog');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-webgl');
 app.commandLine.appendSwitch('use-angle', 'default');
-app.commandLine.appendSwitch('no-sandbox');
 
 // High DPI and scaling support for Windows
 app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -80,13 +32,147 @@ let updateAvailable = false;
 let updateVersion = null;
 let updateDownloaded = false;
 let updateInfo = null;
-let licenseManager;
 let autoUpdater;
 let isDev;
 let offlineUpdater;
+let rtPtLicenseService;
 let silentUpdateTimer = null;
 let updateCheckInterval = null;
 const pendingUpdatePreparation = new Map();
+const approvedOfflineUpdateDirectories = new Set();
+const offlineUpdatePackages = new Map();
+const RT_PT_METHODS = new Set(['RT-Film', 'RT-Digital', 'PT']);
+const RT_PT_DOCUMENT_STATUSES = new Set(['draft', 'in-review', 'approved', 'superseded']);
+const RT_PT_UNIT_SYSTEMS = new Set(['SI', 'US-customary']);
+
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function isLegacyRtPtDocumentV1(value) {
+  return Boolean(
+    isPlainObject(value)
+    && value.documentKind === 'rtpt-document'
+    && value.schemaVersion === 1
+    && RT_PT_METHODS.has(value.method)
+    && value.sheets
+    && typeof value.sheets === 'object'
+    && value.sheets.rtFilm
+    && value.sheets.rtDigital
+    && value.sheets.penetrant
+  );
+}
+
+function hasLegacyV2TechniqueSections(method, technique) {
+  if (!isPlainObject(technique)) return false;
+
+  const requiredSections = method === 'RT-Film'
+    ? ['general', 'exposure', 'equipment', 'filmSystem', 'iqc', 'acceptance']
+    : method === 'RT-Digital'
+      ? ['general', 'exposure', 'system', 'detector', 'imageProcessing', 'iqc', 'acceptance']
+      : ['general', 'materials', 'surfacePrep', 'application', 'development', 'conditions', 'acceptance', 'postCleaning'];
+
+  return requiredSections.every((section) => isPlainObject(technique[section]));
+}
+
+function hasV3TechniqueSections(method, technique) {
+  if (!isPlainObject(technique) || typeof technique.techniqueNotes !== 'string') return false;
+
+  if (method === 'RT-Film') {
+    return [
+      'general',
+      'exposureDefaults',
+      'source',
+      'filmSystem',
+      'iqi',
+      'acceptance',
+    ].every((section) => isPlainObject(technique[section]))
+      && Array.isArray(technique.exposureViews);
+  }
+
+  if (method === 'RT-Digital') {
+    return [
+      'general',
+      'source',
+      'acquisitionDefaults',
+      'system',
+      'detectorPerformance',
+      'imageProcessing',
+      'displayAndStorage',
+      'iqi',
+      'acceptance',
+    ].every((section) => isPlainObject(technique[section]))
+      && typeof technique.workflow === 'string'
+      && Array.isArray(technique.acquisitions);
+  }
+
+  return [
+    'general',
+    'materials',
+    'surfacePrep',
+    'application',
+    'removal',
+    'development',
+    'conditions',
+    'acceptance',
+    'postCleaning',
+  ].every((section) => isPlainObject(technique[section]));
+}
+
+function isRtPtDocumentV2(value) {
+  return Boolean(
+    isPlainObject(value)
+    && value.documentKind === 'rtpt-document'
+    && value.schemaVersion === 2
+    && value.documentType === 'technique'
+    && typeof value.documentId === 'string'
+    && value.documentId.trim()
+    && RT_PT_METHODS.has(value.method)
+    && RT_PT_DOCUMENT_STATUSES.has(value.status)
+    && RT_PT_UNIT_SYSTEMS.has(value.unitSystem)
+    && isPlainObject(value.documentControl)
+    && isPlainObject(value.organization)
+    && isPlainObject(value.job)
+    && Array.isArray(value.controlledReferences)
+    && Array.isArray(value.approvals)
+    && hasLegacyV2TechniqueSections(value.method, value.technique)
+  );
+}
+
+function isRtPtDocumentV3(value) {
+  return Boolean(
+    isPlainObject(value)
+    && value.documentKind === 'rtpt-document'
+    && value.schemaVersion === 3
+    && value.documentType === 'technique'
+    && typeof value.documentId === 'string'
+    && value.documentId.trim()
+    && RT_PT_METHODS.has(value.method)
+    && RT_PT_DOCUMENT_STATUSES.has(value.status)
+    && RT_PT_UNIT_SYSTEMS.has(value.unitSystem)
+    && isPlainObject(value.documentControl)
+    && Array.isArray(value.revisionHistory)
+    && isPlainObject(value.organization)
+    && isPlainObject(value.job)
+    && Array.isArray(value.controlledReferences)
+    && Array.isArray(value.approvals)
+    && hasV3TechniqueSections(value.method, value.technique)
+  );
+}
+
+function isReadableRtPtDocument(value) {
+  return isLegacyRtPtDocumentV1(value) || isRtPtDocumentV2(value) || isRtPtDocumentV3(value);
+}
+
+function isWritableRtPtDocument(value) {
+  return isRtPtDocumentV3(value);
+}
+
+function rejectNonRtPtTechniqueSheet(res) {
+  return res.status(400).json({
+    error: 'Only RT/PT Inspector documents are supported by this application.',
+  });
+}
 
 // Update settings - can be configured per-factory
 const UPDATE_SETTINGS = {
@@ -108,101 +194,118 @@ let updateCheckInProgress = false;
 let updateDownloadInProgress = false;
 let lastDownloadPercent = 0;
 
-function getMroDirectoryCandidates() {
-  const repoRoot = path.join(__dirname, '..');
-  const executableDir = path.dirname(process.execPath);
-
-  return [
-    process.env.SCANMASTER_MRO_DIR,
-    path.join(process.cwd(), 'public', 'standards', 'MRO'),
-    path.join(repoRoot, 'public', 'standards', 'MRO'),
-    path.join(executableDir, 'MRO'),
-    path.join(executableDir, 'public', 'standards', 'MRO'),
-    process.resourcesPath ? path.join(process.resourcesPath, 'MRO') : null,
-    process.resourcesPath ? path.join(process.resourcesPath, 'public', 'standards', 'MRO') : null,
-  ].filter(Boolean);
+function isTrustedAppUrl(value) {
+  try {
+    return new URL(String(value || '')).origin === EMBEDDED_SERVER_ORIGIN;
+  } catch {
+    return false;
+  }
 }
 
-function resolveMroDirectory() {
-  const seen = new Set();
-
-  for (const candidate of getMroDirectoryCandidates()) {
-    const normalized = path.resolve(candidate);
-    if (seen.has(normalized)) {
-      continue;
+async function openExternalSafely(value) {
+  try {
+    const targetUrl = new URL(String(value || ''));
+    if (!ALLOWED_EXTERNAL_PROTOCOLS.has(targetUrl.protocol)) {
+      return { success: false, error: 'Blocked unsupported URL protocol' };
     }
 
-    seen.add(normalized);
-
-    try {
-      if (fs.existsSync(normalized) && fs.statSync(normalized).isDirectory()) {
-        return normalized;
-      }
-    } catch (error) {
-      console.warn('Failed to inspect MRO directory candidate:', normalized, error.message);
-    }
+    await shell.openExternal(targetUrl.toString());
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
-
-  return null;
 }
 
-const MRO_SUPPORTED_NAME_PATTERNS = [
-  /\bNDIP[-\s]?1226\b/i,
-  /\bNDIP[-\s]?1227\b/i,
-  /\b2A5001\b/i,
-  /\b2A4802\b/i,
-  /\bV2500\b/i,
-];
-const MRO_DUPLICATE_SUFFIX_PATTERN = /_(\d+)(?=\.[^.]+$)/;
-
-function isSupportedMroAssetName(name) {
-  return MRO_SUPPORTED_NAME_PATTERNS.some((pattern) => pattern.test(name));
-}
-
-function normalizeMroAssetVariantName(name) {
-  return name.replace(MRO_DUPLICATE_SUFFIX_PATTERN, '');
-}
-
-function compareMroEntryPriority(left, right) {
-  const leftIsDuplicate = MRO_DUPLICATE_SUFFIX_PATTERN.test(left.name);
-  const rightIsDuplicate = MRO_DUPLICATE_SUFFIX_PATTERN.test(right.name);
-
-  if (leftIsDuplicate !== rightIsDuplicate) {
-    return leftIsDuplicate ? 1 : -1;
+function assertTrustedIpcSender(event) {
+  const senderUrl = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
+  if (!isTrustedAppUrl(senderUrl)) {
+    throw new Error('Blocked IPC request from an untrusted renderer');
   }
-
-  return left.name.localeCompare(right.name);
 }
 
-function getVisibleMroEntries(mroDir) {
-  const entries = fs.readdirSync(mroDir, { withFileTypes: true });
-  const visibleByCanonicalName = new Map();
+function resolveRtPtLicensePublicKeyPath() {
+  const pinnedPublicKeyPath = path.join(__dirname, 'rtpt-license-public-key.pem');
+  const unpackagedOverride = !app.isPackaged
+    ? String(process.env.RTPT_LICENSE_PUBLIC_KEY_PATH || '').trim()
+    : '';
 
-  entries
-    .filter((entry) => entry.isFile() && isSupportedMroAssetName(entry.name))
-    .sort(compareMroEntryPriority)
-    .forEach((entry) => {
-      const canonicalName = normalizeMroAssetVariantName(entry.name);
-      if (!visibleByCanonicalName.has(canonicalName)) {
-        visibleByCanonicalName.set(canonicalName, entry);
-      }
-    });
-
-  return Array.from(visibleByCanonicalName.values()).sort((left, right) => left.name.localeCompare(right.name));
+  return unpackagedOverride ? path.resolve(unpackagedOverride) : pinnedPublicKeyPath;
 }
 
-function buildMroAssetResponse(fileName, stats) {
-  const safeName = path.basename(fileName);
-  const extension = path.extname(safeName).toLowerCase();
-  const encodedName = encodeURIComponent(safeName);
-
+function unavailableRtPtLicenseStatus(reason = 'license-service-unavailable') {
   return {
-    name: safeName,
-    extension,
-    size: stats.size,
-    modifiedAt: stats.mtime.toISOString(),
-    assetUrl: `/api/mro-assets/file/${encodedName}`,
-    downloadUrl: `/api/mro-assets/file/${encodedName}?download=1`,
+    status: 'configuration-required',
+    active: false,
+    product: RT_PT_LICENSE_PRODUCT,
+    appId: RT_PT_LICENSE_APP_ID,
+    installationId: null,
+    reason,
+    message: 'License verification is not configured for this installation.',
+  };
+}
+
+function getRtPtLicenseStatus() {
+  if (!rtPtLicenseService) return unavailableRtPtLicenseStatus();
+
+  try {
+    const result = rtPtLicenseService.getStatus();
+    return result && typeof result === 'object'
+      ? result
+      : unavailableRtPtLicenseStatus('license-service-response-invalid');
+  } catch (error) {
+    console.error('[RT/PT License] Status check failed:', error.message);
+    return unavailableRtPtLicenseStatus('license-service-error');
+  }
+}
+
+function assertActiveRtPtLicense() {
+  const status = getRtPtLicenseStatus();
+  if (status.active !== true) {
+    const error = new Error('An active RT/PT Inspector license is required.');
+    error.code = 'RTPT_LICENSE_REQUIRED';
+    error.licenseStatus = status.status;
+    throw error;
+  }
+  return status;
+}
+
+function initializeRtPtLicenseService() {
+  rtPtLicenseService = createRtPtLicenseService({
+    secureStorage: safeStorage,
+    userDataDir: app.getPath('userData'),
+    publicKeyPath: resolveRtPtLicensePublicKeyPath(),
+  });
+}
+
+function loadOfflineUpdatePublicKey() {
+  const publicKeyPath = path.join(__dirname, 'update-public-key.pem');
+  try {
+    return fs.readFileSync(publicKeyPath, 'utf8');
+  } catch {
+    console.warn('[OfflineUpdater] No pinned public key found; USB installation is disabled.');
+    return null;
+  }
+}
+
+function getOfflineUpdatePackage(packageId) {
+  if (typeof packageId !== 'string' || !offlineUpdatePackages.has(packageId)) {
+    throw new Error('Unknown or expired offline update package');
+  }
+  return offlineUpdatePackages.get(packageId);
+}
+
+function toOfflineUpdateSummary(packageId, packageInfo) {
+  return {
+    id: packageId,
+    version: packageInfo.version,
+    isNewer: packageInfo.isNewer,
+    releaseDate: packageInfo.releaseDate,
+    changelog: packageInfo.changelog,
+    size: packageInfo.size,
+    actualSize: packageInfo.actualSize,
+    minVersion: packageInfo.minVersion,
+    platform: packageInfo.platform,
+    installerMissing: Boolean(packageInfo.installerMissing),
   };
 }
 
@@ -329,10 +432,10 @@ function initAutoUpdater() {
   autoUpdater.logger.transports.file.level = 'info';
   console.log('📋 Update log file:', log.transports.file.getFile().path);
 
-  // GitHub releases are configured in electron-builder.json
-  // No custom feed URL configuration needed
+  // RT-PT Inspector has its own GitHub release channel. The generated
+  // app-update.yml points exclusively at amitay1/RT-u.
   console.log('📦 Current app version:', app.getVersion());
-  console.log('🔗 Update provider: disabled (RT-PT Inspector is distributed standalone)');
+  console.log('🔗 Update provider: GitHub amitay1/RT-u (RT-PT Inspector only)');
 
   setupAutoUpdaterHandlers();
   
@@ -537,12 +640,43 @@ function cancelScheduledRestart() {
 
 // Setup IPC handlers
 function setupIPCHandlers() {
+  ipcMain.handle('rtpt-license-get-status', (event) => {
+    assertTrustedIpcSender(event);
+    return getRtPtLicenseStatus();
+  });
+
+  ipcMain.handle('rtpt-license-activate', (event, token) => {
+    assertTrustedIpcSender(event);
+    if (!rtPtLicenseService) return unavailableRtPtLicenseStatus();
+
+    try {
+      return rtPtLicenseService.activate(token);
+    } catch (error) {
+      console.error('[RT/PT License] Activation failed:', error.message);
+      return unavailableRtPtLicenseStatus('license-service-error');
+    }
+  });
+
+  ipcMain.handle('rtpt-license-deactivate', (event) => {
+    assertTrustedIpcSender(event);
+    if (!rtPtLicenseService) return unavailableRtPtLicenseStatus();
+
+    try {
+      return rtPtLicenseService.deactivate();
+    } catch (error) {
+      console.error('[RT/PT License] Deactivation failed:', error.message);
+      return unavailableRtPtLicenseStatus('license-service-error');
+    }
+  });
+
   // Window control handlers
-  ipcMain.handle('window-minimize', () => {
+  ipcMain.handle('window-minimize', (event) => {
+    assertTrustedIpcSender(event);
     if (mainWindow) mainWindow.minimize();
   });
 
-  ipcMain.handle('window-maximize', () => {
+  ipcMain.handle('window-maximize', (event) => {
+    assertTrustedIpcSender(event);
     if (mainWindow) {
       if (mainWindow.isMaximized()) {
         mainWindow.restore();
@@ -552,16 +686,26 @@ function setupIPCHandlers() {
     }
   });
 
-  ipcMain.handle('app-quit', () => {
+  ipcMain.handle('app-quit', (event) => {
+    assertTrustedIpcSender(event);
+    const licenseIsActive = getRtPtLicenseStatus().active === true;
+
+    // The activation gate does not mount the workspace's unsaved-change
+    // listener. Bypass that guard only while the license is inactive; an
+    // active workspace must still complete the normal confirmation flow.
+    if (!licenseIsActive) closeApproved = true;
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.close();
-      return;
+      return { success: true, pendingWorkspaceConfirmation: licenseIsActive };
     }
 
     app.quit();
+    return { success: true, pendingWorkspaceConfirmation: false };
   });
 
-  ipcMain.handle('confirm-app-close', () => {
+  ipcMain.handle('confirm-app-close', (event) => {
+    assertTrustedIpcSender(event);
     closeApproved = true;
 
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -574,17 +718,8 @@ function setupIPCHandlers() {
   });
 
   ipcMain.handle('open-external-url', async (event, url) => {
-    try {
-      const targetUrl = new URL(String(url || ''));
-      if (!['https:', 'http:', 'mailto:'].includes(targetUrl.protocol)) {
-        return { success: false, error: 'Blocked unsupported URL protocol' };
-      }
-
-      await shell.openExternal(targetUrl.toString());
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    assertTrustedIpcSender(event);
+    return openExternalSafely(url);
   });
 
   // IPC handlers for manual update control
@@ -626,20 +761,6 @@ function setupIPCHandlers() {
     };
   });
   
-  // New: Get/Set update settings
-  ipcMain.handle('get-update-settings', () => {
-    return UPDATE_SETTINGS;
-  });
-  
-  ipcMain.handle('set-update-settings', (event, settings) => {
-    Object.assign(UPDATE_SETTINGS, settings);
-    // Re-setup periodic checks if interval changed
-    if (settings.checkInterval) {
-      setupPeriodicUpdateChecks();
-    }
-    return UPDATE_SETTINGS;
-  });
-  
   // New: Schedule restart
   ipcMain.handle('schedule-restart', (event, delaySeconds) => {
     scheduleAutoRestart(delaySeconds);
@@ -660,6 +781,9 @@ function setupIPCHandlers() {
   // PDF/File Save IPC Handler - more reliable than blob downloads
   ipcMain.handle('save-pdf', async (event, { data, filename }) => {
     try {
+      assertTrustedIpcSender(event);
+      assertActiveRtPtLicense();
+
       // Show save dialog
       const { filePath } = await dialog.showSaveDialog(mainWindow, {
         defaultPath: path.join(app.getPath('downloads'), filename),
@@ -686,45 +810,6 @@ function setupIPCHandlers() {
     }
   });
 
-  // License Management IPC Handlers
-  ipcMain.handle('license:check', () => {
-    return licenseManager.getLicense();
-  });
-
-  ipcMain.handle('license:activate', async (event, licenseKey) => {
-    return await licenseManager.activateLicense(licenseKey);
-  });
-
-  ipcMain.handle('license:getInfo', () => {
-    return licenseManager.getLicenseInfo();
-  });
-
-  ipcMain.handle('license:hasStandard', (event, standardCode) => {
-    return licenseManager.hasStandard(standardCode);
-  });
-
-  ipcMain.handle('license:getStandards', () => {
-    return licenseManager.getStandardsCatalog();
-  });
-
-  ipcMain.handle('license:deactivate', () => {
-    licenseManager.deactivate();
-    return { success: true };
-  });
-
-  // Offline Activation IPC Handlers
-  ipcMain.handle('license:generateActivationRequest', () => {
-    return licenseManager.generateActivationRequest();
-  });
-
-  ipcMain.handle('license:activateOffline', async (event, licenseKey, responseCode) => {
-    return await licenseManager.activateOffline(licenseKey, responseCode);
-  });
-
-  ipcMain.handle('license:getMachineInfo', () => {
-    return licenseManager.getMachineInfo();
-  });
-
   // ==========================================
   // Offline Update IPC Handlers (USB Updates)
   // ==========================================
@@ -734,6 +819,7 @@ function setupIPCHandlers() {
     currentVersion: app.getVersion(),
     appPath: app.getPath('exe'),
     tempDir: app.getPath('temp'),
+    publicKey: loadOfflineUpdatePublicKey(),
     onProgress: (progress) => {
       if (mainWindow) {
         mainWindow.webContents.send('offline-update-progress', progress);
@@ -745,7 +831,8 @@ function setupIPCHandlers() {
   });
 
   // Browse for update folder
-  ipcMain.handle('offline-update:browse', async () => {
+  ipcMain.handle('offline-update:browse', async (event) => {
+    assertTrustedIpcSender(event);
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Select Update Folder (USB Drive)',
       properties: ['openDirectory'],
@@ -756,26 +843,51 @@ function setupIPCHandlers() {
       return { cancelled: true };
     }
 
-    return { path: result.filePaths[0] };
+    const approvedPath = fs.realpathSync(result.filePaths[0]);
+    approvedOfflineUpdateDirectories.clear();
+    offlineUpdatePackages.clear();
+    approvedOfflineUpdateDirectories.add(approvedPath);
+    return { path: approvedPath };
   });
 
   // Scan for updates in a directory
   ipcMain.handle('offline-update:scan', async (event, directoryPath) => {
-    return await offlineUpdater.scanForUpdates(directoryPath);
+    assertTrustedIpcSender(event);
+    const resolvedDirectory = fs.realpathSync(String(directoryPath || ''));
+    if (!approvedOfflineUpdateDirectories.has(resolvedDirectory)) {
+      throw new Error('Select the update directory through the trusted folder dialog first');
+    }
+
+    offlineUpdatePackages.clear();
+    const scanResult = await offlineUpdater.scanForUpdates(resolvedDirectory);
+    const packages = scanResult.packages.map((packageInfo) => {
+      const packageId = crypto.randomUUID();
+      offlineUpdatePackages.set(packageId, Object.freeze({ ...packageInfo }));
+      return toOfflineUpdateSummary(packageId, packageInfo);
+    });
+    return { ...scanResult, packages };
   });
 
   // Validate an update package
-  ipcMain.handle('offline-update:validate', async (event, packageInfo) => {
+  ipcMain.handle('offline-update:validate', async (event, packageId) => {
+    assertTrustedIpcSender(event);
+    const packageInfo = getOfflineUpdatePackage(packageId);
     return await offlineUpdater.validatePackage(packageInfo);
   });
 
   // Install update from USB
-  ipcMain.handle('offline-update:install', async (event, packageInfo, options) => {
+  ipcMain.handle('offline-update:install', async (event, packageId, options) => {
     try {
-      const result = await offlineUpdater.installUpdate(packageInfo, options);
+      assertTrustedIpcSender(event);
+      const packageInfo = getOfflineUpdatePackage(packageId);
+      const installOptions = {
+        silent: options?.silent === true,
+        autoRestart: options?.autoRestart !== false,
+      };
+      const result = await offlineUpdater.installUpdate(packageInfo, installOptions);
 
       // If installation started, quit the app
-      if (result.success && options.autoRestart !== false) {
+      if (result.success && installOptions.autoRestart) {
         setTimeout(() => {
           app.quit();
         }, 2000);
@@ -788,353 +900,46 @@ function setupIPCHandlers() {
   });
 
   // Get display info for a package
-  ipcMain.handle('offline-update:getDisplayInfo', (event, packageInfo) => {
+  ipcMain.handle('offline-update:getDisplayInfo', (event, packageId) => {
+    assertTrustedIpcSender(event);
+    const packageInfo = getOfflineUpdatePackage(packageId);
     return offlineUpdater.getPackageDisplayInfo(packageInfo);
   });
 
   // Get current version
-  ipcMain.handle('offline-update:getCurrentVersion', () => {
+  ipcMain.handle('offline-update:getCurrentVersion', (event) => {
+    assertTrustedIpcSender(event);
     return app.getVersion();
   });
 
-  // ==========================================
-  // Claude Vision API Handler (Secure)
-  // API key stays in main process, never exposed to renderer
-  // ==========================================
-  ipcMain.handle('claude:analyzeDrawing', async (event, { imageBase64, mediaType }) => {
-    try {
-      // Get API key from saved location or environment
-      const apiKey = getClaudeApiKey();
-
-      if (!apiKey) {
-        return {
-          success: false,
-          error: 'No Claude API key configured',
-          geometry: 'unknown',
-          confidence: 0,
-          reasoning: 'API key not found. Please configure it in Settings → Claude API Key.'
-        };
-      }
-
-      // NDT Analysis Prompt - optimized for precise arrow placement
-      const NDT_PROMPT = `You are an expert NDT (Non-Destructive Testing) engineer analyzing a technical drawing.
-
-YOUR TASKS:
-1. Identify the geometry type of the part
-2. Visually locate EXACTLY where the part appears in the image
-3. Place scan direction arrows PRECISELY on the visible surfaces
-
-=== STEP 1: IDENTIFY GEOMETRY ===
-Look for text labels or analyze the visual shape:
-• PLATE/BLOCK: Rectangular solid with flat faces
-• CYLINDER: Solid circular cross-section (NO center hole)
-• TUBE: HOLLOW circular with visible ID (inner diameter) and OD (outer diameter)
-• CONE: Tapered shape - wider at one end, narrower at other
-• DISK: Flat circular shape, like a coin or pancake
-• RING: Thick-walled donut/annular shape with large center hole
-• IMPELLER: Complex part with blades/vanes, stepped hub profile
-• SPHERE: Round ball shape
-
-=== STEP 2: MEASURE THE ACTUAL PART LOCATION ===
-CRITICAL - You MUST visually measure where the part is in the image!
-
-Look at the image and identify:
-1. The LEFT-MOST pixel of the part → this is x_left (as 0-1 fraction of image width)
-2. The RIGHT-MOST pixel of the part → this is x_right
-3. The TOP-MOST pixel of the part → this is y_top
-4. The BOTTOM-MOST pixel of the part → this is y_bottom
-
-IGNORE these when measuring: title blocks, dimension lines, text labels, borders, whitespace
-
-Example: If the part occupies the center-right portion of the image:
-- x_left might be 0.35, x_right might be 0.90
-- y_top might be 0.15, y_bottom might be 0.85
-
-=== STEP 3: PLACE ARROWS ON MEASURED SURFACES ===
-Now place arrows AT THE EDGES of the part you measured!
-
-Coordinate system:
-- x=0 is LEFT edge of IMAGE, x=1 is RIGHT edge
-- y=0 is TOP edge of IMAGE, y=1 is BOTTOM edge
-- angle: 0°=pointing right, 90°=pointing down, 180°=pointing left, 270°=pointing up
-
-ARROW RULES:
-1. Arrow BASE (origin point) should be OUTSIDE the part, about 5-10% away from the surface
-2. Arrow points INTO the part (toward the surface where ultrasound enters)
-3. Arrows must be perpendicular to the entry surface
-4. Place arrows on ALL accessible surfaces shown in ALL views
-
-MULTI-VIEW DRAWINGS:
-Many drawings show multiple views (Front + Side, or Top + Front + Side).
-You MUST place arrows on EACH VIEW separately!
-
-Example: A tube drawing with front view (circle) at x=0.2-0.4 and side view (rectangle) at x=0.55-0.95:
-- For front view circle centered at x=0.30:
-  - Place "C" arrow at x=0.12 (left of circle OD), y=0.50, angle=0
-  - Place "D" arrow at x=0.48 (right of circle OD), y=0.50, angle=180
-- For side view rectangle from x=0.55 to x=0.95:
-  - Place "A" arrow at x=0.75, y=(y_top - 0.05), angle=90 (from top)
-  - Place "B" arrow at x=0.75, y=(y_bottom + 0.05), angle=270 (from bottom)
-
-=== ARROW DIRECTIONS BY GEOMETRY ===
-
-PLATE/BLOCK:
-- A: Top surface entry (perpendicular, angle=90)
-- B: Bottom surface entry (perpendicular, angle=270)
-- C: Left side entry (angle=0)
-- D: Right side entry (angle=180)
-- E,F: 45° shear waves
-
-TUBE/CYLINDER (place on BOTH front circle view AND side profile view):
-- A: Axial from top end
-- B: Axial from bottom end
-- C: Radial from OD (left side of circle)
-- D: Radial from OD (right side of circle)
-- E: Circumferential CW
-- F: Circumferential CCW
-- If tube has ID visible: also add arrows from ID surface
-
-CONE:
-- A: Axial from large end
-- B: Axial from small end
-- C,D: Radial from OD at various heights
-- E: Along tapered surface (angle matches taper)
-
-IMPELLER:
-- A: Axial from hub top
-- B: Axial from hub bottom
-- C,D: Radial from hub OD
-- E,F: At blade/vane surfaces if visible
-
-=== OUTPUT FORMAT ===
-Return ONLY a JSON object (no other text):
-{
-  "geometry": "tube",
-  "confidence": 0.92,
-  "reasoning": "Describe what you see: the views present, where the part is located in the image, key features identified",
-  "partBounds": {
-    "x_left": 0.15,
-    "x_right": 0.85,
-    "y_top": 0.10,
-    "y_bottom": 0.90
-  },
-  "suggestedArrows": [
-    {"direction": "A", "x": 0.50, "y": 0.05, "angle": 90, "label": "Axial top"},
-    {"direction": "B", "x": 0.50, "y": 0.95, "angle": 270, "label": "Axial bottom"},
-    {"direction": "C", "x": 0.10, "y": 0.50, "angle": 0, "label": "Radial OD left"},
-    {"direction": "D", "x": 0.90, "y": 0.50, "angle": 180, "label": "Radial OD right"}
-  ]
 }
 
-CRITICAL REMINDERS:
-- The x,y coordinates MUST match where you actually SEE the part in this specific image
-- Do NOT use generic template positions - LOOK at the image and MEASURE
-- If the part is in the right half of the image, x values should be 0.5-1.0
-- If there are multiple views, place arrows on EACH view
-- Arrow base should be slightly OUTSIDE the part surface (5-10% gap)`;
+function showRtPtLicenseInformation() {
+  const status = getRtPtLicenseStatus();
+  const license = status.license;
+  const detail = status.active === true && license
+    ? [
+      `Status: ${status.status}`,
+      `Customer: ${license.customer}`,
+      `License ID: ${license.licenseId}`,
+      `Installation ID: ${status.installationId || 'Unavailable'}`,
+      `Expiry: ${license.expiresAt || 'Perpetual'}`,
+    ].join('\n')
+    : [
+      `Status: ${status.status}`,
+      `Installation ID: ${status.installationId || 'Unavailable'}`,
+      `Details: ${status.message}`,
+      ...(status.reason ? [`Reason: ${status.reason}`] : []),
+    ].join('\n');
 
-      // Make API call to Claude (using node-fetch in main process)
-      const https = require('https');
-
-      const requestBody = JSON.stringify({
-        model: 'claude-opus-4-5-20251101',
-        max_tokens: 1200,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType || 'image/png',
-                data: imageBase64,
-              },
-            },
-            {
-              type: 'text',
-              text: NDT_PROMPT,
-            },
-          ],
-        }],
-      });
-
-      return new Promise((resolve) => {
-        const req = https.request({
-          hostname: 'api.anthropic.com',
-          path: '/v1/messages',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'Content-Length': Buffer.byteLength(requestBody),
-          },
-        }, (res) => {
-          let data = '';
-          res.on('data', chunk => data += chunk);
-          res.on('end', () => {
-            try {
-              const response = JSON.parse(data);
-
-              if (res.statusCode !== 200) {
-                console.error('Claude API Error:', response);
-                resolve({
-                  success: false,
-                  error: response.error?.message || `API returned ${res.statusCode}`,
-                  geometry: 'unknown',
-                  confidence: 0,
-                  reasoning: `API Error: ${response.error?.message || res.statusCode}`
-                });
-                return;
-              }
-
-              const responseText = response.content?.[0]?.text || '';
-              console.log('Claude Response:', responseText.substring(0, 200));
-
-              // Parse JSON from response
-              const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-              if (!jsonMatch) {
-                resolve({
-                  success: false,
-                  error: 'Could not parse Claude response',
-                  geometry: 'unknown',
-                  confidence: 0,
-                  reasoning: 'Failed to parse AI response'
-                });
-                return;
-              }
-
-              const parsed = JSON.parse(jsonMatch[0]);
-
-              resolve({
-                success: true,
-                geometry: parsed.geometry || 'unknown',
-                confidence: parsed.confidence || 0,
-                reasoning: parsed.reasoning || 'No reasoning provided',
-                suggestedArrows: parsed.suggestedArrows || []
-              });
-            } catch (parseError) {
-              console.error('Parse error:', parseError);
-              resolve({
-                success: false,
-                error: parseError.message,
-                geometry: 'unknown',
-                confidence: 0,
-                reasoning: 'Failed to parse response'
-              });
-            }
-          });
-        });
-
-        req.on('error', (error) => {
-          console.error('Request error:', error);
-          resolve({
-            success: false,
-            error: error.message,
-            geometry: 'unknown',
-            confidence: 0,
-            reasoning: `Request failed: ${error.message}`
-          });
-        });
-
-        req.write(requestBody);
-        req.end();
-      });
-
-    } catch (error) {
-      console.error('Claude Vision IPC Error:', error);
-      return {
-        success: false,
-        error: error.message,
-        geometry: 'unknown',
-        confidence: 0,
-        reasoning: `Error: ${error.message}`
-      };
-    }
+  return dialog.showMessageBox(mainWindow, {
+    type: status.active === true ? 'info' : 'warning',
+    title: 'RT-PT Inspector License',
+    message: status.active === true ? 'License is active' : 'License is not active',
+    detail,
+    buttons: ['OK'],
+    noLink: true,
   });
-
-  // Check Claude API availability
-  ipcMain.handle('claude:checkStatus', async () => {
-    const apiKey = getClaudeApiKey();
-    return {
-      available: !!apiKey,
-      error: apiKey ? null : 'No API key configured'
-    };
-  });
-
-  // Save Claude API key to user data folder
-  ipcMain.handle('claude:saveApiKey', async (event, apiKey) => {
-    try {
-      const keyFile = path.join(app.getPath('userData'), 'claude-api-key.enc');
-
-      // Simple obfuscation (not true encryption, but hides from casual viewing)
-      const obfuscated = Buffer.from(apiKey).toString('base64');
-      fs.writeFileSync(keyFile, obfuscated, 'utf8');
-
-      // Also set in process.env for immediate use
-      process.env.VITE_ANTHROPIC_API_KEY = apiKey;
-
-      console.log('✅ Claude API key saved');
-      return { success: true };
-    } catch (error) {
-      console.error('❌ Failed to save API key:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  // Load Claude API key from user data folder
-  ipcMain.handle('claude:loadApiKey', async () => {
-    try {
-      const apiKey = getClaudeApiKey();
-      return {
-        success: true,
-        hasKey: !!apiKey,
-        // Return masked key for display (first 10 chars + ...)
-        maskedKey: apiKey ? apiKey.substring(0, 15) + '...' : null
-      };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
-
-  // Delete Claude API key
-  ipcMain.handle('claude:deleteApiKey', async () => {
-    try {
-      const keyFile = path.join(app.getPath('userData'), 'claude-api-key.enc');
-      if (fs.existsSync(keyFile)) {
-        fs.unlinkSync(keyFile);
-      }
-      delete process.env.VITE_ANTHROPIC_API_KEY;
-      console.log('✅ Claude API key deleted');
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  });
-}
-
-// Helper function to get Claude API key from various sources
-function getClaudeApiKey() {
-  // 1. Check process.env (from .env files or previously set)
-  if (process.env.VITE_ANTHROPIC_API_KEY) {
-    return process.env.VITE_ANTHROPIC_API_KEY;
-  }
-
-  // 2. Check saved key in user data folder
-  try {
-    const keyFile = path.join(app.getPath('userData'), 'claude-api-key.enc');
-    if (fs.existsSync(keyFile)) {
-      const obfuscated = fs.readFileSync(keyFile, 'utf8');
-      const apiKey = Buffer.from(obfuscated, 'base64').toString('utf8');
-      // Cache it in process.env
-      process.env.VITE_ANTHROPIC_API_KEY = apiKey;
-      return apiKey;
-    }
-  } catch (err) {
-    console.error('Error reading saved API key:', err);
-  }
-
-  return null;
 }
 
 // Build menu template with dynamic update status
@@ -1184,21 +989,6 @@ function buildMenuTemplate() {
       label: 'File',
       submenu: [
         {
-          label: 'New Technique Sheet',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => {
-            mainWindow.webContents.send('new-sheet');
-          }
-        },
-        {
-          label: 'Export PDF',
-          accelerator: 'CmdOrCtrl+P',
-          click: () => {
-            mainWindow.webContents.send('export-pdf');
-          }
-        },
-        { type: 'separator' },
-        {
           label: 'Quit',
           accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
           click: () => {
@@ -1228,7 +1018,9 @@ function buildMenuTemplate() {
       submenu: [
         { label: 'Reload', accelerator: 'CmdOrCtrl+R', role: 'reload' },
         { label: 'Force Reload', accelerator: 'CmdOrCtrl+Shift+R', role: 'forceReload' },
-        { label: 'Toggle Developer Tools', accelerator: 'F12', role: 'toggleDevTools' },
+        ...(isDev ? [
+          { label: 'Toggle Developer Tools', accelerator: 'F12', role: 'toggleDevTools' },
+        ] : []),
         { type: 'separator' },
         { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
         { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', role: 'zoomIn' },
@@ -1248,6 +1040,12 @@ function buildMenuTemplate() {
       label: updateAvailable || updateDownloaded ? '❗ Help' : 'Help',
       submenu: [
         updateMenuItem,
+        {
+          label: 'License Information',
+          click: () => {
+            void showRtPtLicenseInformation();
+          }
+        },
         { type: 'separator' },
         {
           label: 'About RT-PT Inspector',
@@ -1291,6 +1089,14 @@ async function createWindow() {
   // Set up download handler for PDF exports and other file downloads
   const { session } = require('electron');
   session.defaultSession.on('will-download', (event, item, webContents) => {
+    try {
+      assertActiveRtPtLicense();
+    } catch {
+      event.preventDefault();
+      console.warn('[RT/PT License] Blocked a renderer download while the license was inactive.');
+      return;
+    }
+
     const fileName = item.getFilename();
     console.log('Download started:', fileName);
 
@@ -1317,32 +1123,19 @@ async function createWindow() {
     item.once('done', (event, state) => {
       if (state === 'completed') {
         console.log('Download completed:', savePath);
-        // Notify renderer that download is complete
-        if (mainWindow) {
-          mainWindow.webContents.send('download-complete', {
-            success: true,
-            path: savePath,
-            fileName: fileName
-          });
-        }
         // Open the file location in explorer/finder
         shell.showItemInFolder(savePath);
       } else {
         console.log('Download failed:', state);
-        if (mainWindow) {
-          mainWindow.webContents.send('download-complete', {
-            success: false,
-            error: state
-          });
-        }
       }
     });
   });
   
-  // Calculate responsive minimum sizes based on screen and scale
-  // For high DPI displays, we need smaller minimums
-  const baseMinWidth = Math.min(1024, Math.floor(screenWidth * 0.6));
-  const baseMinHeight = Math.min(768, Math.floor(screenHeight * 0.6));
+  // Keep the workbench at its verified desktop viewport whenever the display
+  // can support it. On a smaller work area Electron falls back to the full
+  // available size instead of permitting an unusably tiny nested workspace.
+  const baseMinWidth = Math.min(1024, screenWidth);
+  const baseMinHeight = Math.min(720, screenHeight);
   
   // Create the browser window with proper scaling support
   mainWindow = new BrowserWindow({
@@ -1351,10 +1144,12 @@ async function createWindow() {
     minWidth: baseMinWidth,
     minHeight: baseMinHeight,
     show: false, // Don't show until ready
-    icon: path.join(__dirname, '../public/favicon.ico'),
+    icon: path.join(__dirname, '../build/icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      devTools: Boolean(isDev),
       preload: path.join(__dirname, 'preload.cjs'),
       webSecurity: true,
       // Disable service workers in development
@@ -1381,15 +1176,6 @@ async function createWindow() {
   mainWindow.maximize();
   mainWindow.show();
 
-  // Handle window resize to ensure proper layout
-  mainWindow.on('resize', () => {
-    // Notify renderer of resize for any needed adjustments
-    if (mainWindow && mainWindow.webContents) {
-      const [width, height] = mainWindow.getSize();
-      mainWindow.webContents.send('window-resized', { width, height, scaleFactor });
-    }
-  });
-
   // Create application menu
   updateMenu();
 
@@ -1410,8 +1196,9 @@ async function createWindow() {
 
   // Set up Content Security Policy for security
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    // Allow both localhost (for embedded server) and file:// (for fallback)
-    const cspPolicy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://localhost:* file:; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* file:; style-src 'self' 'unsafe-inline' http://localhost:* file:; img-src 'self' data: blob: http://localhost:* file: https://storage.googleapis.com https:; connect-src 'self' http://localhost:* https: file:; font-src 'self' data: file:";
+    const cspPolicy = isDev
+      ? "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+      : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
     
     callback({
       responseHeaders: {
@@ -1421,30 +1208,20 @@ async function createWindow() {
     });
   });
 
-  // Send display info to renderer when ready
-  mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow.webContents.send('display-info', {
-      scaleFactor,
-      screenWidth,
-      screenHeight,
-      zoomFactor: scaleFactor > 1.25 ? 1.0 : 1.1
-    });
-  });
-
   // Load the app
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5000');
+    mainWindow.loadURL(EMBEDDED_SERVER_ORIGIN);
     mainWindow.webContents.openDevTools();
   } else {
     // In production, start embedded server first, then load through it
     try {
       await startEmbeddedServer();
-      console.log('Server started, loading from http://localhost:5000');
+      console.log(`Server started, loading from ${EMBEDDED_SERVER_ORIGIN}`);
       
       // Wait a moment for server to be ready
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      mainWindow.loadURL('http://localhost:5000');
+      mainWindow.loadURL(EMBEDDED_SERVER_ORIGIN);
     } catch (error) {
       console.error('Server failed:', error);
       // If server fails, show error
@@ -1470,9 +1247,19 @@ async function createWindow() {
     mainWindow = null;
   });
 
+  const guardNavigation = (event, url) => {
+    if (isTrustedAppUrl(url)) return;
+
+    event.preventDefault();
+    void openExternalSafely(url);
+  };
+
+  mainWindow.webContents.on('will-navigate', guardNavigation);
+  mainWindow.webContents.on('will-redirect', guardNavigation);
+
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    void openExternalSafely(url);
     return { action: 'deny' };
   });
 }
@@ -1483,43 +1270,61 @@ function startEmbeddedServer() {
     try {
       const expressApp = express();
       const dataDir = path.join(app.getPath('userData'), 'data');
+
+      const allowedHosts = new Set([
+        `${EMBEDDED_SERVER_HOST}:${EMBEDDED_SERVER_PORT}`,
+        `localhost:${EMBEDDED_SERVER_PORT}`,
+      ]);
+      const allowedOrigins = new Set([
+        EMBEDDED_SERVER_ORIGIN,
+        `http://localhost:${EMBEDDED_SERVER_PORT}`,
+      ]);
+
+      expressApp.use((req, res, next) => {
+        const host = req.get('host');
+        const origin = req.get('origin');
+        if (!host || !allowedHosts.has(host) || (origin && !allowedOrigins.has(origin))) {
+          return res.status(403).json({ error: 'Forbidden request origin' });
+        }
+        return next();
+      });
       
-      // Get the correct path for static files
-      let distPath;
+      // Resolve only the dedicated RT/PT renderer output.
+      let rendererPath;
       if (isDev) {
-        distPath = path.join(__dirname, '..', 'dist');
+        rendererPath = path.join(__dirname, '..', 'rtpt-dist');
       } else {
-        // In production, dist is unpacked from asar
-        distPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'dist');
+        // In production, the RT/PT renderer is unpacked from asar.
+        rendererPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'rtpt-dist');
       }
       
       console.log('=== SERVER STARTUP DEBUG ===');
       console.log('isDev:', isDev);
       console.log('Resources path:', process.resourcesPath);
-      console.log('Dist path:', distPath);
-      console.log('Dist exists:', fs.existsSync(distPath));
+      console.log('RT/PT renderer path:', rendererPath);
+      console.log('RT/PT renderer exists:', fs.existsSync(rendererPath));
       
-      // Check if dist exists, if not try alternative paths
-      if (!fs.existsSync(distPath)) {
-        console.log('Dist not found at expected path, trying alternatives...');
+      // Check the unpacked renderer first, then the same dedicated path in asar.
+      if (!fs.existsSync(rendererPath)) {
+        console.log('RT/PT renderer not found at expected path, trying asar...');
         
         // Try direct app.asar path (Electron can read from asar)
-        const asarDistPath = path.join(process.resourcesPath, 'app.asar', 'dist');
-        console.log('Trying asar path:', asarDistPath);
-        console.log('Asar path exists:', fs.existsSync(asarDistPath));
+        const asarRendererPath = path.join(process.resourcesPath, 'app.asar', 'rtpt-dist');
+        console.log('Trying RT/PT asar path:', asarRendererPath);
+        console.log('RT/PT asar path exists:', fs.existsSync(asarRendererPath));
         
-        if (fs.existsSync(asarDistPath)) {
-          distPath = asarDistPath;
+        if (fs.existsSync(asarRendererPath)) {
+          rendererPath = asarRendererPath;
         }
       }
       
-      // List dist contents for debugging
-      if (fs.existsSync(distPath)) {
-        console.log('Dist contents:', fs.readdirSync(distPath));
-        const indexExists = fs.existsSync(path.join(distPath, 'index.html'));
+      // List the dedicated renderer contents for debugging.
+      if (fs.existsSync(rendererPath)) {
+        console.log('RT/PT renderer contents:', fs.readdirSync(rendererPath));
+        const indexExists = fs.existsSync(path.join(rendererPath, 'index.html'));
         console.log('index.html exists:', indexExists);
       } else {
-        console.error('ERROR: dist folder not found anywhere!');
+        console.error('ERROR: rtpt-dist renderer folder not found anywhere!');
         // List resources folder to see what's there
         console.log('Resources contents:', fs.readdirSync(process.resourcesPath));
       }
@@ -1537,12 +1342,30 @@ function startEmbeddedServer() {
         next();
       });
       
-      // Serve static files from dist
-      expressApp.use(express.static(distPath));
+      // Serve static files only from the dedicated RT/PT renderer output.
+      expressApp.use(express.static(rendererPath));
+
+      // Keep the activation shell and operational endpoints available while
+      // protecting every RT/PT data surface with a fresh fail-closed check.
+      expressApp.use([
+        '/api/technique-sheets',
+        '/api/organizations',
+        '/api/inspector-profiles',
+      ], (req, res, next) => {
+        const licenseStatus = getRtPtLicenseStatus();
+        if (licenseStatus.active !== true) {
+          return res.status(403).json({
+            error: 'An active RT/PT Inspector license is required.',
+            status: licenseStatus.status,
+            reason: licenseStatus.reason,
+            installationId: licenseStatus.installationId,
+          });
+        }
+        return next();
+      });
 
       // Simple file-based data storage for technique sheets
       const sheetsFile = path.join(dataDir, 'technique-sheets.json');
-      const standardsFile = path.join(dataDir, 'standards.json');
       const orgsFile = path.join(dataDir, 'organizations.json');
       const profilesFile = path.join(dataDir, 'inspector-profiles.json');
 
@@ -1558,7 +1381,6 @@ function startEmbeddedServer() {
 
       // Initialize files if they don't exist
       if (!fs.existsSync(sheetsFile)) fs.writeFileSync(sheetsFile, '[]');
-      if (!fs.existsSync(standardsFile)) fs.writeFileSync(standardsFile, '[]');
       if (!fs.existsSync(profilesFile)) fs.writeFileSync(profilesFile, '[]');
       // Initialize orgs with default org (valid UUID) for Electron mode
       if (!fs.existsSync(orgsFile)) {
@@ -1579,7 +1401,10 @@ function startEmbeddedServer() {
       expressApp.get('/api/technique-sheets', (req, res) => {
         try {
           const data = JSON.parse(fs.readFileSync(sheetsFile, 'utf8'));
-          res.json(data);
+          const rtPtSheets = Array.isArray(data)
+            ? data.filter((sheet) => isReadableRtPtDocument(sheet?.data))
+            : [];
+          res.json(rtPtSheets);
         } catch (e) {
           res.json([]);
         }
@@ -1587,6 +1412,9 @@ function startEmbeddedServer() {
 
       expressApp.post('/api/technique-sheets', (req, res) => {
         try {
+          if (!isWritableRtPtDocument(req.body?.data)) {
+            return rejectNonRtPtTechniqueSheet(res);
+          }
           const sheets = JSON.parse(fs.readFileSync(sheetsFile, 'utf8'));
           const newSheet = { ...req.body, id: Date.now() };
           sheets.push(newSheet);
@@ -1602,6 +1430,9 @@ function startEmbeddedServer() {
           const sheets = JSON.parse(fs.readFileSync(sheetsFile, 'utf8'));
           const sheet = sheets.find(s => String(s.id) === String(req.params.id));
           if (sheet) {
+            if (!isReadableRtPtDocument(sheet.data)) {
+              return rejectNonRtPtTechniqueSheet(res);
+            }
             res.json(sheet);
           } else {
             res.status(404).json({ error: 'Technique sheet not found' });
@@ -1616,7 +1447,11 @@ function startEmbeddedServer() {
           const sheets = JSON.parse(fs.readFileSync(sheetsFile, 'utf8'));
           const index = sheets.findIndex(s => String(s.id) === String(req.params.id));
           if (index !== -1) {
-            sheets[index] = { ...sheets[index], ...req.body, id: sheets[index].id };
+            const updatedSheet = { ...sheets[index], ...req.body, id: sheets[index].id };
+            if (!isWritableRtPtDocument(updatedSheet.data)) {
+              return rejectNonRtPtTechniqueSheet(res);
+            }
+            sheets[index] = updatedSheet;
             fs.writeFileSync(sheetsFile, JSON.stringify(sheets, null, 2));
             res.json(sheets[index]);
           } else {
@@ -1640,90 +1475,6 @@ function startEmbeddedServer() {
           }
         } catch (e) {
           res.status(500).json({ error: e.message });
-        }
-      });
-
-      expressApp.get('/api/standards/:code', (req, res) => {
-        try {
-          const data = JSON.parse(fs.readFileSync(standardsFile, 'utf8'));
-          const standard = data.find(s => s.code === req.params.code);
-          res.json(standard || {});
-        } catch (e) {
-          res.json({});
-        }
-      });
-
-      expressApp.get('/api/mro-assets', (req, res) => {
-        try {
-          const mroDir = resolveMroDirectory();
-
-          if (!mroDir) {
-            return res.json({
-              available: false,
-              baseDir: null,
-              assets: [],
-              message: 'No local MRO directory was found. The folder is optional and excluded from packaged updates.',
-            });
-          }
-
-          const assets = getVisibleMroEntries(mroDir)
-            .map((entry) => {
-              const absolutePath = path.join(mroDir, entry.name);
-              const stats = fs.statSync(absolutePath);
-              return buildMroAssetResponse(entry.name, stats);
-            })
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-          return res.json({
-            available: true,
-            baseDir: mroDir,
-            assets,
-            message: 'Local MRO assets detected. Only approved NDIP-1226/NDIP-1227 V2500 files are exposed; duplicate or legacy files remain hidden.',
-          });
-        } catch (error) {
-          return res.status(500).json({
-            available: false,
-            baseDir: null,
-            assets: [],
-            message: error.message,
-          });
-        }
-      });
-
-      expressApp.get('/api/mro-assets/file/:fileName', (req, res) => {
-        try {
-          const mroDir = resolveMroDirectory();
-          const requestedName = decodeURIComponent(req.params.fileName || '');
-          const safeName = path.basename(requestedName);
-
-          if (!mroDir) {
-            return res.status(404).json({ error: 'MRO directory not found' });
-          }
-
-          if (!safeName || safeName !== requestedName) {
-            return res.status(400).json({ error: 'Invalid MRO file name' });
-          }
-
-          const visibleNames = new Set(getVisibleMroEntries(mroDir).map((entry) => entry.name));
-          if (!visibleNames.has(safeName)) {
-            return res.status(404).json({ error: 'MRO file not found' });
-          }
-
-          const absolutePath = path.join(mroDir, safeName);
-
-          if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
-            return res.status(404).json({ error: 'MRO file not found' });
-          }
-
-          res.setHeader('Cache-Control', 'no-store');
-
-          if (req.query.download === '1') {
-            return res.download(absolutePath, safeName);
-          }
-
-          return res.sendFile(absolutePath);
-        } catch (error) {
-          return res.status(500).json({ error: error.message });
         }
       });
 
@@ -1833,15 +1584,15 @@ function startEmbeddedServer() {
       expressApp.use((req, res, next) => {
         // Only handle GET requests that aren't API routes
         if (req.method === 'GET' && !req.url.startsWith('/api/')) {
-          const indexPath = path.join(distPath, 'index.html');
+          const indexPath = path.join(rendererPath, 'index.html');
           res.sendFile(indexPath);
         } else {
           next();
         }
       });
 
-      embeddedServer = expressApp.listen(5000, () => {
-        console.log('Embedded server running on port 5000');
+      embeddedServer = expressApp.listen(EMBEDDED_SERVER_PORT, EMBEDDED_SERVER_HOST, () => {
+        console.log(`Embedded server running at ${EMBEDDED_SERVER_ORIGIN}`);
         resolve();
       });
       
@@ -1861,11 +1612,9 @@ app.whenReady().then(async () => {
   // In packaged app, app.isPackaged is true
   isDev = !app.isPackaged;
 
-  // Load user-specific API keys from userData folder
-  loadUserApiKeys();
-
-  // Initialize license manager with app data path and version
-  licenseManager = new LicenseManager(app.getPath('userData'), app.getVersion());
+  // License verification depends on Electron's ready-only safeStorage and the
+  // independent RT/PT userData directory. Missing configuration stays closed.
+  initializeRtPtLicenseService();
 
   // Setup IPC handlers
   setupIPCHandlers();
@@ -1914,6 +1663,6 @@ app.on('before-quit', () => {
 app.on('web-contents-created', (event, contents) => {
   contents.on('new-window', (event, navigationUrl) => {
     event.preventDefault();
-    shell.openExternal(navigationUrl);
+    void openExternalSafely(navigationUrl);
   });
 });

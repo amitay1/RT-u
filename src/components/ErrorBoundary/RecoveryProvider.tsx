@@ -1,17 +1,21 @@
-// @ts-nocheck
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { ErrorRecoveryDialog } from './ErrorRecoveryDialog';
-import { useCrashRecovery, CrashSnapshot } from '@/hooks/useCrashRecovery';
+import { useCrashRecovery } from '@/hooks/useCrashRecovery';
 
 interface RecoveryContextType {
   saveSnapshot: (data: unknown, context?: { route?: string; activeTab?: string }) => void;
-  startAutoSave: (getData: () => unknown, context?: { route?: string; activeTab?: string }) => () => void;
+  startAutoSave: (
+    getData: () => unknown,
+    context?: { route?: string; activeTab?: string },
+  ) => (() => void) | undefined;
   stopAutoSave: () => void;
   exportDiagnostics: () => void;
 }
 
 const RecoveryContext = createContext<RecoveryContextType | null>(null);
 
+// This hook intentionally shares the provider module to keep the recovery API cohesive.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRecovery() {
   const context = useContext(RecoveryContext);
   if (!context) {
@@ -87,7 +91,7 @@ export function RecoveryProvider({ children, onRecover }: RecoveryProviderProps)
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `scanmaster_diagnostics_${Date.now()}.json`;
+      a.download = `rtpt_inspector_diagnostics_${Date.now()}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

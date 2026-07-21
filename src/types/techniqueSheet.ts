@@ -289,7 +289,7 @@ export interface CalibrationData {
 }
 
 // Technique type for scan parameters
-export type TechniqueType = "conventional" | "bubbler" | "squirt" | "phased_array";
+export type TechniqueType = "conventional" | "bubbler" | "squirt" | "squirter" | "phased_array";
 
 export interface ScanParametersData {
   scanMethod: string;

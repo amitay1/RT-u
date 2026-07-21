@@ -20,7 +20,6 @@ import {
   Cpu,
   MemoryStick,
   Clock,
-  Shield,
 } from 'lucide-react';
 import {
   diagnosticsCollector,
@@ -37,7 +36,6 @@ interface DiagnosticsSummary {
   crashesLast24h: number;
   memoryUsage: string;
   diskSpace: string;
-  licenseStatus: string;
 }
 
 export function DiagnosticsExportDialog({
@@ -138,11 +136,6 @@ export function DiagnosticsExportDialog({
                       {summary.systemStatus === 'good' ? 'Healthy' :
                        summary.systemStatus === 'warning' ? 'Warning' : 'Issues Detected'}
                     </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm capitalize">{summary.licenseStatus}</span>
                   </div>
 
                   <div className="flex items-center gap-2">

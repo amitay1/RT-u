@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, RotateCcw, Download, Trash2, ExternalLink } from 'lucide-react';
 import type { CrashSnapshot } from '@/hooks/useCrashRecovery';
 
-const LATEST_RELEASE_URL = 'https://github.com/amitay1/Scan-Master-16-12-25/releases/latest';
+const LATEST_RELEASE_URL = 'https://github.com/amitay1/RT-u/releases/latest';
 
 type CrashUpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
 

@@ -1,34 +1,24 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "sonner";
-import { logError, logInfo } from "@/lib/logger";
-import type { StandardType } from "@/types/techniqueSheet";
+import { logError } from "@/lib/logger";
 import type { SavedCard } from "@/contexts/SavedCardsContext";
 import { useSavedCards } from "@/hooks/useSavedCards";
+import { decodeRtPtDocument } from "@/lib/rtPtDocumentCodec";
 import { techniqueSheetService } from "@/services/techniqueSheetService";
-import type { TechniqueSheetRecord, TechniqueSheetCardData } from "@/services/techniqueSheetService";
+import type { TechniqueSheetRecord } from "@/services/techniqueSheetService";
+import type { RtPtDocumentV3 } from "@/types/rtPtDocument";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import type { CurrentPartData } from "@/hooks/useTechniqueSheetState";
 
 interface UseSheetPersistenceParams {
   user: { id: string } | null;
-  standard: StandardType;
-  isSplitMode: boolean;
-  activePart: "A" | "B";
-  reportMode: "Technique" | "Report";
+  standard: string;
+  documentTitle: string;
+  documentDescription?: string;
   completionPercent: number;
-  currentData: CurrentPartData;
-  // Data builders from useTechniqueSheetState
-  buildTechniqueSheetPayload: () => TechniqueSheetCardData;
-  buildCardData: () => any;
+  buildTechniqueSheetPayload: () => RtPtDocumentV3;
+  buildCardData: () => RtPtDocumentV3;
   applyLoadedSheet: (record: TechniqueSheetRecord) => void;
-  applyLocalCard: (data: any) => void;
-  // Raw Part B state for local save metadata
-  inspectionSetupB: any;
-  equipmentB: any;
-  calibrationB: any;
-  scanParametersB: any;
-  acceptanceCriteriaB: any;
-  documentationB: any;
+  applyLocalCard: (data: RtPtDocumentV3) => void;
 }
 
 interface SaveResult {
@@ -39,24 +29,53 @@ interface SaveResult {
   requiresName?: boolean;
 }
 
+interface PersistenceIdentity {
+  currentSheetId: string | null;
+  currentSheetName: string;
+  currentLocalCardId: string | null;
+  localCardExists: boolean;
+}
+
+export type PersistenceSaveTarget =
+  | { storage: "local"; cardId: string }
+  | { storage: "database"; sheetId: string; sheetName: string }
+  | null;
+
+export function resolvePersistenceSaveTarget({
+  currentSheetId,
+  currentSheetName,
+  currentLocalCardId,
+  localCardExists,
+}: PersistenceIdentity): PersistenceSaveTarget {
+  // Two simultaneous source IDs are an invalid legacy/race state. Failing closed
+  // prevents Save from silently overwriting whichever stale source happens to win.
+  if (currentLocalCardId && currentSheetId) return null;
+
+  if (currentLocalCardId && localCardExists) {
+    return { storage: "local", cardId: currentLocalCardId };
+  }
+
+  if (currentSheetId && currentSheetName.trim()) {
+    return {
+      storage: "database",
+      sheetId: currentSheetId,
+      sheetName: currentSheetName,
+    };
+  }
+
+  return null;
+}
+
 export function useSheetPersistence({
   user,
   standard,
-  isSplitMode,
-  activePart,
-  reportMode,
+  documentTitle,
+  documentDescription,
   completionPercent,
-  currentData,
   buildTechniqueSheetPayload,
   buildCardData,
   applyLoadedSheet,
   applyLocalCard,
-  inspectionSetupB,
-  equipmentB,
-  calibrationB,
-  scanParametersB,
-  acceptanceCriteriaB,
-  documentationB,
 }: UseSheetPersistenceParams) {
   const { saveCard, updateCard, getCard } = useSavedCards();
 
@@ -76,51 +95,32 @@ export function useSheetPersistence({
 
   const buildSuggestedCardName = useCallback(() => (
     currentSheetName ||
-    currentData.inspectionSetup.partName ||
-    currentData.inspectionSetup.partNumber ||
-    `Technique Card ${new Date().toLocaleDateString("he-IL")}`
-  ), [currentSheetName, currentData]);
+    documentTitle.trim() ||
+    `RT-PT Technique ${new Date().toLocaleDateString("he-IL")}`
+  ), [currentSheetName, documentTitle]);
 
   const buildLocalCardPayload = useCallback((name: string, existingCard?: Partial<SavedCard>) => {
-    const cardData = buildCardData();
+    const decoded = decodeRtPtDocument(buildCardData());
+    if (decoded.status !== "success") {
+      throw new Error(`Cannot save this RT/PT card: ${decoded.message}`);
+    }
 
     return {
       name,
-      description: `${currentData.inspectionSetup.partName || ""} - ${standard}`,
-      type: reportMode === "Report" ? "report" : "technique",
+      description: documentDescription || `${documentTitle || name} - ${standard}`,
       standard,
       completionPercent,
       tags: existingCard?.tags || [],
       isFavorite: existingCard?.isFavorite || false,
       isArchived: existingCard?.isArchived || false,
-      isSplitMode,
-      inspectionSetup: currentData.inspectionSetup,
-      equipment: currentData.equipment,
-      calibration: currentData.calibration,
-      scanParameters: currentData.scanParameters,
-      acceptanceCriteria: currentData.acceptanceCriteria,
-      documentation: currentData.documentation,
-      inspectionSetupB: isSplitMode ? inspectionSetupB : undefined,
-      equipmentB: isSplitMode ? equipmentB : undefined,
-      calibrationB: isSplitMode ? calibrationB : undefined,
-      scanParametersB: isSplitMode ? scanParametersB : undefined,
-      acceptanceCriteriaB: isSplitMode ? acceptanceCriteriaB : undefined,
-      documentationB: isSplitMode ? documentationB : undefined,
-      data: cardData,
-    } as any;
+      data: decoded.document,
+    } satisfies Omit<SavedCard, "id" | "profileId" | "createdAt" | "updatedAt">;
   }, [
     buildCardData,
-    currentData,
+    documentTitle,
+    documentDescription,
     standard,
-    reportMode,
     completionPercent,
-    isSplitMode,
-    inspectionSetupB,
-    equipmentB,
-    calibrationB,
-    scanParametersB,
-    acceptanceCriteriaB,
-    documentationB,
   ]);
 
   // ── Organization loading ───────────────────────────────────────────────
@@ -158,7 +158,7 @@ export function useSheetPersistence({
       setSavedSheets(sorted);
     } catch (error) {
       logError("Failed to load saved technique cards", error);
-      toast.error("Unable to load saved cards.");
+      toast.error(error instanceof Error ? error.message : "Unable to load saved cards.");
     } finally {
       setIsLoadingSheets(false);
     }
@@ -173,7 +173,7 @@ export function useSheetPersistence({
   // ── Handle opening saved cards dialog ──────────────────────────────────
   const handleOpenSavedCards = useCallback(() => {
     if (!user) {
-      toast.error("You must be signed in to manage saved cards.");
+      toast.error("The local workspace identity is not ready yet.");
       return;
     }
     if (!organizationId) {
@@ -195,6 +195,7 @@ export function useSheetPersistence({
       });
       applyLoadedSheet(sheet);
       setCurrentSheetId(sheet.id);
+      setCurrentLocalCardId(null);
       setCurrentSheetName(sheet.sheetName);
       setSheetNameInput(sheet.sheetName);
       setIsSavedCardsDialogOpen(false);
@@ -202,7 +203,7 @@ export function useSheetPersistence({
       return sheet;
     } catch (error) {
       logError("Failed to load technique card", error);
-      toast.error("Unable to load the selected card.");
+      toast.error(error instanceof Error ? error.message : "Unable to load the selected card.");
       return null;
     } finally {
       setLoadingSheetId(null);
@@ -233,7 +234,7 @@ export function useSheetPersistence({
   // ── Perform DB save ────────────────────────────────────────────────────
   const performSave = useCallback(async (name: string, sheetId?: string) => {
     if (!user || !organizationId) {
-      toast.error("You must be signed in to save.");
+      toast.error("The local workspace is not ready to save yet.");
       return null;
     }
     setIsSavingSheet(true);
@@ -248,6 +249,7 @@ export function useSheetPersistence({
         orgId: organizationId,
       });
       setCurrentSheetId(saved.id);
+      setCurrentLocalCardId(null);
       setCurrentSheetName(saved.sheetName);
       setSheetNameInput(saved.sheetName);
       setIsSaveDialogOpen(false);
@@ -256,7 +258,7 @@ export function useSheetPersistence({
       return saved;
     } catch (error) {
       logError("Failed to save technique card", error);
-      toast.error("Unable to save the technique card.");
+      toast.error(error instanceof Error ? error.message : "Unable to save the technique card.");
       return null;
     } finally {
       setIsSavingSheet(false);
@@ -267,6 +269,7 @@ export function useSheetPersistence({
   const performLocalSave = useCallback((name: string) => {
     const savedCard = saveCard(buildLocalCardPayload(name));
     setCurrentLocalCardId(savedCard.id);
+    setCurrentSheetId(null);
     setCurrentSheetName(name);
     toast.success(`Card "${name}" saved successfully!`);
     setIsSaveDialogOpen(false);
@@ -275,6 +278,8 @@ export function useSheetPersistence({
 
   const updateExistingLocalCard = useCallback((existingCard: SavedCard): SaveResult => {
     updateCard(existingCard.id, buildLocalCardPayload(existingCard.name, existingCard));
+    setCurrentLocalCardId(existingCard.id);
+    setCurrentSheetId(null);
     setCurrentSheetName(existingCard.name);
     toast.success(`Card "${existingCard.name}" updated successfully!`);
 
@@ -306,15 +311,20 @@ export function useSheetPersistence({
   const handleSave = useCallback(async (): Promise<SaveResult> => {
     if (isSavingSheet) return { saved: false };
 
-    if (currentLocalCardId) {
-      const existingCard = getCard(currentLocalCardId);
-      if (existingCard) {
-        return updateExistingLocalCard(existingCard);
-      }
+    const existingLocalCard = currentLocalCardId ? getCard(currentLocalCardId) : undefined;
+    const target = resolvePersistenceSaveTarget({
+      currentSheetId,
+      currentSheetName,
+      currentLocalCardId,
+      localCardExists: Boolean(existingLocalCard),
+    });
+
+    if (target?.storage === "local" && existingLocalCard) {
+      return updateExistingLocalCard(existingLocalCard);
     }
 
-    if (currentSheetId && currentSheetName.trim()) {
-      const savedSheet = await performSave(currentSheetName, currentSheetId);
+    if (target?.storage === "database") {
+      const savedSheet = await performSave(target.sheetName, target.sheetId);
       if (savedSheet) {
         return {
           saved: true,
@@ -345,15 +355,20 @@ export function useSheetPersistence({
   const saveCurrentCardSilently = useCallback(async (): Promise<SaveResult> => {
     if (isSavingSheet) return { saved: false };
 
-    if (currentLocalCardId) {
-      const existingCard = getCard(currentLocalCardId);
-      if (existingCard) {
-        return updateExistingLocalCard(existingCard);
-      }
+    const existingLocalCard = currentLocalCardId ? getCard(currentLocalCardId) : undefined;
+    const target = resolvePersistenceSaveTarget({
+      currentSheetId,
+      currentSheetName,
+      currentLocalCardId,
+      localCardExists: Boolean(existingLocalCard),
+    });
+
+    if (target?.storage === "local" && existingLocalCard) {
+      return updateExistingLocalCard(existingLocalCard);
     }
 
-    if (currentSheetId && currentSheetName.trim()) {
-      const savedSheet = await performSave(currentSheetName, currentSheetId);
+    if (target?.storage === "database") {
+      const savedSheet = await performSave(target.sheetName, target.sheetId);
       if (savedSheet) {
         return {
           saved: true,
@@ -388,30 +403,35 @@ export function useSheetPersistence({
   const handleSaveAs = useCallback(() => {
     const baseName =
       currentSheetName ||
-      currentData.inspectionSetup.partName ||
-      currentData.inspectionSetup.partNumber ||
-      `Technique Card ${new Date().toLocaleDateString("he-IL")}`;
+      documentTitle.trim() ||
+      `RT-PT Technique ${new Date().toLocaleDateString("he-IL")}`;
 
     const suggestedCopyName = `${baseName} (copy)`;
     setSheetNameInput(suggestedCopyName);
-    setCurrentLocalCardId(null);
-    setCurrentSheetId(null);
-    setCurrentSheetName("");
+    // Preserve the current save target while the dialog is open. The identity
+    // switches to the newly-created copy only after confirmation; cancelling
+    // Save As must leave the original card as the target of the next Save.
     setIsSaveDialogOpen(true);
-  }, [currentSheetName, currentData]);
+  }, [currentSheetName, documentTitle]);
 
   // ── Handle loading local card ──────────────────────────────────────────
   const handleLoadLocalCard = useCallback((card: SavedCard) => {
-    const data = (card as any).data;
-    if (!data) {
-      toast.error("Saved card is missing data.");
+    try {
+      const decoded = decodeRtPtDocument(card.data);
+      if (decoded.status !== "success") {
+        throw new Error(`Cannot load this RT/PT card: ${decoded.message}`);
+      }
+      applyLocalCard(decoded.document);
+      setCurrentLocalCardId(card.id);
+      setCurrentSheetId(null);
+      setCurrentSheetName(card.name);
+      toast.success(`Loaded card: ${card.name}`);
+      return card;
+    } catch (error) {
+      logError("Failed to load local RT/PT card", error);
+      toast.error(error instanceof Error ? error.message : "Unable to load the selected card.");
       return null;
     }
-    setCurrentLocalCardId(card.id);
-    setCurrentSheetName(card.name);
-    applyLocalCard(data);
-    toast.success(`Loaded card: ${card.name}`);
-    return card;
   }, [applyLocalCard]);
 
   // ── Auto-save hook ─────────────────────────────────────────────────────
@@ -421,7 +441,7 @@ export function useSheetPersistence({
     data: autoSaveData,
     onSave: async (data) => {
       if (!user || !organizationId) {
-        throw new Error("Not signed in or no organization");
+        throw new Error("Local workspace identity or organization is unavailable");
       }
       const now = new Date();
       const autoName = currentSheetName || `Draft - ${standard} - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
@@ -433,6 +453,7 @@ export function useSheetPersistence({
         userId: user.id,
         orgId: organizationId,
       });
+      setCurrentLocalCardId(null);
       if (!currentSheetId) {
         setCurrentSheetId(saved.id);
         setCurrentSheetName(saved.sheetName);

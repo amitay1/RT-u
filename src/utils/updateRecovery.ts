@@ -1,5 +1,5 @@
-export const TECHNIQUE_SHEET_DRAFT_KEY = "techniqueSheet_draft";
-export const UPDATE_RECOVERY_KEY = "scanmaster_update_recovery";
+export const TECHNIQUE_SHEET_DRAFT_KEY = "rtpt_inspector_document_draft_v1";
+export const UPDATE_RECOVERY_KEY = "rtpt_inspector_update_recovery_v1";
 
 export type UpdateRecoveryReason = "manual-install" | "scheduled-restart" | "update-on-quit";
 
@@ -26,13 +26,9 @@ function getStorage(): Storage | null {
 
 export function readTechniqueSheetDraft<T = unknown>(): T | null {
   const storage = getStorage();
-  const raw = storage?.getItem(TECHNIQUE_SHEET_DRAFT_KEY);
-
-  if (!raw) {
-    return null;
-  }
-
   try {
+    const raw = storage?.getItem(TECHNIQUE_SHEET_DRAFT_KEY);
+    if (!raw) return null;
     return JSON.parse(raw) as T;
   } catch {
     return null;
@@ -45,23 +41,27 @@ export function writeTechniqueSheetDraft(snapshot: unknown): void {
     return;
   }
 
-  storage.setItem(TECHNIQUE_SHEET_DRAFT_KEY, JSON.stringify(snapshot));
+  try {
+    storage.setItem(TECHNIQUE_SHEET_DRAFT_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Recovery storage is best-effort and must never crash an inspection form.
+  }
 }
 
 export function clearTechniqueSheetDraft(): void {
   const storage = getStorage();
-  storage?.removeItem(TECHNIQUE_SHEET_DRAFT_KEY);
+  try {
+    storage?.removeItem(TECHNIQUE_SHEET_DRAFT_KEY);
+  } catch {
+    // Ignore unavailable or locked browser storage.
+  }
 }
 
 export function readUpdateRecoveryRecord(): UpdateRecoveryRecord | null {
   const storage = getStorage();
-  const raw = storage?.getItem(UPDATE_RECOVERY_KEY);
-
-  if (!raw) {
-    return null;
-  }
-
   try {
+    const raw = storage?.getItem(UPDATE_RECOVERY_KEY);
+    if (!raw) return null;
     return JSON.parse(raw) as UpdateRecoveryRecord;
   } catch {
     return null;
@@ -74,10 +74,18 @@ export function writeUpdateRecoveryRecord(record: UpdateRecoveryRecord): void {
     return;
   }
 
-  storage.setItem(UPDATE_RECOVERY_KEY, JSON.stringify(record));
+  try {
+    storage.setItem(UPDATE_RECOVERY_KEY, JSON.stringify(record));
+  } catch {
+    // Recovery metadata is best-effort and must not block an update.
+  }
 }
 
 export function clearUpdateRecoveryRecord(): void {
   const storage = getStorage();
-  storage?.removeItem(UPDATE_RECOVERY_KEY);
+  try {
+    storage?.removeItem(UPDATE_RECOVERY_KEY);
+  } catch {
+    // Ignore unavailable or locked browser storage.
+  }
 }

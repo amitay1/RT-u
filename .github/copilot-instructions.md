@@ -1,4 +1,11 @@
-# ScanMaster AI Coding Instructions
+# DEPRECATED — DO NOT USE FOR RT-PT INSPECTOR
+
+This file describes a separate historical product and is not authoritative for
+this repository. All work here must follow `QUICK_CONTEXT.md` and `AGENTS.md`.
+Do not execute, copy, reconnect, or release any Scan-Master/UT/CAD path described
+below. The remainder is retained only as historical user-owned material.
+
+# Historical ScanMaster AI Coding Instructions
 
 ## Project Overview
 ScanMaster generates **technique sheets** and **inspection reports** for ultrasonic NDT compliant with aerospace standards (AMS-STD-2154, ASTM E2375, ASTM A388, BS-EN-10228).

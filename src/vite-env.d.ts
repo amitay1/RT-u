@@ -1,7 +1,60 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_RTPT_SUPABASE_URL?: string;
+  readonly VITE_RTPT_SUPABASE_PUBLISHABLE_KEY?: string;
+  readonly VITE_RTPT_ENABLE_OFFLINE_MODE?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 // Electron IPC Bridge Types
+type RtPtLicenseStatusName =
+  | 'active'
+  | 'missing'
+  | 'configuration-required'
+  | 'storage-unavailable'
+  | 'invalid'
+  | 'expired'
+  | 'installation-mismatch'
+  | 'clock-invalid';
+
+interface RtPtLicenseDetails {
+  schemaVersion: 1;
+  product: 'rt-pt-inspector';
+  appId: 'com.amitay.rtptinspector';
+  licenseId: string;
+  customer: string;
+  installationId: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  edition: 'professional';
+  features: string[];
+}
+
+interface RtPtLicenseStatus {
+  status: RtPtLicenseStatusName;
+  active: boolean;
+  product: 'rt-pt-inspector';
+  appId: 'com.amitay.rtptinspector';
+  installationId: string | null;
+  reason: string | null;
+  message: string;
+  license?: RtPtLicenseDetails;
+}
+
+interface RtPtLicenseBridge {
+  getStatus: () => Promise<RtPtLicenseStatus>;
+  activate: (token: string) => Promise<RtPtLicenseStatus>;
+  deactivate: () => Promise<RtPtLicenseStatus>;
+}
+
 interface ElectronAPI {
+  isElectron?: boolean;
+  platform?: string;
+  rtptLicense: RtPtLicenseBridge;
   getAppVersion: () => Promise<string>;
   checkForUpdates: () => Promise<void>;
   forceCheckUpdates?: () => Promise<void>;

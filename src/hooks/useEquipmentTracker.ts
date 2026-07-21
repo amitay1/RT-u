@@ -25,8 +25,8 @@ function getHeaders(): HeadersInit {
   };
 
   // Get user ID from localStorage or context
-  const userId = localStorage.getItem("scanmaster_user_id") || "00000000-0000-0000-0000-000000000000";
-  const orgId = localStorage.getItem("scanmaster_org_id");
+  const userId = localStorage.getItem("rtpt_inspector_user_id") || "00000000-0000-0000-0000-000000000000";
+  const orgId = localStorage.getItem("rtpt_inspector_org_id");
 
   headers["x-user-id"] = userId;
   if (orgId) {

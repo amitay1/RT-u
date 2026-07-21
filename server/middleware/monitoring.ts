@@ -42,7 +42,7 @@ export const requestTracking = (req: Request, res: Response, next: NextFunction)
 
   // Log request details (for debugging)
   const requestId = Math.random().toString(36).substring(7);
-  (req as any).requestId = requestId;
+  (req as Request & { requestId: string }).requestId = requestId;
 
   res.on('finish', () => {
     activeConnections--;

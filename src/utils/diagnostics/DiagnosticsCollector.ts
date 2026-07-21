@@ -6,7 +6,6 @@
  * - Application state snapshot
  * - Error and crash logs
  * - Performance metrics
- * - License information (sanitized)
  * - Export to ZIP file for USB transfer
  */
 
@@ -50,17 +49,6 @@ export interface AppState {
   lastActivity?: string;
 }
 
-export interface LicenseInfo {
-  status: 'active' | 'expired' | 'trial' | 'unknown';
-  type?: string;
-  expiryDate?: string;
-  daysRemaining?: number;
-  standardsAccess?: string[];
-  activationsUsed?: number;
-  maxActivations?: number;
-  factoryId?: string;
-}
-
 export interface PerformanceMetrics {
   loadTime?: number;
   domContentLoaded?: number;
@@ -78,11 +66,9 @@ export interface DiagnosticsPackage {
     exportedAt: string;
     exportedBy: string;
     machineId?: string;
-    factoryId?: string;
   };
   systemInfo: SystemInfo;
   appState: AppState;
-  licenseInfo: LicenseInfo;
   crashLogs: unknown[];
   errorLogs: unknown[];
   performanceMetrics: PerformanceMetrics;
@@ -90,7 +76,7 @@ export interface DiagnosticsPackage {
   screenshots?: string[]; // Base64 encoded, optional
 }
 
-const APP_VERSION = '1.0.102';
+const APP_VERSION = __APP_VERSION__;
 
 class DiagnosticsCollectorService {
   private static instance: DiagnosticsCollectorService;
@@ -168,12 +154,12 @@ class DiagnosticsCollectorService {
     let recentCards = 0;
 
     try {
-      const storedSettings = localStorage.getItem('scanmaster_settings');
+      const storedSettings = localStorage.getItem('rtpt_inspector_settings');
       if (storedSettings) {
         settings = JSON.parse(storedSettings);
       }
 
-      const savedCards = localStorage.getItem('scanmaster_saved_cards');
+      const savedCards = localStorage.getItem('rtpt_inspector_saved_cards');
       if (savedCards) {
         const cards = JSON.parse(savedCards);
         recentCards = Array.isArray(cards) ? cards.length : 0;
@@ -188,7 +174,7 @@ class DiagnosticsCollectorService {
       activeTab: this.detectActiveTab(),
       settings: this.sanitizeSettings(settings),
       recentCards,
-      lastActivity: localStorage.getItem('scanmaster_last_activity') || undefined,
+      lastActivity: localStorage.getItem('rtpt_inspector_last_activity') || undefined,
     };
   }
 
@@ -204,7 +190,7 @@ class DiagnosticsCollectorService {
 
     // Try to get from localStorage
     try {
-      return localStorage.getItem('scanmaster_active_tab') || undefined;
+      return localStorage.getItem('rtpt_inspector_active_tab') || undefined;
     } catch {
       return undefined;
     }
@@ -227,41 +213,6 @@ class DiagnosticsCollectorService {
     }
 
     return sanitized;
-  }
-
-  /**
-   * Collect license information (sanitized)
-   */
-  collectLicenseInfo(): LicenseInfo {
-    try {
-      const licenseData = localStorage.getItem('scanmaster_license');
-      if (!licenseData) {
-        return { status: 'unknown' };
-      }
-
-      const license = JSON.parse(licenseData);
-
-      // Calculate days remaining
-      let daysRemaining: number | undefined;
-      if (license.expiryDate) {
-        const expiry = new Date(license.expiryDate);
-        const now = new Date();
-        daysRemaining = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      }
-
-      return {
-        status: license.valid ? 'active' : 'expired',
-        type: license.type || 'standard',
-        expiryDate: license.expiryDate,
-        daysRemaining: license.lifetime ? undefined : daysRemaining,
-        standardsAccess: license.standards || [],
-        activationsUsed: license.activationsUsed,
-        maxActivations: license.maxActivations,
-        factoryId: license.factoryId,
-      };
-    } catch {
-      return { status: 'unknown' };
-    }
   }
 
   /**
@@ -311,7 +262,7 @@ class DiagnosticsCollectorService {
    */
   collectActivityLog(): string[] {
     try {
-      const log = localStorage.getItem('scanmaster_activity_log');
+      const log = localStorage.getItem('rtpt_inspector_activity_log');
       return log ? JSON.parse(log) : [];
     } catch {
       return [];
@@ -329,18 +280,14 @@ class DiagnosticsCollectorService {
    * Collect full diagnostics package
    */
   collectDiagnostics(): DiagnosticsPackage {
-    const licenseInfo = this.collectLicenseInfo();
-
     return {
       manifest: {
         version: APP_VERSION,
         exportedAt: new Date().toISOString(),
         exportedBy: 'DiagnosticsCollector',
-        factoryId: licenseInfo.factoryId,
       },
       systemInfo: this.collectSystemInfo(),
       appState: this.collectAppState(),
-      licenseInfo,
       crashLogs: this.collectCrashLogs(),
       errorLogs: [], // Can be extended
       performanceMetrics: this.collectPerformanceMetrics(),
@@ -357,9 +304,8 @@ class DiagnosticsCollectorService {
       type: 'application/json',
     });
 
-    const factoryId = diagnostics.manifest.factoryId || 'UNKNOWN';
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const defaultFilename = `diagnostics_${factoryId}_${timestamp}.json`;
+    const defaultFilename = `rtpt-inspector-diagnostics-${timestamp}.json`;
 
     this.downloadBlob(blob, filename || defaultFilename);
   }
@@ -377,7 +323,6 @@ class DiagnosticsCollectorService {
       'manifest.json': diagnostics.manifest,
       'system-info.json': diagnostics.systemInfo,
       'app-state.json': diagnostics.appState,
-      'license-info.json': diagnostics.licenseInfo,
       'crash-logs.json': diagnostics.crashLogs,
       'performance.json': diagnostics.performanceMetrics,
       'activity-log.json': diagnostics.activityLog,
@@ -388,9 +333,8 @@ class DiagnosticsCollectorService {
       type: 'application/json',
     });
 
-    const factoryId = diagnostics.manifest.factoryId || 'UNKNOWN';
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const defaultFilename = `diagnostics_${factoryId}_${timestamp}.json`;
+    const defaultFilename = `rtpt-inspector-diagnostics-${timestamp}.json`;
 
     this.downloadBlob(blob, filename || defaultFilename);
   }
@@ -400,23 +344,21 @@ class DiagnosticsCollectorService {
    */
   private generateReadme(): string {
     return `
-SCAN-MASTER DIAGNOSTICS EXPORT
-==============================
+RT-PT INSPECTOR DIAGNOSTICS EXPORT
+==================================
 
-This file contains diagnostic information from your Scan-Master installation.
+This file contains diagnostic information from your RT-PT Inspector installation.
 It was generated automatically and can be sent to technical support for
 troubleshooting purposes.
 
 HOW TO SEND TO SUPPORT:
 1. Copy this file to a USB drive
-2. Email to support@scanmaster.com (if you have internet access)
-3. Or provide it to your local support representative
+2. Provide it to your designated support representative
 
 CONTENTS:
 - manifest.json: Export metadata
 - system-info.json: System and hardware information
 - app-state.json: Application configuration
-- license-info.json: License status (no sensitive data)
 - crash-logs.json: Recent error reports
 - performance.json: Performance metrics
 - activity-log.json: Recent user actions
@@ -454,11 +396,9 @@ Version: ${APP_VERSION}
     crashesLast24h: number;
     memoryUsage: string;
     diskSpace: string;
-    licenseStatus: string;
   } {
     const crashStats = crashReporter.getCrashStats();
     const metrics = this.collectPerformanceMetrics();
-    const license = this.collectLicenseInfo();
 
     let systemStatus: 'good' | 'warning' | 'error' = 'good';
     if (crashStats.last24Hours >= 3) {
@@ -476,7 +416,6 @@ Version: ${APP_VERSION}
       crashesLast24h: crashStats.last24Hours,
       memoryUsage: memoryMB > 0 ? `${memoryMB} MB` : 'Unknown',
       diskSpace: 'Unknown', // Would need Electron API
-      licenseStatus: license.status,
     };
   }
 }

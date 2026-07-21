@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 /**
  * Tracks which training videos the user has watched and how far through each one.
  *
- * Persisted in localStorage under "scanmaster.video-progress.v1".
+ * Persisted in localStorage under "rtpt-inspector.video-progress.v1".
  * Future enhancement: sync to backend via React Query when the user is logged in.
  */
 
@@ -18,7 +18,7 @@ interface VideoProgress {
 
 type ProgressMap = Record<number, VideoProgress>;
 
-const STORAGE_KEY = "scanmaster.video-progress.v1";
+const STORAGE_KEY = "rtpt-inspector.video-progress.v1";
 
 function readStorage(): ProgressMap {
   if (typeof window === "undefined") return {};

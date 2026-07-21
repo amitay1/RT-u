@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.app.json",
+  "files": [
+    "src/main.tsx",
+    "src/vite-env.d.ts",
+    "server/index.ts",
+    "server/express.d.ts",
+    "vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "include": [
+    "server/rtptRoutes.test.ts",
+    "src/lib/__tests__/rtGeometry.test.ts",
+    "src/lib/__tests__/rtPt*.test.ts",
+    "src/utils/export/__tests__/RtPtTechniquePDF.test.ts",
+    "src/electron/__tests__/*.test.ts"
+  ]
+}

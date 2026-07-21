@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const RECOVERY_STORAGE_KEY = 'scanmaster_crash_recovery';
-const AUTO_SAVE_STORAGE_KEY = 'scanmaster_autosave';
+const RECOVERY_STORAGE_KEY = 'rtpt_inspector_crash_recovery';
+const AUTO_SAVE_STORAGE_KEY = 'rtpt_inspector_autosave';
 const MAX_SNAPSHOTS = 5;
 const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
 
@@ -196,11 +196,11 @@ export function useCrashRecovery(options: UseCrashRecoveryOptions = {}) {
       };
 
       const crashHistory = JSON.parse(
-        localStorage.getItem('scanmaster_crash_history') || '[]'
+        localStorage.getItem('rtpt_inspector_crash_history') || '[]'
       );
       crashHistory.unshift(crashDetails);
       localStorage.setItem(
-        'scanmaster_crash_history',
+        'rtpt_inspector_crash_history',
         JSON.stringify(crashHistory.slice(0, 50)) // Keep last 50 crashes
       );
 
@@ -240,7 +240,7 @@ export function useCrashRecovery(options: UseCrashRecoveryOptions = {}) {
   const clearAllRecoveryData = useCallback(() => {
     localStorage.removeItem(RECOVERY_STORAGE_KEY);
     localStorage.removeItem(AUTO_SAVE_STORAGE_KEY);
-    localStorage.removeItem('scanmaster_crash_history');
+    localStorage.removeItem('rtpt_inspector_crash_history');
     setRecoveryState({
       hasPendingRecovery: false,
       recoveryData: null,
@@ -252,7 +252,7 @@ export function useCrashRecovery(options: UseCrashRecoveryOptions = {}) {
   // Get crash history for diagnostics
   const getCrashHistory = useCallback(() => {
     try {
-      return JSON.parse(localStorage.getItem('scanmaster_crash_history') || '[]');
+      return JSON.parse(localStorage.getItem('rtpt_inspector_crash_history') || '[]');
     } catch {
       return [];
     }

@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist/**", ".claude/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -28,6 +28,9 @@ export default tseslint.config(
 
       // Similar: keep lint useful without blocking local dev for broader refactors.
       "@typescript-eslint/no-unsafe-function-type": "warn",
+
+      // Keep active legacy suppression visible while the RT/PT surface is stabilized.
+      "@typescript-eslint/ban-ts-comment": "warn",
     },
   },
 );

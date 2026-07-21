@@ -1,15 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useId, useState } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
-  X,
   Settings,
   Globe,
-  Ruler,
-  FileText,
-  Building2,
-  Bell,
-  Eye,
-  Cog,
   ChevronRight,
   Check,
   RotateCcw,
@@ -19,7 +12,7 @@ import {
   Sun,
   Monitor,
   Save,
-  Info
+  Usb,
 } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { AppSettings } from '@/contexts/SettingsContext';
@@ -43,7 +36,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
@@ -64,16 +56,14 @@ import { APP_FONT_OPTIONS, AppFontOption, getAvailableAppFonts, normalizeAppFont
 type SettingsTab = 
   | 'general'
   | 'units'
-  | 'defaults'
   | 'export'
   | 'company'
-  | 'notifications'
-  | 'viewer'
-  | 'advanced';
+  | 'notifications';
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOfflineUpdate?: () => void;
 }
 
 // ============================================================================
@@ -81,24 +71,17 @@ interface SettingsDialogProps {
 // ============================================================================
 
 const settingsTabs: { id: SettingsTab; label: string; icon: React.ReactNode; description: string }[] = [
-  { id: 'general', label: 'General', icon: <Globe className="w-4 h-4" />, description: 'Language, theme, and display preferences' },
-  { id: 'units', label: 'Units', icon: <Ruler className="w-4 h-4" />, description: 'Measurement units and formats' },
-  { id: 'defaults', label: 'Defaults', icon: <FileText className="w-4 h-4" />, description: 'Default values for new documents' },
-  { id: 'export', label: 'Export', icon: <Download className="w-4 h-4" />, description: 'PDF and document export settings' },
-  { id: 'company', label: 'Company', icon: <Building2 className="w-4 h-4" />, description: 'Company information and branding' },
-  { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" />, description: 'Alerts and reminder settings' },
-  { id: 'viewer', label: '3D Viewer', icon: <Eye className="w-4 h-4" />, description: '3D visualization preferences' },
-  { id: 'advanced', label: 'Advanced', icon: <Cog className="w-4 h-4" />, description: 'Developer and experimental options' },
+  { id: 'general', label: 'Appearance', icon: <Globe className="w-4 h-4" />, description: 'Theme and interface typography' },
 ];
 
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const { settings, updateSettings, resetSettings, exportSettings, importSettings } = useSettings();
+export function SettingsDialog({ open, onOpenChange, onOfflineUpdate }: SettingsDialogProps) {
+  const { resetSettings, exportSettings, importSettings } = useSettings();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const [hasChanges, setHasChanges] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const handleExportSettings = () => {
     const json = exportSettings();
@@ -106,7 +89,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'scanmaster-settings.json';
+    a.download = 'rtpt-inspector-settings.json';
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Settings exported successfully');
@@ -140,37 +123,37 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   const handleResetAll = () => {
-    resetSettings();
-    toast.success('All settings reset to defaults');
+    resetSettings('general');
+    toast.success('Appearance preferences reset to defaults');
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[84vh] p-0 gap-0 overflow-hidden border border-white/10 bg-[linear-gradient(180deg,rgba(10,14,22,0.98),rgba(12,18,28,0.98))] shadow-[0_32px_80px_rgba(0,0,0,0.45)]">
+      <DialogContent className="flex h-[calc(100dvh-1rem)] min-h-0 w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden rounded-lg border border-border bg-background p-0 text-foreground shadow-xl sm:h-[min(840px,calc(100dvh-2rem))] sm:w-[calc(100vw-2rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/8 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_40%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(12,18,28,0.96))]">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-[0_18px_30px_rgba(37,99,235,0.35)]">
-              <Settings className="w-5 h-5 text-white" />
+        <div className="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-4 pr-12 sm:px-6 sm:py-5 sm:pr-14">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-primary/20 bg-primary/10">
+              <Settings className="h-5 w-5 text-primary" />
             </div>
-            <div>
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-200">
+            <div className="min-w-0">
+              <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-semibold uppercase tracking-[0.16em] text-primary">
                   Workstation Preferences
                 </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-300">
-                  8 sections
+                <span className="border-l border-border pl-2 font-medium">
+                  {onOfflineUpdate ? '2 sections' : '1 section'}
                 </span>
               </div>
-              <DialogTitle className="text-xl font-bold text-white">Settings</DialogTitle>
-              <DialogDescription className="text-sm text-slate-400">
-                Configure your ScanMaster preferences
+              <DialogTitle className="text-xl font-semibold text-card-foreground">Settings</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Configure your RT-PT Inspector preferences
               </DialogDescription>
             </div>
           </div>
 
           {/* Header Actions */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -178,7 +161,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleExportSettings}
-                    className="rounded-2xl text-slate-400 hover:text-white hover:bg-white/[0.05]"
+                    className="h-8 w-8 rounded-md px-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    aria-label="Export settings"
                   >
                     <Download className="w-4 h-4" />
                   </Button>
@@ -194,7 +178,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleImportSettings}
-                    className="rounded-2xl text-slate-400 hover:text-white hover:bg-white/[0.05]"
+                    className="h-8 w-8 rounded-md px-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    aria-label="Import settings"
                   >
                     <Upload className="w-4 h-4" />
                   </Button>
@@ -203,7 +188,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </Tooltip>
             </TooltipProvider>
 
-            <Separator orientation="vertical" className="h-5 bg-white/10 mx-2" />
+            <Separator orientation="vertical" className="mx-1 h-5 bg-border" />
 
             <TooltipProvider>
               <Tooltip>
@@ -212,54 +197,59 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleResetAll}
-                    className="rounded-2xl text-slate-400 hover:text-red-300 hover:bg-red-500/10"
+                    className="h-8 w-8 rounded-md px-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Reset appearance preferences"
                   >
                     <RotateCcw className="w-4 h-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Reset All Settings</TooltipContent>
+                <TooltipContent>Reset Appearance</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
           {/* Sidebar */}
-          <div className="w-64 border-r border-white/8 bg-black/15 flex-shrink-0">
-            <ScrollArea className="h-full py-3">
-              {settingsTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`mx-3 mb-1 flex w-[calc(100%-24px)] items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? 'bg-blue-500/12 text-blue-300 ring-1 ring-blue-400/20 shadow-[0_14px_30px_rgba(37,99,235,0.12)]'
-                      : 'text-slate-400 hover:bg-white/[0.05] hover:text-white'
-                  }`}
-                >
-                  <span className={activeTab === tab.id ? 'text-blue-400' : 'text-slate-500'}>
-                    {tab.icon}
-                  </span>
-                  <span className="text-sm font-medium">{tab.label}</span>
-                  {activeTab === tab.id && (
-                    <ChevronRight className="w-4 h-4 ml-auto text-blue-400" />
-                  )}
-                </button>
-              ))}
+          <div className="w-full flex-none border-b border-border bg-muted/20 md:w-56 md:border-b-0 md:border-r">
+            <ScrollArea className="w-full md:h-full">
+              <div className="grid grid-cols-1 gap-1 p-2 md:block md:space-y-1 md:p-3">
+                {settingsTabs.map((tab) => (
+                  <button
+                    type="button"
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-current={activeTab === tab.id ? 'page' : undefined}
+                    className={`flex min-h-10 w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:gap-3 md:px-3 md:py-2.5 ${
+                      activeTab === tab.id
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <span className={activeTab === tab.id ? 'text-primary' : 'text-muted-foreground'}>
+                      {tab.icon}
+                    </span>
+                    <span className="truncate">{tab.label}</span>
+                    {activeTab === tab.id && (
+                      <ChevronRight className="ml-auto hidden h-4 w-4 text-primary md:block" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </ScrollArea>
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {/* Tab Header */}
-            <div className="px-6 py-4 border-b border-white/8 bg-white/[0.03]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-white">
+            <div className="flex-none border-b border-border bg-card px-4 py-3 sm:px-6 sm:py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-card-foreground">
                     {settingsTabs.find(t => t.id === activeTab)?.label}
                   </h3>
-                  <p className="text-sm text-slate-400 mt-0.5">
+                  <p className="mt-0.5 text-sm text-muted-foreground">
                     {settingsTabs.find(t => t.id === activeTab)?.description}
                   </p>
                 </div>
@@ -267,7 +257,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     variant="outline"
                     size="sm"
                     onClick={handleResetCategory}
-                    className="rounded-2xl text-slate-300 border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:text-white"
+                    className="rounded-md border-input bg-background text-foreground"
                   >
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Reset
@@ -276,23 +266,20 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
 
             {/* Tab Content */}
-            <ScrollArea className="flex-1 px-6 py-5 bg-black/10">
+            <ScrollArea className="min-h-0 flex-1 bg-background px-4 py-4 sm:px-6 sm:py-5">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
-                  initial={{ opacity: 0, x: 10 }}
+                  initial={reduceMotion ? false : { opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, x: -10 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.2 }}
                 >
-                  {activeTab === 'general' && <GeneralSettings />}
+                  {activeTab === 'general' && <GeneralSettings onOfflineUpdate={onOfflineUpdate} />}
                   {activeTab === 'units' && <UnitsSettings />}
-                  {activeTab === 'defaults' && <DefaultsSettings />}
                   {activeTab === 'export' && <ExportSettings />}
                   {activeTab === 'company' && <CompanySettings />}
                   {activeTab === 'notifications' && <NotificationSettings />}
-                  {activeTab === 'viewer' && <ViewerSettings />}
-                  {activeTab === 'advanced' && <AdvancedSettings />}
                 </motion.div>
               </AnimatePresence>
             </ScrollArea>
@@ -300,12 +287,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-white/8 bg-black/15">
-          <p className="text-sm text-slate-400 flex items-center gap-2">
+        <div className="flex flex-none flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-3 sm:px-6">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Save className="w-4 h-4" />
             Settings are saved automatically
           </p>
-          <Button onClick={() => onOpenChange(false)} className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 px-6">
+          <Button onClick={() => onOpenChange(false)} className="rounded-md px-6">
             <Check className="w-4 h-4 mr-2" />
             Done
           </Button>
@@ -319,7 +306,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 // GENERAL SETTINGS
 // ============================================================================
 
-function GeneralSettings() {
+function GeneralSettings({ onOfflineUpdate }: { onOfflineUpdate?: () => void }) {
   const { settings, updateSettings } = useSettings();
   const [availableFonts, setAvailableFonts] = useState<AppFontOption[]>(APP_FONT_OPTIONS);
   const normalizedUiFont = normalizeAppFontValue(settings.general.uiFont);
@@ -360,7 +347,7 @@ function GeneralSettings() {
           label="Theme"
           description="Choose your preferred color theme"
         >
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {[
               { value: 'light', icon: <Sun className="w-4 h-4" />, label: 'Light' },
               { value: 'dark', icon: <Moon className="w-4 h-4" />, label: 'Dark' },
@@ -371,7 +358,8 @@ function GeneralSettings() {
                 variant={settings.general.theme === theme.value ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => updateSettings('general', { theme: theme.value as AppSettings['general']['theme'] })}
-                className={settings.general.theme === theme.value ? 'bg-blue-600' : ''}
+                className="rounded-md"
+                aria-pressed={settings.general.theme === theme.value}
               >
                 {theme.icon}
                 <span className="ml-2">{theme.label}</span>
@@ -389,7 +377,7 @@ function GeneralSettings() {
               value={normalizedUiFont}
               onValueChange={(value) => updateSettings('general', { uiFont: value as AppSettings['general']['uiFont'] })}
             >
-              <SelectTrigger className="w-[340px] max-w-full">
+              <SelectTrigger className="w-[340px] max-w-full" aria-label="Application font">
                 <SelectValue placeholder="Select interface font" />
               </SelectTrigger>
               <SelectContent className="max-h-[360px]">
@@ -418,21 +406,21 @@ function GeneralSettings() {
             </Select>
 
             <div
-              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+              className="rounded-md border border-border bg-muted/30 px-4 py-3"
               style={{ fontFamily: selectedFont.stack }}
             >
-              <div className="text-sm font-semibold text-white">
+              <div className="text-sm font-semibold text-foreground">
                 {selectedFont.label}
               </div>
-              <div className="text-sm text-slate-300">
-                ScanMaster Technique Card Preview 123
+              <div className="text-sm text-foreground/90">
+                RT-PT Inspector Technique Preview 123
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-muted-foreground">
                 {selectedFont.sample}
               </div>
             </div>
 
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-muted-foreground">
               {systemFonts.length > 0
                 ? `${availableFonts.length} fonts available, including ${systemFonts.length} detected from this workstation.`
                 : `${availableFonts.length} fonts available in the selector.`}
@@ -441,62 +429,23 @@ function GeneralSettings() {
         </SettingsRow>
       </SettingsSection>
 
-      {/* Language */}
-      <SettingsSection title="Language & Region">
-        <SettingsRow
-          label="Language"
-          description="Select your preferred language"
-        >
-          <Select
-            value={settings.general.language}
-            onValueChange={(value) => updateSettings('general', { language: value as AppSettings['general']['language'] })}
+      {onOfflineUpdate && (
+        <SettingsSection title="Desktop Updates">
+          <SettingsRow
+            label="Install Update from USB"
+            description="Select and verify a signed offline update package for this workstation"
           >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
+            <Button variant="outline" onClick={onOfflineUpdate} className="w-full sm:w-auto">
+              <Usb className="mr-2 h-4 w-4" />
+              Choose Update Package
+            </Button>
+          </SettingsRow>
+        </SettingsSection>
+      )}
 
-        <SettingsRow
-          label="Date Format"
-          description="How dates are displayed"
-        >
-          <Select
-            value={settings.general.dateFormat}
-            onValueChange={(value) => updateSettings('general', { dateFormat: value as AppSettings['general']['dateFormat'] })}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-              <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-              <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-
-        <SettingsRow
-          label="Time Format"
-          description="12-hour or 24-hour clock"
-        >
-          <Select
-            value={settings.general.timeFormat}
-            onValueChange={(value) => updateSettings('general', { timeFormat: value as AppSettings['general']['timeFormat'] })}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="12h">12-hour (AM/PM)</SelectItem>
-              <SelectItem value="24h">24-hour</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-      </SettingsSection>
+      <p className="rounded-lg border border-border/80 bg-muted/25 px-4 py-3 text-sm leading-6 text-muted-foreground">
+        Units, controlled organization data, and PDF release content are set inside each technique so they remain part of the reviewed document.
+      </p>
     </div>
   );
 }
@@ -565,103 +514,6 @@ function UnitsSettings() {
           </Select>
         </SettingsRow>
 
-        <SettingsRow
-          label="Frequency Display"
-          description="How ultrasonic frequency is shown"
-        >
-          <Select
-            value={settings.units.frequencyDisplay}
-            onValueChange={(value) => updateSettings('units', { frequencyDisplay: value as AppSettings['units']['frequencyDisplay'] })}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MHz">MHz</SelectItem>
-              <SelectItem value="kHz">kHz</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-      </SettingsSection>
-    </div>
-  );
-}
-
-// ============================================================================
-// DEFAULTS SETTINGS
-// ============================================================================
-
-function DefaultsSettings() {
-  const { settings, updateSettings } = useSettings();
-
-  return (
-    <div className="space-y-6">
-      <SettingsSection title="Document Defaults">
-        <SettingsRow
-          label="Default Standard"
-          description="Standard to use for new technique sheets"
-        >
-          <Select
-            value={settings.defaults.defaultStandard}
-            onValueChange={(value) => updateSettings('defaults', { defaultStandard: value as AppSettings['defaults']['defaultStandard'] })}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="AMS-STD-2154E">AMS-STD-2154E</SelectItem>
-              <SelectItem value="ASTM-A388">ASTM-A388</SelectItem>
-              <SelectItem value="BS-EN-10228-3">BS-EN-10228-3</SelectItem>
-              <SelectItem value="BS-EN-10228-4">BS-EN-10228-4</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-
-        <SettingsRow
-          label="Default Material"
-          description="Pre-selected material for new documents"
-        >
-          <Input
-            value={settings.defaults.defaultMaterial}
-            onChange={(e) => updateSettings('defaults', { defaultMaterial: e.target.value })}
-            className="w-48"
-            placeholder="e.g., Aluminum 7075-T6"
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Default Frequency (MHz)"
-          description="Pre-selected probe frequency"
-        >
-          <Input
-            value={settings.defaults.defaultFrequency}
-            onChange={(e) => updateSettings('defaults', { defaultFrequency: e.target.value })}
-            className="w-32"
-            placeholder="5.0"
-          />
-        </SettingsRow>
-      </SettingsSection>
-
-      <SettingsSection title="Auto-Fill Behavior">
-        <SettingsRow
-          label="Auto-Fill Enabled"
-          description="Automatically fill related fields based on standard rules"
-        >
-          <Switch
-            checked={settings.defaults.autoFillEnabled}
-            onCheckedChange={(checked) => updateSettings('defaults', { autoFillEnabled: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Auto-Calculate"
-          description="Automatically calculate values like metal travel, beam paths"
-        >
-          <Switch
-            checked={settings.defaults.autoCalculateEnabled}
-            onCheckedChange={(checked) => updateSettings('defaults', { autoCalculateEnabled: checked })}
-          />
-        </SettingsRow>
       </SettingsSection>
     </div>
   );
@@ -817,16 +669,16 @@ function CompanySettings() {
           label="Company Logo"
           description="Logo for documents and exports"
         >
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             {settings.company.companyLogo && (
               <img
                 src={settings.company.companyLogo}
                 alt="Company Logo"
-                className="h-10 w-auto object-contain bg-white rounded px-2 py-1"
+                className="h-10 w-auto rounded-md border border-border bg-white object-contain px-2 py-1"
               />
             )}
-            <label className="cursor-pointer">
-              <span className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-slate-700 hover:bg-slate-600 text-white transition-colors">
+            <label className="cursor-pointer rounded-md focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              <span className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
                 <Upload className="w-4 h-4" />
                 Upload Logo
               </span>
@@ -834,7 +686,7 @@ function CompanySettings() {
                 type="file"
                 accept="image/*"
                 onChange={handleLogoUpload}
-                className="hidden"
+                className="sr-only"
               />
             </label>
           </div>
@@ -949,7 +801,7 @@ function NotificationSettings() {
               step={1}
               className="flex-1"
             />
-            <span className="text-sm text-slate-400 w-12">{settings.notifications.autoSaveInterval} min</span>
+            <span className="w-12 text-sm tabular-nums text-muted-foreground">{settings.notifications.autoSaveInterval} min</span>
           </div>
         </SettingsRow>
       </SettingsSection>
@@ -980,219 +832,15 @@ function NotificationSettings() {
 }
 
 // ============================================================================
-// VIEWER SETTINGS
-// ============================================================================
-
-function ViewerSettings() {
-  const { settings, updateSettings } = useSettings();
-
-  return (
-    <div className="space-y-6">
-      <SettingsSection title="3D Viewer">
-        <SettingsRow
-          label="Enable 3D Viewer"
-          description="Show 3D part visualization panel"
-        >
-          <Switch
-            checked={settings.viewer.viewer3DEnabled}
-            onCheckedChange={(checked) => updateSettings('viewer', { viewer3DEnabled: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Default Size"
-          description="Initial 3D viewer panel size"
-        >
-          <Select
-            value={settings.viewer.viewer3DDefaultSize}
-            onValueChange={(value) => updateSettings('viewer', { viewer3DDefaultSize: value as AppSettings['viewer']['viewer3DDefaultSize'] })}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="S">Small</SelectItem>
-              <SelectItem value="M">Medium</SelectItem>
-              <SelectItem value="L">Large</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-
-        <SettingsRow
-          label="Show Grid"
-          description="Display reference grid in 3D viewer"
-        >
-          <Switch
-            checked={settings.viewer.viewer3DShowGrid}
-            onCheckedChange={(checked) => updateSettings('viewer', { viewer3DShowGrid: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Show Axes"
-          description="Display X, Y, Z coordinate axes"
-        >
-          <Switch
-            checked={settings.viewer.viewer3DShowAxes}
-            onCheckedChange={(checked) => updateSettings('viewer', { viewer3DShowAxes: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Auto Rotate"
-          description="Automatically rotate the 3D model"
-        >
-          <Switch
-            checked={settings.viewer.viewer3DAutoRotate}
-            onCheckedChange={(checked) => updateSettings('viewer', { viewer3DAutoRotate: checked })}
-          />
-        </SettingsRow>
-      </SettingsSection>
-
-      <SettingsSection title="Technical Drawing">
-        <SettingsRow
-          label="Enable Grid"
-          description="Show grid on technical drawings"
-        >
-          <Switch
-            checked={settings.viewer.drawingGridEnabled}
-            onCheckedChange={(checked) => updateSettings('viewer', { drawingGridEnabled: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Snap to Grid"
-          description="Snap elements to grid when drawing"
-        >
-          <Switch
-            checked={settings.viewer.drawingSnapToGrid}
-            onCheckedChange={(checked) => updateSettings('viewer', { drawingSnapToGrid: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Grid Size (px)"
-          description="Distance between grid lines"
-        >
-          <div className="flex items-center gap-4 w-48">
-            <Slider
-              value={[settings.viewer.drawingGridSize]}
-              onValueChange={([value]) => updateSettings('viewer', { drawingGridSize: value })}
-              min={5}
-              max={50}
-              step={5}
-              className="flex-1"
-            />
-            <span className="text-sm text-slate-400 w-12">{settings.viewer.drawingGridSize}px</span>
-          </div>
-        </SettingsRow>
-      </SettingsSection>
-    </div>
-  );
-}
-
-// ============================================================================
-// ADVANCED SETTINGS
-// ============================================================================
-
-function AdvancedSettings() {
-  const { settings, updateSettings } = useSettings();
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
-        <Info className="w-5 h-5 text-amber-400" />
-        <p className="text-sm text-amber-200">
-          These settings are for advanced users. Changing them may affect performance.
-        </p>
-      </div>
-
-      <SettingsSection title="Developer Options">
-        <SettingsRow
-          label="Developer Mode"
-          description="Enable developer tools and debugging"
-        >
-          <Switch
-            checked={settings.advanced.developerMode}
-            onCheckedChange={(checked) => updateSettings('advanced', { developerMode: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Debug Logging"
-          description="Enable detailed console logging"
-        >
-          <Switch
-            checked={settings.advanced.debugLogging}
-            onCheckedChange={(checked) => updateSettings('advanced', { debugLogging: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Experimental Features"
-          description="Enable features still in development"
-        >
-          <Switch
-            checked={settings.advanced.experimentalFeatures}
-            onCheckedChange={(checked) => updateSettings('advanced', { experimentalFeatures: checked })}
-          />
-        </SettingsRow>
-      </SettingsSection>
-
-      <SettingsSection title="Performance">
-        <SettingsRow
-          label="Enable Cache"
-          description="Cache data for faster loading"
-        >
-          <Switch
-            checked={settings.advanced.cacheEnabled}
-            onCheckedChange={(checked) => updateSettings('advanced', { cacheEnabled: checked })}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label="Offline Mode"
-          description="Enable offline data storage"
-        >
-          <Switch
-            checked={settings.advanced.offlineMode}
-            onCheckedChange={(checked) => updateSettings('advanced', { offlineMode: checked })}
-          />
-        </SettingsRow>
-      </SettingsSection>
-
-      <SettingsSection title="Data Management">
-        <SettingsRow
-          label="Recent Files Limit"
-          description="Maximum number of recent files to remember"
-        >
-          <div className="flex items-center gap-4 w-48">
-            <Slider
-              value={[settings.advanced.maxRecentFiles]}
-              onValueChange={([value]) => updateSettings('advanced', { maxRecentFiles: value })}
-              min={5}
-              max={50}
-              step={5}
-              className="flex-1"
-            />
-            <span className="text-sm text-slate-400 w-8">{settings.advanced.maxRecentFiles}</span>
-          </div>
-        </SettingsRow>
-      </SettingsSection>
-    </div>
-  );
-}
-
-// ============================================================================
 // HELPER COMPONENTS
 // ============================================================================
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-4 mb-8 rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
-      <h4 className="text-xs font-bold text-blue-300 uppercase tracking-widest border-b border-white/8 pb-2">{title}</h4>
+    <section className="mb-6 space-y-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+      <h4 className="border-b border-border pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{title}</h4>
       <div className="space-y-2">{children}</div>
-    </div>
+    </section>
   );
 }
 
@@ -1205,13 +853,20 @@ function SettingsRow({
   description: string;
   children: React.ReactNode;
 }) {
+  const labelId = useId();
+  const descriptionId = useId();
   return (
-    <div className="flex items-center justify-between py-4 px-4 rounded-[22px] bg-black/15 hover:bg-black/20 border border-white/8 transition-colors">
-      <div className="flex-1 pr-6 min-w-0">
-        <Label className="text-sm font-medium text-white block">{label}</Label>
-        <p className="text-xs text-slate-400 mt-1 leading-relaxed">{description}</p>
+    <div
+      className="flex flex-col gap-4 rounded-md border border-border bg-muted/20 px-4 py-3.5 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
+      role="group"
+      aria-labelledby={labelId}
+      aria-describedby={descriptionId}
+    >
+      <div className="min-w-0 flex-1 sm:pr-6">
+        <Label id={labelId} className="block text-sm font-medium text-foreground">{label}</Label>
+        <p id={descriptionId} className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
-      <div className="flex-shrink-0 [&_input]:rounded-2xl [&_input]:border-white/10 [&_input]:bg-slate-950/80 [&_input]:text-white [&_input]:placeholder:text-slate-500 [&_button]:rounded-2xl [&_button]:border-white/10 [&_button]:bg-slate-950/80 [&_button]:text-white [&_textarea]:rounded-2xl [&_textarea]:border-white/10 [&_textarea]:bg-slate-950/80 [&_textarea]:text-white">{children}</div>
+      <div className="w-full flex-shrink-0 sm:w-auto [&_input]:max-w-full [&_input]:rounded-md [&_input]:border-input [&_input]:bg-background [&_input]:text-foreground [&_button]:max-w-full [&_button]:rounded-md [&_textarea]:max-w-full [&_textarea]:rounded-md [&_textarea]:border-input [&_textarea]:bg-background [&_textarea]:text-foreground [&_[role=combobox]]:max-w-full [&_[role=combobox]]:rounded-md">{children}</div>
     </div>
   );
 }

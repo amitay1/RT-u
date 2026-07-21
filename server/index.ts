@@ -2,15 +2,18 @@ import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import morgan from "morgan";
 import { config } from "dotenv";
-import { registerRoutes } from "./routes";
+import { registerRtPtRoutes, type RtPtOrganizationSummary } from "./rtptRoutes";
+import { DbStorage } from "./storage";
+import { db } from "./db";
+import { organizations } from "../shared/schema";
+import { eq } from "drizzle-orm";
 import { setupVite } from "./vite";
 import { createServer } from "http";
 import path from "path";
 import { 
   securityHeaders, 
   corsOptions, 
-  sanitizeRequest, 
-  preventSqlInjection 
+  sanitizeRequest,
 } from "./middleware/security";
 import { generalRateLimiter } from "./middleware/rateLimiter";
 import { requestTracking, healthCheck, livenessProbe, readinessProbe, metricsEndpoint } from "./middleware/monitoring";
@@ -23,13 +26,41 @@ import {
 } from "./middleware/errorHandler";
 import logger, { stream } from "./utils/logger";
 import compression from "compression";
+import { createStandaloneRtPtLicenseRuntime } from "./rtptLicenseRuntime";
 
 // Load environment variables
 config();
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+const HOST = (process.env.HOST || "127.0.0.1").trim().toLowerCase();
 const isDev = process.env.NODE_ENV !== "production";
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+const LOCAL_ORGANIZATION_ID = "11111111-1111-1111-1111-111111111111";
+const LOCAL_ORGANIZATION_SLUG = "rtpt-local";
+
+if (!LOOPBACK_HOSTS.has(HOST)) {
+  throw new Error(
+    `Refusing to bind the RT-PT local server to non-loopback host "${HOST}" until authenticated public-server mode is implemented.`
+  );
+}
+
+const allowedRequestHosts = new Set([
+  "127.0.0.1",
+  "localhost",
+  "[::1]",
+  `127.0.0.1:${PORT}`,
+  `localhost:${PORT}`,
+  `[::1]:${PORT}`,
+]);
+
+app.use((req, res, next) => {
+  const requestHost = String(req.headers.host || "").toLowerCase();
+  if (!allowedRequestHosts.has(requestHost)) {
+    return res.status(403).json({ error: "Forbidden request host" });
+  }
+  return next();
+});
 
 // Handle uncaught errors
 handleUncaughtException();
@@ -50,7 +81,7 @@ if (isDev) {
   app.use((req, res, next) => {
     const start = Date.now();
     const reqPath = req.path;
-    let capturedJsonResponse: Record<string, any> | undefined = undefined;
+    let capturedJsonResponse: unknown;
 
     const originalResJson = res.json;
     res.json = function (bodyJson, ...args) {
@@ -102,9 +133,6 @@ app.use((req, res, next) => {
   }
   sanitizeRequest(req, res, next);
 });
-// Note: SQL injection prevention is handled by Drizzle ORM's parameterized queries
-// The preventSqlInjection middleware is too aggressive and blocks legitimate data
-
 // Rate limiting for API routes
 app.use('/api', generalRateLimiter);
 
@@ -114,15 +142,89 @@ app.get('/health/live', livenessProbe);
 app.get('/health/ready', readinessProbe);
 app.get('/metrics', metricsEndpoint);
 
+type OrganizationRow = typeof organizations.$inferSelect;
+
+function toLocalOrganizationSummary(organization: OrganizationRow): RtPtOrganizationSummary {
+  return {
+    id: organization.id,
+    name: organization.name,
+    slug: organization.slug,
+    domain: organization.domain,
+    plan: organization.plan || "free",
+    isActive: organization.isActive ?? true,
+    maxUsers: organization.maxUsers ?? 5,
+    maxSheets: organization.maxSheets ?? 100,
+    settings: organization.settings || {},
+    userRole: "owner",
+  };
+}
+
+async function resolveLocalOrganization(): Promise<RtPtOrganizationSummary> {
+  const existingById = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, LOCAL_ORGANIZATION_ID))
+    .limit(1);
+  if (existingById[0]) return toLocalOrganizationSummary(existingById[0]);
+
+  // Reuse an existing local workspace rather than changing a referenced
+  // organization primary key when an older installation used another UUID.
+  const existingBySlug = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.slug, LOCAL_ORGANIZATION_SLUG))
+    .limit(1);
+  if (existingBySlug[0]) return toLocalOrganizationSummary(existingBySlug[0]);
+
+  const inserted = await db.insert(organizations).values({
+    id: LOCAL_ORGANIZATION_ID,
+    name: "RT/PT Local Workspace",
+    slug: LOCAL_ORGANIZATION_SLUG,
+    plan: "free",
+    isActive: true,
+    maxUsers: 999,
+    maxSheets: 99_999,
+    settings: {},
+  }).returning();
+
+  return toLocalOrganizationSummary(inserted[0]);
+}
+
+let localOrganizationPromise: Promise<RtPtOrganizationSummary> | undefined;
+
+async function listLocalOrganizations(_userId: string): Promise<RtPtOrganizationSummary[]> {
+  if (!localOrganizationPromise) {
+    localOrganizationPromise = resolveLocalOrganization();
+  }
+
+  try {
+    return [await localOrganizationPromise];
+  } catch (error) {
+    // Permit a later request to retry after a transient database failure.
+    localOrganizationPromise = undefined;
+    throw error;
+  }
+}
+
 (async () => {
   const server = createServer(app);
 
-  // Register API routes
-  registerRoutes(app);
+  // The browser/PWA surface uses the same independent signed RT/PT license
+  // format as Electron. License endpoints stay available so a locked local
+  // installation can be activated; all document/profile APIs fail closed.
+  const rtPtLicenseRuntime = createStandaloneRtPtLicenseRuntime();
+  rtPtLicenseRuntime.register(app);
+
+  // Register only the standalone RT/PT API. Header identity is permitted here
+  // solely because this process is hard-bound to loopback above.
+  registerRtPtRoutes(app, {
+    storage: new DbStorage(),
+    listOrganizations: listLocalOrganizations,
+  });
 
   // In production, serve the built client files
   if (process.env.NODE_ENV === "production") {
-    const clientPath = path.join(process.cwd(), "dist");
+    const clientPath = path.join(process.cwd(), "rtpt-dist");
     app.use(express.static(clientPath));
     
     // Handle client-side routing - serve index.html for all non-API routes
@@ -146,8 +248,8 @@ app.get('/metrics', metricsEndpoint);
   handleGracefulShutdown(server);
 
   // Start server
-  server.listen(PORT, "0.0.0.0", () => {
-    const message = `Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`;
+  server.listen(PORT, HOST, () => {
+    const message = `Server running at http://${HOST}:${PORT} in ${process.env.NODE_ENV || 'development'} mode`;
     if (!isDev) {
       logger.info(message);
     }

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { PtPostCleaning } from '@/types/penetrant';
-import { DateField, SelectField, TextField } from '@/components/tabs/shared/FieldRow';
+import { TextAreaField } from '@/components/tabs/shared/FieldRow';
 
 interface Props {
   data: PtPostCleaning;
@@ -14,13 +14,27 @@ export const PtPostCleaningTab = ({ data, onChange }: Props) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>8. Post Cleaning &amp; Reporting</CardTitle>
+        <CardTitle>8. Post-Cleaning Plan</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <SelectField label="Post Cleaning Method" value={data.postCleaningMethod} onChange={v => set('postCleaningMethod', v)} options={['Water', 'Solvent']} />
-        <SelectField label="Result" value={data.result} onChange={v => set('result', v)} options={['Accept', 'Reject']} />
-        <TextField label="Inspector" value={data.inspector} onChange={v => set('inspector', v)} />
-        <DateField label="Date" value={data.date} onChange={v => set('date', v)} />
+        <div className="md:col-span-2">
+          <TextAreaField
+            label="Post-Cleaning Instructions"
+            value={data.instructions}
+            onChange={v => set('instructions', v)}
+            placeholder="Specify required cleaning method, sequence, and completion criteria"
+            rows={5}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <TextAreaField
+            label="Corrosion Protection"
+            value={data.corrosionProtection}
+            onChange={v => set('corrosionProtection', v)}
+            placeholder="Specify required protection or state that none is required"
+            rows={4}
+          />
+        </div>
       </CardContent>
     </Card>
   );

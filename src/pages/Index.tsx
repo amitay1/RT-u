@@ -1,75 +1,51 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StandardSelector } from "@/components/StandardSelector";
-import { AcceptanceClassSelector } from "@/components/AcceptanceClassSelector";
-import { ThreeDViewer } from "@/components/ThreeDViewer";
+
+import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
+import { DiagnosticsExportDialog } from "@/components/support/DiagnosticsExportDialog";
 import { MenuBar } from "@/components/MenuBar";
-import { Toolbar, type NdtMethod } from "@/components/Toolbar";
-import { RtPtWorkspace } from "@/components/RtPtWorkspace";
+import { ProfileSelectionDialog } from "@/components/inspector";
 import { RtPtSidebar } from "@/components/RtPtSidebar";
+import { RtPtWorkspace } from "@/components/RtPtWorkspace";
+import { RtPtValidationDialog } from "@/components/rtpt/RtPtValidationDialog";
+import { SelfDiagnosticPanel } from "@/components/diagnostics/SelfDiagnosticPanel";
 import { StatusBar } from "@/components/StatusBar";
-import { UnifiedExportDialog } from "@/components/export/UnifiedExportDialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Toolbar } from "@/components/Toolbar";
+import { OfflineUpdateDialog } from "@/components/updates/OfflineUpdateDialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { InspectionSetupTab } from "@/components/tabs/InspectionSetupTab";
-import { EquipmentTab } from "@/components/tabs/EquipmentTab";
-import { CalibrationTab } from "@/components/tabs/CalibrationTab";
-import { ScanParametersTab } from "@/components/tabs/ScanParametersTab";
-import { AcceptanceCriteriaTab } from "@/components/tabs/AcceptanceCriteriaTab";
-import { DocumentationTab } from "@/components/tabs/DocumentationTab";
-import { CoverPageTab } from "@/components/tabs/CoverPageTab";
-import { PartDiagramTab } from "@/components/tabs/PartDiagramTab";
-import { ProbeDetailsTab } from "@/components/tabs/ProbeDetailsTab";
-import { ScansTab } from "@/components/tabs/ScansTab";
-import { RemarksTab } from "@/components/tabs/RemarksTab";
-import { EquipmentDetailsTab } from "@/components/tabs/EquipmentDetailsTab";
-import { IndicationsTab } from "@/components/tabs/IndicationsTab";
-import { ResultsSummaryTab } from "@/components/tabs/ResultsSummaryTab";
-import { InspectorCertificationTab } from "@/components/tabs/InspectorCertificationTab";
-import { AerospaceForgingTab } from "@/components/tabs/AerospaceForgingTab";
-import { ScanDetailsTab } from "@/components/tabs/ScanDetailsTab";
-import { ScanPlanTab } from "@/components/tabs/ScanPlanTab";
-import { NdipReferenceTab } from "@/components/tabs/NdipReferenceTab";
-import { Collapsible3DPanel } from "@/components/ui/ResizablePanel";
-import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
-import type { StandardType, MaterialType, AcceptanceClass } from "@/types/techniqueSheet";
-import { getResolutionValues } from "@/utils/frequencyUtils";
-import { deriveCalibrationScanDirectionInfo } from "@/utils/mroPolicy";
-import { useAuth } from "@/hooks/useAuth";
-import { logInfo } from "@/lib/logger";
-import { Button } from "@/components/ui/button";
-import { Loader2, FileText, FlaskConical } from "lucide-react";
+import type { SavedCard } from "@/contexts/SavedCardsContext";
 import { useInspectorProfile } from "@/contexts/InspectorProfileContext";
-import { ProfileSelectionDialog } from "@/components/inspector";
-import { quickFillPresets } from "@/data/quickFillPresets";
-import { useLicense } from "@/contexts/LicenseContext";
-import { DiagnosticsExportDialog } from "@/components/support/DiagnosticsExportDialog";
-import { SelfDiagnosticPanel } from "@/components/diagnostics/SelfDiagnosticPanel";
-import { OfflineUpdateDialog } from "@/components/updates/OfflineUpdateDialog";
-import { LicenseWarningBanner } from "@/components/LicenseWarningBanner";
-import { requiresAngleBeam } from "@/utils/beamTypeClassification";
-import { exportInspectionReportPDF } from "@/utils/export/InspectionReportPDF";
+import { useRtPtLicense } from "@/contexts/RtPtLicenseContext";
+import { useRtPtWorkspaceState } from "@/hooks/useRtPtWorkspaceState";
+import { useSheetPersistence } from "@/hooks/useSheetPersistence";
+import { decodeRtPtDocument, fingerprintRtPtContent } from "@/lib/rtPtDocumentCodec";
+import { validateRtPtDocument, type RtPtValidationIssue } from "@/lib/rtPtValidation";
+import type {
+  PersistedTechniqueSheetData,
+  TechniqueSheetRecord,
+} from "@/services/techniqueSheetService";
+import { RT_PT_METHOD_LABEL, type RtPtMethod } from "@/types/rtPtDocument";
+import { exportRtPtTechniquePdf, getRtPtPdfReleaseState } from "@/utils/export/RtPtTechniquePDF";
 import {
   clearTechniqueSheetDraft,
   clearUpdateRecoveryRecord,
+  readTechniqueSheetDraft,
   readUpdateRecoveryRecord,
   writeTechniqueSheetDraft,
   writeUpdateRecoveryRecord,
 } from "@/utils/updateRecovery";
 import type { UpdateRecoveryRecord } from "@/utils/updateRecovery";
-import type { SavedCard } from "@/contexts/SavedCardsContext";
-
-import { StandardProvider } from "@/contexts/StandardContext";
-
-// Custom hooks
-import { useTechniqueSheetState } from "@/hooks/useTechniqueSheetState";
-import { useSheetPersistence } from "@/hooks/useSheetPersistence";
-import { useExportWorkflow } from "@/hooks/useExportWorkflow";
-import { useStandardAutoFill } from "@/hooks/useStandardAutoFill";
-import { useCompletionScore } from "@/hooks/useCompletionScore";
 
 type UpdateInstallElectron = NonNullable<Window["electron"]> & {
   onPrepareForUpdateInstall?: (callback: (payload: {
@@ -87,96 +63,153 @@ type UpdateInstallElectron = NonNullable<Window["electron"]> & {
 
 const getUpdateInstallElectron = () => window.electron as UpdateInstallElectron | undefined;
 
-const Index = () => {
-  const navigate = useNavigate();
-  const { user, loading, signOut } = useAuth();
-  const { isElectron } = useLicense();
-  const { needsProfileSelection, isLoading: profileLoading } = useInspectorProfile();
+const RT_PT_LOCAL_OWNER = {
+  id: "00000000-0000-0000-0000-000000000000",
+} as const;
 
-  // ── UI-level state (stays in Index) ────────────────────────────────────
-  const [standard, setStandard] = useState<StandardType>("AMS-STD-2154E");
-  const [activeTab, setActiveTab] = useState("setup");
-  const [reportMode, setReportMode] = useState<"Technique" | "Report">("Technique");
-  // ── NDT method switch ──────────────────────────────────────────────────
-  // This build is RT/PT only — default to RT-Film. The "UT" value is kept in
-  // the type for backward-compat with the Toolbar prop, but no UI sets it.
-  const [ndtMethod, setNdtMethod] = useState<NdtMethod>("RT-Film");
-  const isRtPtMode = ndtMethod !== "UT";
-  const [isSplitMode, setIsSplitMode] = useState(false);
-  const [activePart, setActivePart] = useState<"A" | "B">("A");
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+const RT_PT_METHOD_SHORT_LABEL: Record<RtPtMethod, string> = {
+  "RT-Film": "RT Film",
+  "RT-Digital": "RT Digital / DDA",
+  PT: "Penetrant Testing",
+};
+
+type PendingCardLoad =
+  | { source: "local"; label: string; card: SavedCard }
+  | { source: "database"; label: string; sheetId: string };
+
+const normaliseValidationLabel = (value: string) => value
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+const findValidationField = (
+  workspace: HTMLElement,
+  issue: RtPtValidationIssue,
+): HTMLElement | null => {
+  const explicit = workspace.querySelector<HTMLElement>(`[data-validation-path="${CSS.escape(issue.path)}"]`);
+  if (explicit) return explicit;
+
+  const targetLabel = normaliseValidationLabel(issue.label);
+  const targetTokens = new Set(targetLabel.split(" ").filter(Boolean));
+  const candidates = Array.from(workspace.querySelectorAll<HTMLLabelElement>("label"));
+  let best: { label: HTMLLabelElement; score: number } | null = null;
+
+  for (const label of candidates) {
+    const candidateLabel = normaliseValidationLabel(label.textContent ?? "");
+    if (!candidateLabel) continue;
+    const candidateTokens = candidateLabel.split(" ").filter(Boolean);
+    const matchingTokens = candidateTokens.filter((token) => targetTokens.has(token)).length;
+    const score = candidateLabel === targetLabel
+      ? 2
+      : Math.max(
+        matchingTokens / Math.max(candidateTokens.length, 1),
+        matchingTokens / Math.max(targetTokens.size, 1),
+      );
+    if ((!best || score > best.score) && (score >= 0.6 || matchingTokens >= 2)) {
+      best = { label, score };
+    }
+  }
+
+  if (!best) return null;
+  const labelledControl = best.label.htmlFor ? document.getElementById(best.label.htmlFor) : null;
+  return labelledControl
+    || best.label.closest<HTMLElement>(".field-shell")?.querySelector<HTMLElement>("input, textarea, button, [role='combobox'], [tabindex]")
+    || best.label;
+};
+
+const focusValidationIssue = (issue: RtPtValidationIssue) => {
+  const workspace = document.querySelector<HTMLElement>("[data-rtpt-workspace-scroll]");
+  if (!workspace) return;
+
+  const field = findValidationField(workspace, issue);
+  if (!field) {
+    workspace.scrollTo({ top: 0, behavior: "smooth" });
+    workspace.focus();
+    return;
+  }
+
+  const highlightTarget = field.closest<HTMLElement>(".field-shell") ?? field;
+  highlightTarget.classList.add("validation-target-highlight");
+  field.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  if (typeof field.focus === "function") field.focus({ preventScroll: true });
+  window.setTimeout(() => highlightTarget.classList.remove("validation-target-highlight"), 2600);
+};
+
+const Index = () => {
+  const { needsProfileSelection, isLoading: profileLoading } = useInspectorProfile();
+  const { refresh: refreshLicense } = useRtPtLicense();
+  const isElectron = typeof window !== "undefined" && Boolean(window.electron);
+
+  const rtPtWorkspace = useRtPtWorkspaceState("RT-Film");
+  const {
+    document: rtPtDocument,
+    hydrateDocument: hydrateRtPtDocument,
+    resetWorkspace: resetRtPtWorkspace,
+  } = rtPtWorkspace;
+  const ndtMethod = rtPtWorkspace.method;
+
   const [diagnosticsDialogOpen, setDiagnosticsDialogOpen] = useState(false);
   const [diagnosticsPanelOpen, setDiagnosticsPanelOpen] = useState(false);
   const [offlineUpdateDialogOpen, setOfflineUpdateDialogOpen] = useState(false);
-  const [licenseWarningDismissed, setLicenseWarningDismissed] = useState(false);
-  const [viewer3DOpen, setViewer3DOpen] = useState(false);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [quickFillDialogOpen, setQuickFillDialogOpen] = useState(false);
+  const [pendingMethodChange, setPendingMethodChange] = useState<RtPtMethod | null>(null);
+  const [pendingCardLoad, setPendingCardLoad] = useState<PendingCardLoad | null>(null);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [unsavedCloseDialogOpen, setUnsavedCloseDialogOpen] = useState(false);
   const [updateRecoveryNotice, setUpdateRecoveryNotice] = useState<UpdateRecoveryRecord | null>(null);
   const [isClosingAfterSave, setIsClosingAfterSave] = useState(false);
+  const [isReplacingCard, setIsReplacingCard] = useState(false);
+  const [isSavingBeforeCardLoad, setIsSavingBeforeCardLoad] = useState(false);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string | null>(null);
+  const [hasHydratedRtPtDraft, setHasHydratedRtPtDraft] = useState(false);
   const hasInitializedSavedSnapshotRef = useRef(false);
+  const recoveredDraftRef = useRef(false);
   const suppressClosePromptRef = useRef(false);
+  const pendingNewTechniqueBaselineRef = useRef(false);
 
-  // ── Hook 1: Technique sheet state ──────────────────────────────────────
-  const sheetState = useTechniqueSheetState({
-    standard, isSplitMode, activePart, reportMode, activeTab,
-    setStandard, setActiveTab, setReportMode, setIsSplitMode, setActivePart,
-  });
+  const activeRtPtGeneral = rtPtDocument.technique.general;
+  const rtPtDocumentTitle = rtPtDocument.documentControl.title
+    || activeRtPtGeneral.partName
+    || activeRtPtGeneral.partNumber
+    || "";
+  const primaryControlledReference = rtPtDocument.controlledReferences[0];
+  const rtPtReferenceLabel = primaryControlledReference
+    ? `${primaryControlledReference.number || primaryControlledReference.title}${primaryControlledReference.revision ? ` Rev ${primaryControlledReference.revision}` : ""}`
+    : `${RT_PT_METHOD_LABEL[ndtMethod]} — controlled reference not selected`;
+  const rtPtValidation = useMemo(
+    () => validateRtPtDocument(rtPtDocument),
+    [rtPtDocument],
+  );
+  const activeRtPtTab = ndtMethod === "RT-Film"
+    ? rtPtWorkspace.activeTabs.rtFilm
+    : ndtMethod === "RT-Digital"
+      ? rtPtWorkspace.activeTabs.rtDigital
+      : rtPtWorkspace.activeTabs.pt;
 
-  const {
-    inspectionSetup, setInspectionSetup,
-    equipment, setEquipment,
-    calibration, setCalibration,
-    scanParameters, setScanParameters,
-    acceptanceCriteria, setAcceptanceCriteria,
-    documentation,
-    scanDetails,
-    inspectionSetupB, setInspectionSetupB,
-    equipmentB, setEquipmentB,
-    calibrationB, setCalibrationB,
-    scanParametersB, setScanParametersB,
-    acceptanceCriteriaB, setAcceptanceCriteriaB,
-    documentationB,
-    scanDetailsB,
-    inspectionReport, setInspectionReport,
-    currentData,
-    copyPartAToB,
-    buildTechniqueSheetPayload,
-    buildCardData,
-    applyLoadedSheet,
-    applyLocalCard,
-    loadDraftFromLocalStorage,
-    applyTestCard,
-    applySampleCard,
-    applyStandardChange,
-  } = sheetState;
+  const buildRtPtPayload = useCallback(() => rtPtDocument, [rtPtDocument]);
 
-  // ── Hook 4: Standard auto-fill ─────────────────────────────────────────
-  useStandardAutoFill({
-    standard, isSplitMode, activePart,
-    inspectionSetup, equipment, calibration, scanParameters, acceptanceCriteria,
-    setEquipment, setCalibration: sheetState.setCalibration,
-    setScanParameters, setAcceptanceCriteria,
-    inspectionSetupB, equipmentB,
-    setEquipmentB, setCalibrationB: sheetState.setCalibrationB,
-    setScanParametersB, setAcceptanceCriteriaB,
-  });
+  const applyPersistedRtPtData = useCallback((data: PersistedTechniqueSheetData) => {
+    const decoded = hydrateRtPtDocument(data);
+    if (decoded.status !== "success") {
+      throw new Error(decoded.message);
+    }
+  }, [hydrateRtPtDocument]);
 
-  // ── Hook 5: Completion score ───────────────────────────────────────────
-  const { completionPercent, completedFieldsCount } = useCompletionScore({
-    currentData, reportMode,
-  });
+  const applyLoadedRtPtSheet = useCallback((record: TechniqueSheetRecord) => {
+    applyPersistedRtPtData(record.data);
+  }, [applyPersistedRtPtData]);
 
-  // ── Hook 2: Sheet persistence ──────────────────────────────────────────
   const persistence = useSheetPersistence({
-    user, standard, isSplitMode, activePart, reportMode,
-    completionPercent, currentData,
-    buildTechniqueSheetPayload, buildCardData,
-    applyLoadedSheet, applyLocalCard,
-    inspectionSetupB, equipmentB, calibrationB,
-    scanParametersB, acceptanceCriteriaB, documentationB,
+    user: RT_PT_LOCAL_OWNER,
+    standard: rtPtReferenceLabel,
+    documentTitle: rtPtDocumentTitle,
+    documentDescription: `${rtPtDocumentTitle || "Untitled technique"} - ${rtPtReferenceLabel}`,
+    completionPercent: rtPtValidation.completionPercent,
+    buildTechniqueSheetPayload: buildRtPtPayload,
+    buildCardData: buildRtPtPayload,
+    applyLoadedSheet: applyLoadedRtPtSheet,
+    applyLocalCard: applyPersistedRtPtData,
   });
   const {
     currentSheetName,
@@ -187,59 +220,94 @@ const Index = () => {
     handleLoadSheet: loadSavedSheet,
     handleSaveDialogConfirm: confirmSaveDialog,
     saveCurrentCardSilently,
+    setCurrentSheetId,
     setCurrentLocalCardId,
     setCurrentSheetName,
   } = persistence;
 
-  // ── Hook 3: Export workflow ────────────────────────────────────────────
-  const exportWorkflow = useExportWorkflow({
-    activeTab, reportMode, currentData,
-    isSplitMode, activePart, inspectionSetup, inspectionSetupB,
-    setActiveTab,
-  });
-  const { handleExportPDF: prepareExportPDF } = exportWorkflow;
+  const confirmActiveLicense = useCallback(async () => {
+    const currentLicense = await refreshLicense();
+    if (currentLicense.active) return true;
+    toast.error("License verification is required before saving or exporting controlled work.");
+    return false;
+  }, [refreshLicense]);
 
   const handleExportPDF = useCallback(async () => {
-    const result = await prepareExportPDF();
-    if (result.shouldOpenDialog) {
-      setExportDialogOpen(true);
-    }
-  }, [prepareExportPDF]);
+    if (!await confirmActiveLicense()) return;
+    const filename = exportRtPtTechniquePdf(rtPtDocument, rtPtValidation);
+    const release = getRtPtPdfReleaseState(rtPtDocument, rtPtValidation);
+    if (release.controlledRelease) toast.success(`Exported controlled document ${filename}`);
+    else toast.warning(`Exported draft/uncontrolled document ${filename}.`);
+  }, [confirmActiveLicense, rtPtDocument, rtPtValidation]);
 
-  const currentDraftData = useMemo(() => buildCardData(), [buildCardData]);
-  const currentCardSnapshot = useMemo(() => JSON.stringify(currentDraftData), [currentDraftData]);
+  const currentCardSnapshot = useMemo(
+    () => fingerprintRtPtContent(rtPtDocument),
+    [rtPtDocument],
+  );
   const isDirty = lastSavedSnapshot !== null && currentCardSnapshot !== lastSavedSnapshot;
-  const isPwNdip = standard === "NDIP-1226" || standard === "NDIP-1227";
+
+  useEffect(() => {
+    if (!pendingNewTechniqueBaselineRef.current) return;
+    pendingNewTechniqueBaselineRef.current = false;
+    setLastSavedSnapshot(currentCardSnapshot);
+  }, [currentCardSnapshot]);
+
+  const startNdtMethodTechnique = useCallback((method: RtPtMethod) => {
+    setCurrentSheetId(null);
+    setCurrentLocalCardId(null);
+    setCurrentSheetName("");
+    clearTechniqueSheetDraft();
+    clearUpdateRecoveryRecord();
+    recoveredDraftRef.current = false;
+    pendingNewTechniqueBaselineRef.current = true;
+    setLastSavedSnapshot(null);
+    resetRtPtWorkspace(method);
+  }, [
+    resetRtPtWorkspace,
+    setCurrentLocalCardId,
+    setCurrentSheetId,
+    setCurrentSheetName,
+  ]);
+
+  const handleNdtMethodChange = useCallback((method: RtPtMethod) => {
+    if (method === ndtMethod) return;
+    if (isDirty) {
+      setPendingMethodChange(method);
+      return;
+    }
+    startNdtMethodTechnique(method);
+  }, [isDirty, ndtMethod, startNdtMethodTechnique]);
 
   const markCurrentAsSaved = useCallback((snapshot = currentCardSnapshot) => {
     setLastSavedSnapshot(snapshot);
   }, [currentCardSnapshot]);
 
-  // ── localStorage draft save ────────────────────────────────────────────
   useEffect(() => {
-    if (!sheetState.hasHydratedInitialDraft) {
-      return;
+    if (hasHydratedRtPtDraft) {
+      writeTechniqueSheetDraft(rtPtDocument);
     }
-
-    writeTechniqueSheetDraft(currentDraftData);
-  }, [sheetState.hasHydratedInitialDraft, currentDraftData]);
-
-  // Load draft on mount
-  useEffect(() => {
-    loadDraftFromLocalStorage();
-  }, [loadDraftFromLocalStorage]);
+  }, [hasHydratedRtPtDraft, rtPtDocument]);
 
   useEffect(() => {
-    if (!sheetState.hasHydratedInitialDraft || hasInitializedSavedSnapshotRef.current) {
+    const draft = readTechniqueSheetDraft<unknown>();
+    if (draft) {
+      const decoded = hydrateRtPtDocument(draft);
+      recoveredDraftRef.current = decoded.status === "success";
+    }
+    setHasHydratedRtPtDraft(true);
+  }, [hydrateRtPtDocument]);
+
+  useEffect(() => {
+    if (!hasHydratedRtPtDraft || hasInitializedSavedSnapshotRef.current) {
       return;
     }
 
     hasInitializedSavedSnapshotRef.current = true;
-    setLastSavedSnapshot(currentCardSnapshot);
-  }, [sheetState.hasHydratedInitialDraft, currentCardSnapshot]);
+    setLastSavedSnapshot(recoveredDraftRef.current ? "__recovered_unsaved_draft__" : currentCardSnapshot);
+  }, [hasHydratedRtPtDraft, currentCardSnapshot]);
 
   useEffect(() => {
-    if (!sheetState.hasHydratedInitialDraft) {
+    if (!hasHydratedRtPtDraft) {
       return;
     }
 
@@ -247,7 +315,7 @@ const Index = () => {
     if (recoveryRecord) {
       setUpdateRecoveryNotice(recoveryRecord);
     }
-  }, [sheetState.hasHydratedInitialDraft]);
+  }, [hasHydratedRtPtDraft]);
 
   useEffect(() => {
     const updateInstallElectron = getUpdateInstallElectron();
@@ -260,20 +328,19 @@ const Index = () => {
       reason: UpdateRecoveryRecord["reason"];
       version?: string;
     }) => {
-      const cardName =
-        currentSheetName ||
-        currentData.inspectionSetup.partName ||
-        currentData.inspectionSetup.partNumber ||
-        "Unsaved card";
+      const cardName = currentSheetName
+        || activeRtPtGeneral.partName
+        || activeRtPtGeneral.partNumber
+        || "Unsaved card";
 
-      writeTechniqueSheetDraft(currentDraftData);
+      writeTechniqueSheetDraft(rtPtDocument);
       writeUpdateRecoveryRecord({
         cardName,
         savedAt: new Date().toISOString(),
         reason: payload.reason,
         version: payload.version,
-        activeTab,
-        reportMode,
+        activeTab: activeRtPtTab,
+        reportMode: "Technique",
       });
 
       await updateInstallElectron.confirmUpdateInstallReady?.(payload.requestId);
@@ -284,15 +351,13 @@ const Index = () => {
       updateInstallElectron.removePrepareForUpdateInstall?.(handlePrepareForUpdateInstall);
     };
   }, [
-    currentDraftData,
+    activeRtPtGeneral.partName,
+    activeRtPtGeneral.partNumber,
+    activeRtPtTab,
     currentSheetName,
-    currentData.inspectionSetup.partName,
-    currentData.inspectionSetup.partNumber,
-    activeTab,
-    reportMode,
+    rtPtDocument,
   ]);
 
-  // ── Keyboard shortcuts ─────────────────────────────────────────────────
   const confirmAppClose = useCallback(async () => {
     try {
       if (window.electron?.confirmAppClose) {
@@ -301,7 +366,7 @@ const Index = () => {
       }
 
       window.close();
-    } catch (error) {
+    } catch {
       suppressClosePromptRef.current = false;
       toast.error("Unable to close the window right now.");
     }
@@ -314,32 +379,103 @@ const Index = () => {
   }, [confirmAppClose]);
 
   const handleSaveCard = useCallback(async () => {
+    if (!await confirmActiveLicense()) return;
     const result = await persistSave();
     if (result?.saved) {
       markCurrentAsSaved();
     }
-  }, [persistSave, markCurrentAsSaved]);
+  }, [confirmActiveLicense, markCurrentAsSaved, persistSave]);
 
   const handleSaveDialogConfirm = useCallback(async () => {
+    if (!await confirmActiveLicense()) return;
     const result = await confirmSaveDialog();
     if (result?.saved) {
       markCurrentAsSaved();
     }
-  }, [confirmSaveDialog, markCurrentAsSaved]);
+  }, [confirmActiveLicense, confirmSaveDialog, markCurrentAsSaved]);
 
-  const handleLoadLocalSavedCard = useCallback((card: SavedCard) => {
+  const performLoadLocalSavedCard = useCallback((card: SavedCard) => {
     const loadedCard = loadLocalCard(card);
     if (loadedCard?.data) {
-      setLastSavedSnapshot(JSON.stringify(loadedCard.data));
+      const decoded = decodeRtPtDocument(loadedCard.data);
+      if (decoded.status === "success") {
+        setLastSavedSnapshot(fingerprintRtPtContent(decoded.document));
+      }
     }
+    return loadedCard;
   }, [loadLocalCard]);
 
-  const handleLoadSavedSheet = useCallback(async (sheetId: string) => {
+  const performLoadSavedSheet = useCallback(async (sheetId: string) => {
     const loadedSheet = await loadSavedSheet(sheetId);
     if (loadedSheet?.data) {
-      setLastSavedSnapshot(JSON.stringify(loadedSheet.data));
+      const decoded = decodeRtPtDocument(loadedSheet.data);
+      if (decoded.status === "success") {
+        setLastSavedSnapshot(fingerprintRtPtContent(decoded.document));
+      }
     }
+    return loadedSheet;
   }, [loadSavedSheet]);
+
+  const requestLoadLocalSavedCard = useCallback((card: SavedCard) => {
+    if (isDirty) {
+      setPendingCardLoad({ source: "local", label: card.name, card });
+      return;
+    }
+    performLoadLocalSavedCard(card);
+  }, [isDirty, performLoadLocalSavedCard]);
+
+  const requestLoadSavedSheet = useCallback((sheetId: string, label: string) => {
+    if (isDirty) {
+      persistence.setIsSavedCardsDialogOpen(false);
+      setPendingCardLoad({ source: "database", label, sheetId });
+      return;
+    }
+    void performLoadSavedSheet(sheetId);
+  }, [isDirty, performLoadSavedSheet, persistence]);
+
+  const executePendingCardLoad = useCallback(async () => {
+    if (!pendingCardLoad || isReplacingCard) return false;
+
+    setIsReplacingCard(true);
+    try {
+      const loaded = pendingCardLoad.source === "local"
+        ? performLoadLocalSavedCard(pendingCardLoad.card)
+        : await performLoadSavedSheet(pendingCardLoad.sheetId);
+
+      if (loaded) {
+        setPendingCardLoad(null);
+        return true;
+      }
+      return false;
+    } finally {
+      setIsReplacingCard(false);
+    }
+  }, [isReplacingCard, pendingCardLoad, performLoadLocalSavedCard, performLoadSavedSheet]);
+
+  const handleSaveAndLoadPendingCard = useCallback(async () => {
+    if (isReplacingCard || isSavingBeforeCardLoad) return;
+    setIsSavingBeforeCardLoad(true);
+    try {
+      if (!await confirmActiveLicense()) return;
+      const saved = await saveCurrentCardSilently();
+      if (!saved?.saved) {
+        toast.error("Unable to save the current technique. The selected card was not loaded.");
+        return;
+      }
+
+      markCurrentAsSaved();
+      await executePendingCardLoad();
+    } finally {
+      setIsSavingBeforeCardLoad(false);
+    }
+  }, [
+    confirmActiveLicense,
+    executePendingCardLoad,
+    isReplacingCard,
+    isSavingBeforeCardLoad,
+    markCurrentAsSaved,
+    saveCurrentCardSilently,
+  ]);
 
   const handleCloseRequest = useCallback(async () => {
     if (suppressClosePromptRef.current) {
@@ -352,7 +488,7 @@ const Index = () => {
     }
 
     setUnsavedCloseDialogOpen(true);
-  }, [isDirty, continueClosing]);
+  }, [continueClosing, isDirty]);
 
   const handleKeepRecoveredProgress = useCallback(() => {
     clearUpdateRecoveryRecord();
@@ -382,7 +518,7 @@ const Index = () => {
     } finally {
       setIsClosingAfterSave(false);
     }
-  }, [saveCurrentCardSilently, markCurrentAsSaved, continueClosing]);
+  }, [continueClosing, markCurrentAsSaved, saveCurrentCardSilently]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -413,35 +549,41 @@ const Index = () => {
     };
   }, [handleCloseRequest]);
 
-  const handleNewProject = useCallback(() => {
-    if (confirm("Start a new project? Unsaved changes will be lost.")) {
-      setCurrentLocalCardId(null);
-      setCurrentSheetName("");
-      window.location.reload();
-    }
+  const startNewProject = useCallback(() => {
+    setCurrentLocalCardId(null);
+    setCurrentSheetName("");
+    clearTechniqueSheetDraft();
+    clearUpdateRecoveryRecord();
+    window.location.reload();
   }, [setCurrentLocalCardId, setCurrentSheetName]);
 
+  const handleNewProject = useCallback(() => {
+    setNewProjectDialogOpen(true);
+  }, []);
+
   useEffect(() => {
-    const handleKeyboard = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key.toLowerCase()) {
-          case "s":
-            e.preventDefault();
-            if (e.shiftKey) {
-              persistSaveAs();
-            } else {
-              void handleSaveCard();
-            }
-            break;
-          case "e":
-            e.preventDefault();
-            void handleExportPDF();
-            break;
-          case "n":
-            e.preventDefault();
-            handleNewProject();
-            break;
-        }
+    const handleKeyboard = (event: KeyboardEvent) => {
+      if (!event.ctrlKey && !event.metaKey) {
+        return;
+      }
+
+      switch (event.key.toLowerCase()) {
+        case "s":
+          event.preventDefault();
+          if (event.shiftKey) {
+            persistSaveAs();
+          } else {
+            void handleSaveCard();
+          }
+          break;
+        case "e":
+          event.preventDefault();
+          void handleExportPDF();
+          break;
+        case "n":
+          event.preventDefault();
+          handleNewProject();
+          break;
       }
     };
 
@@ -450,171 +592,30 @@ const Index = () => {
   }, [handleExportPDF, handleNewProject, handleSaveCard, persistSaveAs]);
 
   const handleValidate = useCallback(() => {
-    const missing = [];
-    if (!inspectionSetup.partNumber) missing.push("Part Number");
-    if (!equipment.manufacturer) missing.push("Equipment Manufacturer");
-    if (!calibration.standardType) missing.push("Calibration Standard");
-    if (!acceptanceCriteria.acceptanceClass) missing.push("Acceptance Class");
-    if (!documentation.inspectorName) missing.push("Inspector Name");
-    if (missing.length > 0) {
-      toast.error(`Missing required fields: ${missing.join(", ")}`);
-    } else {
-      toast.success("All required fields complete!");
-    }
-  }, [inspectionSetup.partNumber, equipment.manufacturer, calibration.standardType, acceptanceCriteria.acceptanceClass, documentation.inspectorName]);
-
-  const loadTestCard = useCallback((cardIndex: number) => {
-    const card = quickFillPresets[cardIndex - 1];
-    if (!card) {
-      toast.error(`QA preset ${cardIndex} not found`);
+    const errors = rtPtValidation.issues.filter((issue) => issue.severity === "error");
+    const warnings = rtPtValidation.issues.filter((issue) => issue.severity === "warning");
+    if (errors.length > 0) {
+      setValidationDialogOpen(true);
       return;
     }
-    applyTestCard(card);
-    toast.success(`Loaded preset: ${card.name}`, {
-      description: `${card.buttonSubtitle} · ${card.standard}`,
-    });
-    logInfo("Loaded test card", { cardId: card.id, cardName: card.name });
-  }, [applyTestCard]);
-
-  const handleLoadSampleCards = useCallback(async () => {
-    try {
-      const response = await fetch("/sample-cards.json");
-      if (!response.ok) throw new Error("Failed to fetch sample cards");
-      const cards = await response.json();
-      if (Array.isArray(cards) && cards.length > 0) {
-        applySampleCard(cards[0]);
-        toast.success(`Loaded sample card: ${cards[0].name}`, {
-          description: `${cards.length} sample cards available. Use the QA preset panel for full geometry coverage.`,
-        });
-        logInfo("Loaded sample card", { cardName: cards[0].name });
-      } else {
-        toast.error("No sample cards found");
-      }
-    } catch (error) {
-      console.error("Error loading sample cards:", error);
-      toast.error("Failed to load sample cards");
+    if (warnings.length > 0) {
+      setValidationDialogOpen(true);
+      return;
     }
-  }, [applySampleCard]);
-
-  // Keyboard shortcuts for test cards
-  useEffect(() => {
-    const quickFillShortcutKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="];
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey) {
-        const shortcutIndex = quickFillShortcutKeys.indexOf(e.key);
-        if (shortcutIndex >= 0) {
-          e.preventDefault();
-          loadTestCard(shortcutIndex + 1);
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [loadTestCard]);
-
-  // Redirect to auth page if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
+    if (!rtPtValidation.approvalReadiness.isReady) {
+      setValidationDialogOpen(true);
+      return;
     }
-  }, [user, loading, navigate]);
-
-  const quickFillAccentClasses = {
-    cyan: "border-cyan-200 bg-cyan-50/70 hover:border-cyan-300 hover:bg-cyan-100/70 text-cyan-950",
-    amber: "border-amber-200 bg-amber-50/80 hover:border-amber-300 hover:bg-amber-100/80 text-amber-950",
-    slate: "border-slate-300 bg-slate-50/85 hover:border-slate-400 hover:bg-slate-100/90 text-slate-900",
-  } as const;
-  const quickFillShortcutHint = "Ctrl+Shift+1-9,0,-,=";
-
-  const renderQuickFillPanel = (compact = false) => (
-    <div className={`rounded-xl border border-dashed border-border/80 bg-muted/30 ${compact ? "p-3" : "mt-6 p-3"}`}>
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <FlaskConical className="h-4 w-4 text-primary" />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Quick Fill</p>
-          </div>
-          <h3 className="text-sm font-semibold">Geometry QA Presets</h3>
-          <p className="text-xs text-muted-foreground">
-            One click fills a complete realistic card for every supported geometry, including report sections.
-          </p>
-        </div>
-        <div className="rounded-full bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
-          {quickFillShortcutHint}
-        </div>
-      </div>
-
-      <div className="grid gap-2">
-        {quickFillPresets.map((preset, index) => (
-          <Button
-            key={preset.id}
-            type="button"
-            variant="outline"
-            onClick={() => loadTestCard(index + 1)}
-            className={`h-auto justify-start px-3 py-3 text-left transition-colors ${quickFillAccentClasses[preset.accent]}`}
-            title={`${preset.name} (${preset.standard})`}
-          >
-            <div className="min-w-0">
-              <div className="text-sm font-semibold leading-tight">{preset.buttonLabel}</div>
-              <div className="text-xs leading-tight opacity-80">{preset.buttonSubtitle}</div>
-              <div className="mt-1 text-[11px] leading-tight text-slate-600">
-                {preset.standard} · {preset.name}
-              </div>
-            </div>
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-
-  const workbenchTabTriggerClass = "flex-shrink-0 whitespace-nowrap px-2.5 py-2 text-sm";
-  const workbenchTabListClass = "inline-flex h-auto w-max min-w-full flex-nowrap items-center justify-start gap-1.5 xl:gap-2";
-
-  useEffect(() => {
-    const activeTabElement = document.querySelector<HTMLElement>(
-      '.workbench-tabstrip [role="tab"][data-state="active"]',
-    );
-    activeTabElement?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [activeTab, reportMode]);
-
-  // ── Loading / auth guards ──────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background fixed inset-0">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background fixed inset-0">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">Redirecting to login...</p>
-        </div>
-      </div>
-    );
-  }
+    setValidationDialogOpen(true);
+  }, [rtPtValidation]);
 
   return (
-    <StandardProvider standard={standard}>
-      <div className="workbench-shell h-screen w-screen flex flex-col overflow-hidden bg-background fixed inset-0">
-      {/* Profile Selection Dialog */}
+    <div className="workbench-shell fixed inset-0 flex h-screen w-screen flex-col overflow-hidden bg-background">
       <ProfileSelectionDialog
         open={needsProfileSelection && !profileLoading}
         allowClose={false}
       />
 
-      {/* License Expiry Warning Banner */}
-      {!licenseWarningDismissed && (
-        <LicenseWarningBanner onDismiss={() => setLicenseWarningDismissed(true)} />
-      )}
-
-      {/* Menu Bar - Hidden on Mobile and in Electron */}
       {!isElectron && (
         <div className="hidden md:block">
           <MenuBar
@@ -623,518 +624,196 @@ const Index = () => {
             onOpenSavedCards={openSavedCards}
             onExport={handleExportPDF}
             onNew={handleNewProject}
-            onSignOut={signOut}
-            onOpenDrawingEngine={() => navigate("/drawing-test")}
-            onLoadSampleCards={handleLoadSampleCards}
             onExportDiagnostics={() => setDiagnosticsDialogOpen(true)}
             onRunDiagnostics={() => setDiagnosticsPanelOpen(true)}
-            onOfflineUpdate={() => setOfflineUpdateDialogOpen(true)}
           />
         </div>
       )}
 
-      {/* Toolbar */}
       <Toolbar
+        onNew={handleNewProject}
         onSave={handleSaveCard}
         onExport={handleExportPDF}
         onValidate={handleValidate}
-        reportMode={reportMode}
-        onReportModeChange={setReportMode}
         ndtMethod={ndtMethod}
-        onNdtMethodChange={setNdtMethod}
-        isSplitMode={isSplitMode}
-        onSplitModeChange={setIsSplitMode}
-        activePart={activePart}
-        onActivePartChange={setActivePart}
-        onCopyAToB={copyPartAToB}
-        onOpenSavedCards={openSavedCards}
-        onLoadLocalCard={handleLoadLocalSavedCard}
-        onOpenQuickFill={() => setQuickFillDialogOpen(true)}
-        partType={currentData.inspectionSetup.partType}
+        onLoadLocalCard={requestLoadLocalSavedCard}
+        onOfflineUpdate={() => setOfflineUpdateDialogOpen(true)}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 px-2 pb-2 md:px-3 md:pb-3">
-        {/* Compact Header for mobile/tablet — shows RT/PT method info */}
-        <div className="lg:hidden border border-border/80 bg-card/90 rounded-[1.35rem] p-3 mb-2">
-          {isRtPtMode && ndtMethod !== "UT" ? (
-            <RtPtSidebar method={ndtMethod} onMethodChange={setNdtMethod} />
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-xs mb-2">Standard</h3>
-                <StandardSelector value={standard} onChange={applyStandardChange} />
-              </div>
-              {reportMode === "Technique" && !isPwNdip && (
-                <div className="border-t border-border pt-3">
-                  <AcceptanceClassSelector
-                    value={(!isSplitMode || activePart === "A") ? acceptanceCriteria.acceptanceClass : acceptanceCriteriaB.acceptanceClass}
-                    onChange={(newClass) => {
-                      if (!isSplitMode || activePart === "A") {
-                        setAcceptanceCriteria(prev => ({ ...prev, acceptanceClass: newClass }));
-                      } else {
-                        setAcceptanceCriteriaB(prev => ({ ...prev, acceptanceClass: newClass }));
-                      }
-                    }}
-                    standard={standard}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-2 md:px-3 md:pb-3 lg:flex-row">
+        <div className="mb-2 flex-none lg:hidden">
+          <RtPtSidebar compact method={ndtMethod} onMethodChange={handleNdtMethodChange} />
         </div>
 
-        {/* Desktop: Left Panel — RT/PT method info & switcher */}
         <CollapsibleSidebar
           isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-          title={isRtPtMode && ndtMethod !== "UT" ? "Method & Standard" : "Standard & Class"}
+          onToggle={() => setSidebarOpen((open) => !open)}
+          title="Method & Process Reference"
         >
-          {isRtPtMode && ndtMethod !== "UT" ? (
-            <RtPtSidebar method={ndtMethod} onMethodChange={setNdtMethod} />
-          ) : (
-            <>
-              <StandardSelector value={standard} onChange={applyStandardChange} variant="compact" />
-              {reportMode === "Technique" && !isPwNdip && (
-                <div className="mt-6 pt-4 border-t border-border">
-                  <AcceptanceClassSelector
-                    value={(!isSplitMode || activePart === "A") ? acceptanceCriteria.acceptanceClass : acceptanceCriteriaB.acceptanceClass}
-                    onChange={(newClass) => {
-                      if (!isSplitMode || activePart === "A") {
-                        setAcceptanceCriteria(prev => ({ ...prev, acceptanceClass: newClass }));
-                      } else {
-                        setAcceptanceCriteriaB(prev => ({ ...prev, acceptanceClass: newClass }));
-                      }
-                    }}
-                    standard={standard}
-                    variant="compact"
-                  />
-                </div>
-              )}
-            </>
-          )}
+          <RtPtSidebar method={ndtMethod} onMethodChange={handleNdtMethodChange} />
         </CollapsibleSidebar>
 
-        {/* Center Panel: Main Form */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
-          {isRtPtMode && ndtMethod !== "UT" ? (
-            <RtPtWorkspace method={ndtMethod} />
-          ) : (<>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="px-1 pb-1.5 pt-1 md:px-3 md:pb-2 md:pt-1.5 flex-shrink-0">
-                {reportMode === "Technique" ? (
-                  <>
-                    <div className="workbench-header">
-                      <div className="workbench-tabstrip workbench-tabstrip-compact w-full max-w-full overflow-x-auto overscroll-x-contain scrollbar-hide sticky top-0 z-10">
-                        <TabsList className={workbenchTabListClass}>
-                          <TabsTrigger value="setup" className={workbenchTabTriggerClass}>Setup</TabsTrigger>
-                          <TabsTrigger value="scan" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Scan Params</TabsTrigger>
-                          <TabsTrigger value="equipment" className={workbenchTabTriggerClass}>Equipment</TabsTrigger>
-                          <TabsTrigger value="calibration" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Reference Standard</TabsTrigger>
-                          <TabsTrigger value="acceptance" className={workbenchTabTriggerClass}>{isPwNdip ? "Rejection Criteria" : "Acceptance"}</TabsTrigger>
-                          <TabsTrigger value="scandetails" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Scan Details</TabsTrigger>
-                          <TabsTrigger value="docs" className={workbenchTabTriggerClass}>Documentation</TabsTrigger>
-                          {isPwNdip && (
-                            <TabsTrigger value="ndip-reference" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>NDIP Notes</TabsTrigger>
-                          )}
-                          <TabsTrigger value="scanplan" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Scan Plan</TabsTrigger>
-                        </TabsList>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="workbench-header">
-                      <div className="border-b border-border/70 px-3 py-2 md:px-4 md:py-2.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="min-w-0 flex-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                            Report Workspace
-                          </div>
-                        <Button
-                          onClick={() => {
-                            toast.loading("Generating Inspection Report PDF...", { id: "report-export" });
-                            setTimeout(() => {
-                            exportInspectionReportPDF({
-                              ...inspectionReport,
-                              acceptanceCriteria: {
-                                acceptanceClass: currentData.acceptanceCriteria.acceptanceClass || inspectionReport.acceptanceCriteria?.acceptanceClass || "",
-                                singleDiscontinuity: currentData.acceptanceCriteria.singleDiscontinuity || inspectionReport.acceptanceCriteria?.singleDiscontinuity || "",
-                                multipleDiscontinuities: currentData.acceptanceCriteria.multipleDiscontinuities || inspectionReport.acceptanceCriteria?.multipleDiscontinuities || "",
-                                linearDiscontinuity: currentData.acceptanceCriteria.linearDiscontinuity || inspectionReport.acceptanceCriteria?.linearDiscontinuity || "",
-                                backReflectionLoss: currentData.acceptanceCriteria.backReflectionLoss ?? inspectionReport.acceptanceCriteria?.backReflectionLoss ?? 0,
-                                noiseLevel: currentData.acceptanceCriteria.noiseLevel || inspectionReport.acceptanceCriteria?.noiseLevel || "",
-                                specialRequirements: currentData.acceptanceCriteria.specialRequirements || inspectionReport.acceptanceCriteria?.specialRequirements,
-                                standardNotes: currentData.acceptanceCriteria.standardNotes || inspectionReport.acceptanceCriteria?.standardNotes,
-                                includeStandardNotesInReport:
-                                  currentData.acceptanceCriteria.includeStandardNotesInReport ??
-                                  inspectionReport.acceptanceCriteria?.includeStandardNotesInReport,
-                              },
-                            }, {
-                              companyName: "SCAN-MASTER",
-                              includeAerospaceSection: true,
-                            });
-                            toast.dismiss("report-export");
-                            toast.success("Inspection Report PDF exported successfully!");
-                          }, 500);
-                        }}
-                        size="sm"
-                        className="h-10 min-h-0 rounded-[1rem] border border-primary/25 bg-primary/12 px-5 text-primary shadow-none hover:bg-primary/18"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Export Report PDF
-                      </Button>
-                      </div>
-                      </div>
-                      <div className="workbench-tabstrip workbench-tabstrip-compact w-full max-w-full overflow-x-auto overscroll-x-contain scrollbar-hide sticky top-0 z-10">
-                        <TabsList className={workbenchTabListClass}>
-                          <TabsTrigger value="cover" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Cover Page</TabsTrigger>
-                          <TabsTrigger value="equipment-report" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Equipment</TabsTrigger>
-                          <TabsTrigger value="diagram" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Part Diagram</TabsTrigger>
-                          <TabsTrigger value="indications" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Indications</TabsTrigger>
-                          <TabsTrigger value="probe" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Probes</TabsTrigger>
-                          <TabsTrigger value="scans" className={workbenchTabTriggerClass}>Scans</TabsTrigger>
-                          <TabsTrigger value="results" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Results</TabsTrigger>
-                          <TabsTrigger value="certification" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Certification</TabsTrigger>
-                          <TabsTrigger value="aerospace" className={`${workbenchTabTriggerClass} whitespace-nowrap`}>Aerospace</TabsTrigger>
-                          <TabsTrigger value="remarks" className={workbenchTabTriggerClass}>Remarks</TabsTrigger>
-                        </TabsList>
-                      </div>
-                    </div>
-                  </>
-                )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-1 md:px-3 pb-3 min-h-0">
-                {reportMode === "Technique" ? (
-                  <>
-                    <div className="app-panel workbench-surface rounded-[1.5rem] max-w-full">
-                      <TabsContent value="setup" className="m-0">
-                        <InspectionSetupTab
-                          data={currentData.inspectionSetup}
-                          onChange={currentData.setInspectionSetup}
-                          acceptanceClass={currentData.acceptanceCriteria.acceptanceClass as AcceptanceClass | ""}
-                          standardType={standard}
-                          scanDetails={currentData.scanDetails}
-                          onCalibrationRecommendation={(blockType, reasoning) => {
-                            const currentCalibration = currentData.calibration;
-                            const scanDirectionInfo = deriveCalibrationScanDirectionInfo(
-                              currentData.scanDetails.scanDetails,
-                              standard,
-                            );
-                            if (currentCalibration.standardType !== blockType) {
-                              const recommendedBlockType = blockType as typeof currentCalibration.standardType;
-                              currentData.setCalibration({
-                                ...currentCalibration,
-                                standardType: recommendedBlockType,
-                                autoRecommendedReason: reasoning,
-                              });
-                              logInfo(`Auto-selected calibration block: ${blockType}`, {
-                                reasoning,
-                                criticalScans: {
-                                  hasCircumferential: scanDirectionInfo.hasCircumferentialScan,
-                                  hasAngleBeam: scanDirectionInfo.hasAngleBeam,
-                                },
-                              });
-                            }
-                          }}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="scandetails" className="m-0">
-                        <ScanDetailsTab
-                          data={currentData.scanDetails}
-                          onChange={currentData.setScanDetails}
-                          partType={currentData.inspectionSetup.partType}
-                          standard={standard}
-                          partNumber={currentData.inspectionSetup.partNumber}
-                          equipmentFrequency={currentData.equipment.frequency}
-                          dimensions={{
-                            diameter: currentData.inspectionSetup.diameter,
-                            length: currentData.inspectionSetup.partLength,
-                            width: currentData.inspectionSetup.partWidth,
-                            height: currentData.inspectionSetup.partThickness,
-                            thickness: currentData.inspectionSetup.partThickness,
-                            outerDiameter: currentData.inspectionSetup.diameter,
-                            innerDiameter: currentData.inspectionSetup.innerDiameter,
-                            coneTopDiameter: currentData.inspectionSetup.coneTopDiameter,
-                            coneBottomDiameter: currentData.inspectionSetup.coneBottomDiameter,
-                            coneHeight: currentData.inspectionSetup.coneHeight,
-                            wallThickness: currentData.inspectionSetup.wallThickness,
-                            isHollow: currentData.inspectionSetup.isHollow,
-                          }}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="scan" className="m-0">
-                        <ScanParametersTab
-                          data={currentData.scanParameters}
-                          onChange={currentData.setScanParameters}
-                          standard={standard}
-                          equipmentFrequency={currentData.equipment.frequency}
-                          onEquipmentFrequencyChange={(frequency) => {
-                            const resolution = getResolutionValues(frequency);
-                            currentData.setEquipment({
-                              ...currentData.equipment,
-                              frequency,
-                              entrySurfaceResolution: resolution.entry,
-                              backSurfaceResolution: resolution.back,
-                            });
-                          }}
-                          equipmentData={currentData.equipment}
-                          onEquipmentDataChange={currentData.setEquipment}
-                          partThickness={currentData.inspectionSetup.partThickness}
-                          materialVelocity={currentData.inspectionSetup.acousticVelocity}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="equipment" className="m-0">
-                        <EquipmentTab
-                          data={currentData.equipment}
-                          onChange={currentData.setEquipment}
-                          partThickness={currentData.inspectionSetup.partThickness}
-                          standard={standard}
-                          scanTechnique={currentData.scanParameters.technique}
-                          calibrationData={currentData.calibration}
-                          onCalibrationChange={currentData.setCalibration}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="calibration" className="m-0">
-                        <CalibrationTab
-                          data={currentData.calibration}
-                          onChange={currentData.setCalibration}
-                          inspectionSetup={currentData.inspectionSetup}
-                          acceptanceClass={currentData.acceptanceCriteria.acceptanceClass}
-                          standard={standard}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="acceptance" className="m-0">
-                        <AcceptanceCriteriaTab
-                          data={currentData.acceptanceCriteria}
-                          onChange={currentData.setAcceptanceCriteria}
-                          material={currentData.inspectionSetup.materialSpec || currentData.inspectionSetup.material}
-                          standard={standard}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="docs" className="m-0">
-                        <DocumentationTab
-                          data={currentData.documentation}
-                          onChange={currentData.setDocumentation}
-                        />
-                      </TabsContent>
-
-                      {isPwNdip && (
-                        <TabsContent value="ndip-reference" className="m-0">
-                          <NdipReferenceTab standard={standard} />
-                        </TabsContent>
-                      )}
-
-                      <TabsContent value="scanplan" className="m-0">
-                        <ScanPlanTab
-                          data={currentData.scanPlan}
-                          onChange={currentData.setScanPlan}
-                        />
-                      </TabsContent>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="app-panel workbench-surface rounded-[1.5rem]">
-                      <TabsContent value="cover" className="m-0">
-                        <CoverPageTab
-                          data={inspectionReport}
-                          onChange={(data) => setInspectionReport({ ...inspectionReport, ...data })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="equipment-report" className="m-0">
-                        <EquipmentDetailsTab
-                          data={inspectionReport.equipmentDetails}
-                          onChange={(equipmentDetails) => setInspectionReport({ ...inspectionReport, equipmentDetails })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="diagram" className="m-0">
-                        <PartDiagramTab
-                          partDiagramImage={inspectionReport.partDiagramImage}
-                          onChange={(image) => setInspectionReport({ ...inspectionReport, partDiagramImage: image })}
-                          standardType={standard}
-                          partNumber={inspectionSetup.partNumber}
-                          partType={inspectionSetup.partType}
-                          thickness={inspectionSetup.partThickness.toString()}
-                          diameter={inspectionSetup.diameter?.toString()}
-                          length={inspectionSetup.partLength.toString()}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="indications" className="m-0">
-                        <IndicationsTab
-                          indications={inspectionReport.indications}
-                          onChange={(indications) => setInspectionReport({ ...inspectionReport, indications })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="probe" className="m-0">
-                        <ProbeDetailsTab
-                          probeDetails={inspectionReport.probeDetails}
-                          onChange={(probes) => setInspectionReport({ ...inspectionReport, probeDetails: probes })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="scans" className="m-0">
-                        <ScansTab
-                          scans={inspectionReport.scans}
-                          onChange={(scans) => setInspectionReport({ ...inspectionReport, scans })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="results" className="m-0">
-                        <ResultsSummaryTab
-                          resultsSummary={inspectionReport.resultsSummary}
-                          applicableDocuments={inspectionReport.applicableDocuments}
-                          onResultsChange={(resultsSummary) => setInspectionReport({ ...inspectionReport, resultsSummary })}
-                          onDocumentsChange={(applicableDocuments) => setInspectionReport({ ...inspectionReport, applicableDocuments })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="certification" className="m-0">
-                        <InspectorCertificationTab
-                          inspectorCertification={inspectionReport.inspectorCertification}
-                          signatures={inspectionReport.signatures}
-                          onCertificationChange={(inspectorCertification) => setInspectionReport({ ...inspectionReport, inspectorCertification })}
-                          onSignaturesChange={(signatures) => setInspectionReport({ ...inspectionReport, signatures })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="aerospace" className="m-0">
-                        <AerospaceForgingTab
-                          testLocationTiming={inspectionReport.testLocationTiming}
-                          environmentalConditions={inspectionReport.environmentalConditions}
-                          couplantDetails={inspectionReport.couplantDetails}
-                          forgingDetails={inspectionReport.forgingDetails}
-                          sensitivitySettings={inspectionReport.sensitivitySettings}
-                          transferCorrection={inspectionReport.transferCorrection}
-                          bweMonitoring={inspectionReport.bweMonitoring}
-                          scanCoverage={inspectionReport.scanCoverage}
-                          zoningRequirements={inspectionReport.zoningRequirements}
-                          onTestLocationChange={(testLocationTiming) => setInspectionReport({ ...inspectionReport, testLocationTiming })}
-                          onEnvironmentalChange={(environmentalConditions) => setInspectionReport({ ...inspectionReport, environmentalConditions })}
-                          onCouplantChange={(couplantDetails) => setInspectionReport({ ...inspectionReport, couplantDetails })}
-                          onForgingChange={(forgingDetails) => setInspectionReport({ ...inspectionReport, forgingDetails })}
-                          onSensitivityChange={(sensitivitySettings) => setInspectionReport({ ...inspectionReport, sensitivitySettings })}
-                          onTransferChange={(transferCorrection) => setInspectionReport({ ...inspectionReport, transferCorrection })}
-                          onBweChange={(bweMonitoring) => setInspectionReport({ ...inspectionReport, bweMonitoring })}
-                          onScanCoverageChange={(scanCoverage) => setInspectionReport({ ...inspectionReport, scanCoverage })}
-                          onZoningChange={(zoningRequirements) => setInspectionReport({ ...inspectionReport, zoningRequirements })}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="remarks" className="m-0">
-                        <RemarksTab
-                          remarks={inspectionReport.remarks}
-                          onChange={(remarks) => setInspectionReport({ ...inspectionReport, remarks })}
-                        />
-                      </TabsContent>
-                    </div>
-                  </>
-                )}
-            </div>
-          </Tabs>
-
-          {/* 3D Viewer Panel */}
-          {(activeTab === "setup" || (typeof localStorage !== "undefined" && localStorage.getItem("viewer3DFloating") === "true")) && (
-            <div className={localStorage.getItem("viewer3DFloating") === "true" ? "" : "hidden lg:block px-3 pb-3"}>
-              <Collapsible3DPanel
-                title="3D Part Viewer"
-                isOpen={viewer3DOpen}
-                onToggle={() => setViewer3DOpen(!viewer3DOpen)}
-              >
-                <ThreeDViewer
-                  partType={currentData.inspectionSetup.partType || ""}
-                  material={currentData.inspectionSetup.material as MaterialType || ""}
-                  standardType={standard}
-                  partNumber={currentData.inspectionSetup.partNumber}
-                  externalModelAssetName={currentData.inspectionSetup.localModelAssetName}
-                  dimensions={{
-                    length: currentData.inspectionSetup.partLength || 100,
-                    width: currentData.inspectionSetup.partWidth || 50,
-                    thickness: currentData.inspectionSetup.partThickness || 10,
-                    diameter: currentData.inspectionSetup.diameter || 50,
-                    isHollow: currentData.inspectionSetup.isHollow,
-                    innerDiameter: currentData.inspectionSetup.innerDiameter,
-                    innerLength: currentData.inspectionSetup.innerLength,
-                    innerWidth: currentData.inspectionSetup.innerWidth,
-                    wallThickness: currentData.inspectionSetup.wallThickness,
-                    coneTopDiameter: currentData.inspectionSetup.coneTopDiameter,
-                    coneBottomDiameter: currentData.inspectionSetup.coneBottomDiameter,
-                    coneHeight: currentData.inspectionSetup.coneHeight,
-                  }}
-                />
-              </Collapsible3DPanel>
-            </div>
-          )}
-          </>)}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <RtPtWorkspace workspace={rtPtWorkspace} validation={rtPtValidation} />
         </div>
       </div>
 
-      {/* Status Bar */}
       <StatusBar
-        completionPercent={completionPercent}
-        requiredFieldsComplete={completedFieldsCount}
-        totalRequiredFields={reportMode === "Technique" ? 50 : 40}
+        completionPercent={rtPtValidation.completionPercent}
+        requiredFieldsComplete={rtPtValidation.completedFieldsCount}
+        totalRequiredFields={rtPtValidation.totalRequiredFields}
         autoSaveStatus={persistence.autoSaveStatus}
         lastSaved={persistence.lastSaved}
       />
 
-      {/* Export Dialog */}
-      <UnifiedExportDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        standard={standard}
-        inspectionSetup={isSplitMode && activePart === "B" ? inspectionSetupB : inspectionSetup}
-        equipment={isSplitMode && activePart === "B" ? equipmentB : equipment}
-        calibration={isSplitMode && activePart === "B" ? calibrationB : calibration}
-        scanParameters={isSplitMode && activePart === "B" ? scanParametersB : scanParameters}
-        acceptanceCriteria={isSplitMode && activePart === "B" ? acceptanceCriteriaB : acceptanceCriteria}
-        documentation={isSplitMode && activePart === "B" ? documentationB : documentation}
-        inspectionReport={inspectionReport}
-        scanDetails={isSplitMode && activePart === "B" ? scanDetailsB : scanDetails}
-        scanPlan={isSplitMode && activePart === "B" ? sheetState.scanPlanB : sheetState.scanPlan}
-        capturedDrawing={exportWorkflow.capturedDrawing}
-        calibrationBlockDiagram={exportWorkflow.calibrationBlockDiagram}
-        angleBeamDiagram={
-          requiresAngleBeam(
-            isSplitMode && activePart === "B" ? inspectionSetupB.partType : inspectionSetup.partType,
-            isSplitMode && activePart === "B" ? inspectionSetupB.isHollow : inspectionSetup.isHollow,
-          ) ? exportWorkflow.angleBeamDiagram : undefined
-        }
-        e2375Diagram={exportWorkflow.e2375Diagram}
-        scanDirectionsDrawing={exportWorkflow.capturedScanDirections}
-        reportMode={reportMode}
-        onExport={(format, template) => {
-          toast.success(`Exported ${template.toUpperCase()} as ${format.toUpperCase()} successfully!`);
-        }}
-      />
-
-      {/* Diagnostics Export Dialog */}
       <DiagnosticsExportDialog
         open={diagnosticsDialogOpen}
         onOpenChange={setDiagnosticsDialogOpen}
       />
-
-      {/* Self-Diagnostic Panel */}
       <SelfDiagnosticPanel
         open={diagnosticsPanelOpen}
         onOpenChange={setDiagnosticsPanelOpen}
       />
-
-      {/* Offline Update Dialog (USB) */}
       <OfflineUpdateDialog
         open={offlineUpdateDialogOpen}
         onOpenChange={setOfflineUpdateDialogOpen}
       />
+      <RtPtValidationDialog
+        open={validationDialogOpen}
+        onOpenChange={setValidationDialogOpen}
+        validation={rtPtValidation}
+        documentStatus={rtPtDocument.status}
+        onSelectIssue={(issue) => {
+          const workspaceTab = issue.tab === "source"
+            ? ndtMethod === "RT-Film" ? "equipment" : "exposure"
+            : issue.tab === "storage"
+              ? "processing"
+              : issue.tab;
+          rtPtWorkspace.setActiveTab(ndtMethod, workspaceTab);
+          setValidationDialogOpen(false);
+          window.setTimeout(() => {
+            focusValidationIssue(issue);
+          }, 120);
+        }}
+      />
+
+      <Dialog
+        open={Boolean(pendingCardLoad)}
+        onOpenChange={(open) => {
+          if (!open && !isReplacingCard && !isSavingBeforeCardLoad) setPendingCardLoad(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Save changes before loading another card?</DialogTitle>
+            <DialogDescription>
+              The current technique contains changes that have not been saved. Choose how to continue before loading the selected card.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-lg border border-warning/30 bg-warning/10 p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Current technique</div>
+              <div className="mt-1 truncate text-sm font-semibold">
+                {persistence.currentSheetName || rtPtDocumentTitle || "Unsaved technique"}
+              </div>
+              <div className="mt-1 text-xs font-medium text-warning">Unsaved changes</div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Selected card</div>
+              <div className="mt-1 truncate text-sm font-semibold">{pendingCardLoad?.label}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Will replace the current workspace</div>
+            </div>
+          </div>
+          <DialogFooter className="grid gap-2 sm:grid-cols-[auto_1fr_1fr] sm:items-center">
+            <Button
+              variant="outline"
+              onClick={() => setPendingCardLoad(null)}
+              disabled={isReplacingCard || isSavingBeforeCardLoad}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void executePendingCardLoad()}
+              disabled={isReplacingCard || isSavingBeforeCardLoad}
+              className="w-full whitespace-normal"
+            >
+              Load Without Saving
+            </Button>
+            <Button
+              onClick={() => void handleSaveAndLoadPendingCard()}
+              disabled={isReplacingCard || isSavingBeforeCardLoad}
+              className="w-full whitespace-normal"
+            >
+              {(isReplacingCard || isSavingBeforeCardLoad) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save and Load
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingMethodChange)}
+        onOpenChange={(open) => {
+          if (!open) setPendingMethodChange(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Start a new {pendingMethodChange ? RT_PT_METHOD_LABEL[pendingMethodChange] : ''} technique?</DialogTitle>
+            <DialogDescription>
+              Changing the inspection method creates a separate controlled document. Unsaved changes in the current technique will be discarded.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Current document</div>
+              <div className="mt-1 text-sm font-semibold">{RT_PT_METHOD_SHORT_LABEL[ndtMethod]}</div>
+              <div className="mt-1 text-xs text-warning">Unsaved changes</div>
+            </div>
+            <span className="hidden text-muted-foreground sm:block" aria-hidden="true">→</span>
+            <div className="rounded-lg border border-primary/30 bg-primary/10 p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">New document</div>
+              <div className="mt-1 text-sm font-semibold">{pendingMethodChange ? RT_PT_METHOD_SHORT_LABEL[pendingMethodChange] : ''}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Fresh technique workspace</div>
+            </div>
+          </div>
+          <DialogFooter className="grid gap-2 sm:grid-cols-2 sm:space-x-0">
+            <Button className="h-auto min-h-10 w-full whitespace-normal leading-snug" variant="outline" onClick={() => setPendingMethodChange(null)}>Keep Current Technique</Button>
+            <Button
+              className="h-auto min-h-10 w-full whitespace-normal leading-snug"
+              variant="destructive"
+              onClick={() => {
+                if (!pendingMethodChange) return;
+                const nextMethod = pendingMethodChange;
+                setPendingMethodChange(null);
+                startNdtMethodTechnique(nextMethod);
+              }}
+            >
+              Discard changes &amp; start {pendingMethodChange ? RT_PT_METHOD_SHORT_LABEL[pendingMethodChange] : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newProjectDialogOpen} onOpenChange={setNewProjectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start a new project?</DialogTitle>
+            <DialogDescription>
+              This clears the current workspace and starts a fresh RT/PT project. Save the current card first if you need to keep it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-3 text-sm text-foreground">
+            {isDirty ? 'The current technique contains unsaved changes.' : 'The current technique will be closed.'}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewProjectDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={startNewProject}>Start New Project</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={persistence.isSaveDialogOpen} onOpenChange={persistence.setIsSaveDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -1148,7 +827,7 @@ const Index = () => {
               id="card-name"
               value={persistence.sheetNameInput}
               onChange={(event) => persistence.setSheetNameInput(event.target.value)}
-              placeholder="e.g., AMS-STD-2154E - Part 123"
+              placeholder={`e.g., ${RT_PT_METHOD_LABEL[ndtMethod]} - Part 123`}
               autoFocus
             />
           </div>
@@ -1156,7 +835,10 @@ const Index = () => {
             <Button variant="outline" onClick={() => persistence.setIsSaveDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveDialogConfirm} disabled={!persistence.sheetNameInput.trim() || persistence.isSavingSheet}>
+            <Button
+              onClick={handleSaveDialogConfirm}
+              disabled={!persistence.sheetNameInput.trim() || persistence.isSavingSheet}
+            >
               {persistence.isSavingSheet && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Card
             </Button>
@@ -1176,17 +858,19 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Progress Restored After Update</DialogTitle>
             <DialogDescription>
-              Scan Master restored the in-progress card that was open before the app restarted to install an update.
+              RT-PT Inspector restored the in-progress card that was open before the app restarted to install an update.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-sm">
+          <div className="space-y-2 rounded-lg border border-success/30 bg-success/10 px-3 py-3 text-sm">
             <div>
               <span className="font-medium">Card:</span>{" "}
               {updateRecoveryNotice?.cardName || "Unsaved card"}
             </div>
             <div>
               <span className="font-medium">Recovered:</span>{" "}
-              {updateRecoveryNotice?.savedAt ? new Date(updateRecoveryNotice.savedAt).toLocaleString() : "Just now"}
+              {updateRecoveryNotice?.savedAt
+                ? new Date(updateRecoveryNotice.savedAt).toLocaleString()
+                : "Just now"}
             </div>
             {updateRecoveryNotice?.version && (
               <div>
@@ -1198,9 +882,7 @@ const Index = () => {
             <Button variant="outline" onClick={handleDiscardRecoveredProgress}>
               Discard Restored Progress
             </Button>
-            <Button onClick={handleKeepRecoveredProgress}>
-              Continue
-            </Button>
+            <Button onClick={handleKeepRecoveredProgress}>Continue</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1210,17 +892,25 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Save your latest changes before closing?</DialogTitle>
             <DialogDescription>
-              You made updates to this card that have not been saved yet. We can save them into the current card before Scan Master closes.
+              You made updates to this card that have not been saved yet. We can save them into the current card before RT-PT Inspector closes.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-            Current card: {persistence.currentSheetName || currentData.inspectionSetup.partName || currentData.inspectionSetup.partNumber || "Unsaved card"}
+          <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm">
+            Current card: {persistence.currentSheetName || rtPtDocumentTitle || "Unsaved card"}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setUnsavedCloseDialogOpen(false)} disabled={isClosingAfterSave}>
+            <Button
+              variant="outline"
+              onClick={() => setUnsavedCloseDialogOpen(false)}
+              disabled={isClosingAfterSave}
+            >
               Cancel
             </Button>
-            <Button variant="secondary" onClick={() => void continueClosing()} disabled={isClosingAfterSave}>
+            <Button
+              variant="secondary"
+              onClick={() => void continueClosing()}
+              disabled={isClosingAfterSave}
+            >
               Close Without Saving
             </Button>
             <Button onClick={() => void handleSaveAndClose()} disabled={isClosingAfterSave}>
@@ -1231,25 +921,13 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={quickFillDialogOpen} onOpenChange={setQuickFillDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>QA Presets</DialogTitle>
-            <DialogDescription>
-              One-click QA cards for every supported geometry, with complete scan, plan, and report data.
-            </DialogDescription>
-          </DialogHeader>
-          {renderQuickFillPanel(true)}
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={persistence.isSavedCardsDialogOpen} onOpenChange={persistence.setIsSavedCardsDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Saved cards</DialogTitle>
+            <DialogTitle>Saved Cards</DialogTitle>
             <DialogDescription>Select a card to continue or manage previously saved work.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
             {persistence.isLoadingSheets ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1257,15 +935,20 @@ const Index = () => {
               </div>
             ) : persistence.savedSheets.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No cards saved yet. Use the Save action after naming your project to store your progress.
+                No cards saved yet. Use Save after naming your project to store your progress.
               </p>
             ) : (
               persistence.savedSheets.map((sheet) => (
-                <div key={sheet.id} className="flex flex-col gap-3 rounded-lg border border-border bg-card/60 p-3 md:flex-row md:items-center md:justify-between">
+                <div
+                  key={sheet.id}
+                  className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/25 p-3 md:flex-row md:items-center md:justify-between"
+                >
                   <div>
                     <p className="text-sm font-semibold">{sheet.sheetName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {(sheet.standard && `Standard: ${sheet.standard}`) || "Standard not set"} · Updated {new Date(sheet.updatedAt).toLocaleString()}
+                      {(sheet.standard && `Process reference: ${sheet.standard}`) || "Process reference not set"}
+                      {" · "}
+                      Updated {new Date(sheet.updatedAt).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1275,7 +958,7 @@ const Index = () => {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => handleLoadSavedSheet(sheet.id)}
+                      onClick={() => requestLoadSavedSheet(sheet.id, sheet.sheetName)}
                       disabled={persistence.loadingSheetId === sheet.id}
                     >
                       {persistence.loadingSheetId === sheet.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1284,7 +967,7 @@ const Index = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => persistence.handleDeleteSheet(sheet.id)}
+                      onClick={() => void persistence.handleDeleteSheet(sheet.id)}
                       disabled={persistence.deletingSheetId === sheet.id}
                     >
                       {persistence.deletingSheetId === sheet.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1302,10 +985,7 @@ const Index = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-
-      </div>
-    </StandardProvider>
+    </div>
   );
 };
 

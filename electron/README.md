@@ -1,144 +1,17 @@
-# Electron Desktop App for Scan Master
+# RT-PT Inspector Desktop
 
-## 🚀 Quick Start
+Electron shell for the standalone RT-PT Inspector application.
 
-### Development Mode
-To run the app in development mode:
+- App ID: `com.amitay.rtptinspector`
+- Product name: `RT-PT Inspector`
+- Installer: `RTPT-Inspector-Setup-<version>.exe`
+- Update repository: `amitay1/RT-u`
+- User data: Electron-managed directory belonging only to this app ID
 
-```bash
-# Option 1: If server is already running
-npm run electron:dev
+Run locally with `npm run electron:dev`; package Windows builds with `npm run dist:win`.
 
-# Option 2: Electron will start the server automatically
-npm run electron:dev
-```
+Production release builds must use an Authenticode signing identity supplied by the controlled release environment. They also require `rtpt-license-public-key.pem` plus the independently controlled `RTPT_LICENSE_PUBLIC_KEY_SHA256` SPKI fingerprint; the release script verifies both before packaging and audits the exact key again inside `app.asar`. Run `npm run release:dry` for a non-mutating preflight and `npm run release` only from a clean tree. The explicitly named `-AllowUnsignedDevelopmentBuild` switch creates a local-only package, warns when licensing is unusable, and disables all commit, tag, push, release, and upload actions. See [RTPT_LICENSE_SECURITY.md](./RTPT_LICENSE_SECURITY.md).
 
-The Electron app will check if the server is running and start it if needed.
+The packaged runtime is audited before publication: `server/`, `shared/`, MRO, legacy licensing, private keys, activation packages, Scan-Master update channels, and CAD/UT-only Node packages are forbidden, while `express`, `electron-updater`, and `electron-log` remain available to the Electron main process.
 
-### Production Build
-To create installers for distribution:
-
-```bash
-# Windows installer (.exe)
-npm run dist:win
-
-# macOS installer (.dmg)
-npm run dist:mac
-
-# Linux installer (.AppImage)
-npm run dist:linux
-```
-
-## 📁 Project Structure
-
-```
-electron/
-├── main.js          # Main Electron process
-├── preload.js       # Preload script for security
-└── README.md        # This file
-
-dist-electron/      # Built installers (after running dist commands)
-├── Scan Master Setup.exe
-├── Scan Master.dmg
-└── Scan Master.AppImage
-```
-
-## 🎯 Features Added
-
-1. **Native Desktop App** - Your web app now runs as a desktop application
-2. **Application Menu** - File, Edit, View, Window, Help menus
-3. **Keyboard Shortcuts** - Ctrl+N for new sheet, Ctrl+P for PDF export
-4. **System Integration** - Native file dialogs, system notifications
-5. **Offline Capability** - Works without internet (with local database)
-
-## 🔧 Configuration
-
-The app configuration is in `electron-builder.json`:
-- App ID: `com.scanmaster.inspectionpro`
-- Product Name: `Scan Master Inspection Pro`
-- Output Directory: `dist-electron/`
-
-## 🏗️ Building Icons
-
-Before building for production, add your app icons in the `build/` directory:
-- Windows: `icon.ico` (256x256)
-- macOS: `icon.icns` (512x512)
-- Linux: `icon.png` (512x512)
-
-## 🔐 Security Features
-
-- **Context Isolation**: Enabled to prevent XSS attacks
-- **Node Integration**: Disabled in renderer process
-- **Preload Script**: Safe bridge between main and renderer
-- **Content Security Policy**: Restricts external resources
-
-## 📋 Next Steps for Offline Mode
-
-To make the app fully offline-capable:
-
-1. **Add SQLite Database**
-   ```bash
-   npm install better-sqlite3
-   ```
-
-2. **Create Local Storage Adapter**
-   ```javascript
-   // electron/database.js
-   const Database = require('better-sqlite3');
-   const db = new Database('scanmaster.db');
-   ```
-
-3. **Implement Sync Manager**
-   ```javascript
-   // electron/sync.js
-   class SyncManager {
-     syncToCloud() { /* ... */ }
-     syncFromCloud() { /* ... */ }
-   }
-   ```
-
-## 🎨 Customization
-
-### Change Window Size
-Edit `electron/main.js`:
-```javascript
-mainWindow = new BrowserWindow({
-  width: 1400,  // Change width
-  height: 900,  // Change height
-  // ...
-});
-```
-
-### Add Custom Menu Items
-Edit the menu template in `electron/main.js`
-
-### Enable Auto-Updates
-1. Set up a release server
-2. Configure `publish` in `electron-builder.json`
-3. Add auto-updater code to `main.js`
-
-## 🐛 Troubleshooting
-
-### App doesn't start
-- Make sure the web server is running first (`npm run dev`)
-- Check console for errors: `npm run electron:dev`
-
-### Build fails
-- Ensure all dependencies are installed: `npm install`
-- Check that Node.js version is compatible (>= 14.x)
-
-### Icons not showing
-- Add icon files to `build/` directory before building
-
-## 📦 Distribution
-
-After building, the installers will be in `dist-electron/`:
-- **Windows**: NSIS installer with auto-update support
-- **macOS**: DMG with drag-to-Applications
-- **Linux**: AppImage (portable) and DEB package
-
-## 🔗 Resources
-
-- [Electron Documentation](https://www.electronjs.org/docs)
-- [Electron Builder](https://www.electron.build/)
-- [Security Best Practices](https://www.electronjs.org/docs/tutorial/security)
+USB updates use a SHA-256 value embedded in the signed `update-info.json`. The manifest is verified against the pinned `electron/update-public-key.pem`; the corresponding private key stays outside this repository. See [OFFLINE_UPDATE_SECURITY.md](./OFFLINE_UPDATE_SECURITY.md).

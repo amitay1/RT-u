@@ -1,4 +1,10 @@
-# 🏭 מדריך מקיף: מהכנת התוכנה עד התקנה במפעל
+# מסמך היסטורי — אסור להשתמש בו להפצת RT-PT Inspector
+
+מסמך זה שייך למוצר Scan-Master נפרד ואינו מסלול הפצה, רישוי או התקנה של
+RT-PT Inspector. עבור המוצר הפעיל יש להשתמש רק ב־`README.md`, ב־`AGENTS.md`,
+ב־`electron/RTPT_LICENSE_SECURITY.md` וב־`scripts/release.ps1`.
+
+# 🏭 מדריך היסטורי: מהכנת התוכנה עד התקנה במפעל
 ## Scan Master Inspection Pro - Production to Installation Guide
 
 **תאריך:** נובמבר 2025  

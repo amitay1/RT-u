@@ -23,4 +23,6 @@ export const SonnerToaster = ({ ...props }: ToasterProps) => {
   );
 };
 
+// Sonner's imperative helper is intentionally re-exported with its configured component.
+// eslint-disable-next-line react-refresh/only-export-components
 export { toast };

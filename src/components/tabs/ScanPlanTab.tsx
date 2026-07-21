@@ -22,6 +22,13 @@ import { VideoPlayer } from "@/components/training/VideoPlayer";
 import { getVideoBySlug } from "@/data/videoCatalog";
 import { V2500ScanSimulator } from "@/components/scanning/V2500ScanSimulator";
 import { Plane } from "lucide-react";
+import {
+  getV2500PassCount,
+  getV2500ScanPlanForStandard,
+  PW_V2500_SIGNAL_RULES,
+  type PWScanPlan,
+} from "@/rules/pw/pwScanPlans";
+import { PW_HPT_TRANSDUCER_SETUP } from "@/rules/pw/pwTransducers";
 
 /**
  * Map a Scan-Plan document → its companion training video slug.
@@ -50,11 +57,103 @@ function isV2500ScanPlan(docs: { filePath: string; title: string; description: s
   });
 }
 
+function getV2500StandardFromDocuments(
+  docs: { filePath: string; title: string; description: string }[]
+): "NDIP-1226" | "NDIP-1227" | null {
+  const blob = docs
+    .map((d) => `${d.filePath} ${d.title} ${d.description}`)
+    .join(" ")
+    .toLowerCase();
+
+  if (/\bndip-?1227\b|stage\s*2|second\s*stage/.test(blob)) return "NDIP-1227";
+  if (/\bndip-?1226\b|stage\s*1|first\s*stage|\bv2500\b/.test(blob)) return "NDIP-1226";
+  return null;
+}
+
 function videoSlugForDocument(filePath: string): string | undefined {
   // Strip directories and extension: "/documents/scan-plan-guide.docx" -> "scan-plan-guide"
   const basename = filePath.split(/[/\\]/).pop() ?? "";
   const stem = basename.replace(/\.[^.]+$/, "").toLowerCase();
   return DOCUMENT_VIDEO_MAP[stem];
+}
+
+function V2500ProcedureBrief({ scanPlan }: { scanPlan: PWScanPlan }) {
+  const passCount = getV2500PassCount(scanPlan);
+  const waterPathMm = Number((scanPlan.waterPath * 25.4).toFixed(1));
+
+  const metrics = [
+    {
+      label: "Water path",
+      value: `${scanPlan.waterPath.toFixed(1)} in / ${waterPathMm} mm`,
+      note: "constant couplant, matched to focal length",
+    },
+    {
+      label: "Snell setup",
+      value: `${PW_HPT_TRANSDUCER_SETUP.incidentAngle.toFixed(1)} deg -> ${PW_HPT_TRANSDUCER_SETUP.refractedAngle} deg`,
+      note: "water incident angle to steel shear wave",
+    },
+    {
+      label: "Coverage",
+      value: `${scanPlan.maxScanIncrement.toFixed(3)} in max`,
+      note: "scan and index increments",
+    },
+    {
+      label: "FSH rule",
+      value: `${PW_V2500_SIGNAL_RULES.calibrationTargetFsh}% / ${PW_V2500_SIGNAL_RULES.recordableIndicationFsh}%`,
+      note: "calibration target / report threshold",
+    },
+  ];
+
+  return (
+    <div className="mb-3 rounded-lg border border-cyan-500/30 bg-slate-950/70 p-4 text-slate-100">
+      <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h4 className="text-sm font-semibold text-cyan-300">
+            {scanPlan.ndipReference} scan-plan preset
+          </h4>
+          <p className="text-xs text-slate-400">
+            {scanPlan.description}: {scanPlan.scanZones.length} surfaces, {passCount} passes, automated immersion, each surface scanned at +45 and -45.
+          </p>
+        </div>
+        <div className="text-xs font-mono text-slate-300">
+          P/N {scanPlan.partNumber}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded-md border border-cyan-500/20 bg-slate-900/80 p-2">
+            <div className="text-[11px] uppercase text-slate-500">{metric.label}</div>
+            <div className="text-sm font-semibold text-slate-100">{metric.value}</div>
+            <div className="text-[11px] text-slate-400">{metric.note}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-md border border-slate-700/70">
+        <table className="w-full text-xs">
+          <thead className="bg-slate-900 text-slate-300">
+            <tr>
+              <th className="px-2 py-2 text-left">Zone</th>
+              <th className="px-2 py-2 text-left">Surface</th>
+              <th className="px-2 py-2 text-left">Passes</th>
+              <th className="px-2 py-2 text-left">Why it matters</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scanPlan.scanZones.map((zone) => (
+              <tr key={zone.id} className="border-t border-slate-800">
+                <td className="px-2 py-2 font-mono text-cyan-300">{zone.id}</td>
+                <td className="px-2 py-2 text-slate-200">{zone.surfaceName}</td>
+                <td className="px-2 py-2 text-slate-300">+45 / -45</td>
+                <td className="px-2 py-2 text-slate-400">{zone.profileShape.notes}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 interface ScanPlanTabProps {
@@ -155,7 +254,13 @@ export const ScanPlanTab = ({ data, onChange }: ScanPlanTabProps) => {
 
   // Hooks must be called in the same order every render — keep them above any
   // conditional return. Detect whether the simulator should show.
-  const showV2500Simulator = isV2500ScanPlan(activeDocuments);
+  const detectedV2500Standard = getV2500StandardFromDocuments(activeDocuments);
+  const activeV2500ScanPlan = detectedV2500Standard
+    ? getV2500ScanPlanForStandard(detectedV2500Standard)
+    : isV2500ScanPlan(activeDocuments)
+      ? getV2500ScanPlanForStandard("NDIP-1226")
+      : null;
+  const showV2500Simulator = Boolean(activeV2500ScanPlan);
   const [simOpen, setSimOpen] = useState<boolean>(false);
   useEffect(() => {
     if (showV2500Simulator) setSimOpen(true);
@@ -204,6 +309,9 @@ export const ScanPlanTab = ({ data, onChange }: ScanPlanTabProps) => {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="p-3">
+                {activeV2500ScanPlan && (
+                  <V2500ProcedureBrief scanPlan={activeV2500ScanPlan} />
+                )}
                 <V2500ScanSimulator />
               </div>
             </CollapsibleContent>

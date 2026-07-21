@@ -75,7 +75,7 @@ export class DbStorage implements IStorage {
 
   async updateInspectorProfile(id: string, profile: Partial<InsertProfile>, orgId?: string): Promise<Profile> {
     // Filter out protected fields
-    const { userId: _, orgId: __, ...safeUpdates } = profile as any;
+    const { userId: _, orgId: __, ...safeUpdates } = profile;
 
     const conditions = [eq(profiles.id, id)];
     if (orgId) {
@@ -157,10 +157,14 @@ export class DbStorage implements IStorage {
       const results = await db.insert(techniqueSheets).values(dataToInsert).returning();
       console.log('✅ Insert successful, id:', results[0]?.id);
       return results[0];
-    } catch (error: any) {
-      console.error('❌ Insert failed:', error.message);
-      console.error('   Error code:', error.code);
-      console.error('   Error detail:', error.detail);
+    } catch (error: unknown) {
+      const errorDetails = typeof error === 'object' && error !== null
+        ? error as Record<string, unknown>
+        : {};
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Insert failed:', message);
+      console.error('   Error code:', errorDetails.code);
+      console.error('   Error detail:', errorDetails.detail);
       throw error;
     }
   }
@@ -172,7 +176,7 @@ export class DbStorage implements IStorage {
     }
     
     // Filter out protected fields that clients shouldn't override
-    const { orgId: _, userId: __, ...safeUpdates } = sheet as any;
+    const { orgId: _, userId: __, ...safeUpdates } = sheet;
     
     const whereClause = and(
       eq(techniqueSheets.id, id),

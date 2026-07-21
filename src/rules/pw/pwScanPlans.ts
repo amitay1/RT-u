@@ -247,6 +247,31 @@ export const PW_V2500_SCAN_PLANS: PWScanPlan[] = [
   PW_V2500_STAGE2_SCAN_PLAN,
 ];
 
+export const PW_V2500_SIGNAL_RULES = {
+  referenceReflector: '#1 FBH (1/64")',
+  calibrationTargetFsh: 80,
+  evaluationFloorFsh: 15,
+  recordableIndicationFsh: 20,
+  averageNoiseLimitFsh: 7.5,
+  bandNoiseLimitFsh: 8.5,
+  postCalibrationToleranceDb: 1,
+} as const;
+
+export function getV2500ScanPlanForStandard(
+  standard?: string | null
+): PWScanPlan | null {
+  if (standard === 'NDIP-1226') return PW_V2500_STAGE1_SCAN_PLAN;
+  if (standard === 'NDIP-1227') return PW_V2500_STAGE2_SCAN_PLAN;
+  return null;
+}
+
+export function getV2500PassCount(scanPlan: PWScanPlan): number {
+  return scanPlan.scanZones.reduce(
+    (count, zone) => count + zone.scanModes.length,
+    0
+  );
+}
+
 /**
  * Get scan plan by part number
  */

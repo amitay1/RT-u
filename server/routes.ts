@@ -202,12 +202,12 @@ export function registerRoutes(app: Express) {
 
   // Valid storage keys (whitelist for security)
   const VALID_STORAGE_KEYS = [
-    "scanmaster_saved_cards",
-    "scanmaster_settings",
-    "scanmaster_inspector_profiles",
-    "scanmaster_first_run_completed",
-    "scanmaster_first_run_data",
-    "scanmaster_user_id",
+    "rtpt_inspector_saved_cards",
+    "rtpt_inspector_settings",
+    "rtpt_inspector_profiles",
+    "rtpt_inspector_first_run_completed",
+    "rtpt_inspector_first_run_data",
+    "rtpt_inspector_user_id",
   ];
 
   function isValidStorageKey(key: string): boolean {

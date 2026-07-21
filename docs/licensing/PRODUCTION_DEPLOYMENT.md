@@ -1,4 +1,11 @@
-# 🚀 Production Deployment Guide
+# DEPRECATED — NOT AN RT-PT INSPECTOR RUNBOOK
+
+This document belongs to a separate historical Scan-Master licensing system.
+It must not be used to deploy, license, update, or release RT-PT Inspector.
+For the active product use `README.md`, `AGENTS.md`,
+`electron/RTPT_LICENSE_SECURITY.md`, and `scripts/release.ps1` only.
+
+# 🚀 Historical Production Deployment Guide
 
 Complete guide for deploying Scan Master Licensing & Update System to production.
 

@@ -3,16 +3,21 @@
  *
  * Features:
  * - Validates update packages from USB drive
- * - Verifies SHA256 checksums
- * - Optional signature verification
+ * - Verifies a signed manifest and installer SHA256
+ * - Requires a pinned public key (fail closed)
  * - Progress tracking during installation
  * - Rollback support
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
+
+const ALLOWED_INSTALLER_EXTENSIONS = new Set(['.exe', '.msi']);
+const SHA256_PATTERN = /^[a-f0-9]{64}$/i;
+const VERSION_PATTERN = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 
 class OfflineUpdater {
   constructor(options = {}) {
@@ -41,9 +46,57 @@ class OfflineUpdater {
     return 0;
   }
 
+  isValidVersion(version) {
+    return typeof version === 'string' && VERSION_PATTERN.test(version);
+  }
+
+  /**
+   * Resolve a regular file that must live directly inside the package root.
+   * Both the lexical path and real path are checked to prevent traversal and
+   * symlink/reparse-point escapes.
+   */
+  resolveContainedFile(packagePath, relativeFile, allowedExtensions) {
+    if (typeof packagePath !== 'string' || typeof relativeFile !== 'string' || !relativeFile) {
+      throw new Error('Invalid update package path');
+    }
+    if (path.isAbsolute(relativeFile) || path.basename(relativeFile) !== relativeFile) {
+      throw new Error('Update package contains an unsafe file path');
+    }
+
+    const packageRoot = fs.realpathSync(packagePath);
+    const candidatePath = path.resolve(packageRoot, relativeFile);
+    const lexicalRelative = path.relative(packageRoot, candidatePath);
+    if (!lexicalRelative || lexicalRelative.startsWith(`..${path.sep}`) || path.isAbsolute(lexicalRelative)) {
+      throw new Error('Update package file escapes the package directory');
+    }
+    if (!fs.existsSync(candidatePath)) {
+      throw new Error(`Update package file not found: ${relativeFile}`);
+    }
+
+    const candidateStat = fs.lstatSync(candidatePath);
+    if (!candidateStat.isFile() || candidateStat.isSymbolicLink()) {
+      throw new Error(`Update package file must be a regular file: ${relativeFile}`);
+    }
+
+    const realCandidate = fs.realpathSync(candidatePath);
+    const realRelative = path.relative(packageRoot, realCandidate);
+    if (!realRelative || realRelative.startsWith(`..${path.sep}`) || path.isAbsolute(realRelative)) {
+      throw new Error('Update package file resolves outside the package directory');
+    }
+
+    if (allowedExtensions) {
+      const extension = path.extname(realCandidate).toLowerCase();
+      if (!allowedExtensions.has(extension)) {
+        throw new Error(`Unsupported update package file type: ${extension || 'none'}`);
+      }
+    }
+
+    return realCandidate;
+  }
+
   /**
    * Scan a directory for update packages
-   * Looks for ScanMaster-Update-*.zip files with valid update-info.json
+   * Looks for RT-PT update folders with a valid signed update-info.json
    */
   async scanForUpdates(directoryPath) {
     const results = {
@@ -58,18 +111,23 @@ class OfflineUpdater {
         return results;
       }
 
-      const files = fs.readdirSync(directoryPath);
+      const scanRoot = fs.realpathSync(directoryPath);
+      const files = fs.readdirSync(scanRoot);
 
       // Look for update folders or zip files
       for (const file of files) {
-        const fullPath = path.join(directoryPath, file);
-        const stat = fs.statSync(fullPath);
+        const fullPath = path.join(scanRoot, file);
+        const stat = fs.lstatSync(fullPath);
+        if (stat.isSymbolicLink()) {
+          results.errors.push(`Skipped symbolic link: ${file}`);
+          continue;
+        }
 
         // Check for update info file
         let infoPath;
         if (stat.isDirectory()) {
           infoPath = path.join(fullPath, 'update-info.json');
-        } else if (file.endsWith('.json') && file.includes('update-info')) {
+        } else if (stat.isFile() && file === 'update-info.json') {
           infoPath = fullPath;
         } else {
           continue;
@@ -84,7 +142,12 @@ class OfflineUpdater {
           const updateInfo = JSON.parse(infoContent);
 
           // Validate update info structure
-          if (!updateInfo.version || !updateInfo.installerFile) {
+          if (
+            !this.isValidVersion(updateInfo.version) ||
+            typeof updateInfo.installerFile !== 'string' ||
+            !SHA256_PATTERN.test(updateInfo.installerSha256 || '') ||
+            typeof updateInfo.signatureFile !== 'string'
+          ) {
             results.errors.push(`Invalid update-info.json in ${file}`);
             continue;
           }
@@ -92,28 +155,39 @@ class OfflineUpdater {
           // Check if this is a newer version
           const isNewer = this.compareVersions(updateInfo.version, this.currentVersion) > 0;
 
+          const packagePath = fs.realpathSync(stat.isDirectory() ? fullPath : path.dirname(infoPath));
           const packageInfo = {
-            path: stat.isDirectory() ? fullPath : path.dirname(infoPath),
+            path: packagePath,
             version: updateInfo.version,
             isNewer,
             releaseDate: updateInfo.releaseDate || 'Unknown',
             changelog: updateInfo.changelog || '',
             installerFile: updateInfo.installerFile,
-            checksumFile: updateInfo.checksumFile || 'checksums.sha256',
             signatureFile: updateInfo.signatureFile,
+            manifestFile: path.basename(infoPath),
+            installerSha256: updateInfo.installerSha256.toLowerCase(),
             size: updateInfo.size || 0,
             minVersion: updateInfo.minVersion,
             platform: updateInfo.platform || 'win32'
           };
 
           // Check for installer file
-          const installerPath = path.join(packageInfo.path, packageInfo.installerFile);
-          if (!fs.existsSync(installerPath)) {
-            results.errors.push(`Installer not found: ${packageInfo.installerFile}`);
-            packageInfo.installerMissing = true;
-          } else {
+          try {
+            const installerPath = this.resolveContainedFile(
+              packageInfo.path,
+              packageInfo.installerFile,
+              ALLOWED_INSTALLER_EXTENSIONS
+            );
             const installerStat = fs.statSync(installerPath);
+            if (installerStat.size <= 0) {
+              throw new Error('Installer file is empty');
+            }
             packageInfo.actualSize = installerStat.size;
+            this.resolveContainedFile(packageInfo.path, packageInfo.manifestFile, new Set(['.json']));
+            this.resolveContainedFile(packageInfo.path, packageInfo.signatureFile, new Set(['.sig']));
+          } catch (packageError) {
+            results.errors.push(`${file}: ${packageError.message}`);
+            packageInfo.installerMissing = true;
           }
 
           results.packages.push(packageInfo);
@@ -144,6 +218,10 @@ class OfflineUpdater {
 
       let bytesRead = 0;
       const fileSize = fs.statSync(filePath).size;
+      if (fileSize <= 0) {
+        reject(new Error('Cannot verify an empty installer file'));
+        return;
+      }
 
       stream.on('data', (chunk) => {
         hash.update(chunk);
@@ -167,14 +245,9 @@ class OfflineUpdater {
    * Verify checksum against checksums file
    */
   async verifyChecksum(packagePath, installerFile, checksumFile) {
-    const checksumPath = path.join(packagePath, checksumFile);
-    const installerPath = path.join(packagePath, installerFile);
-
-    if (!fs.existsSync(checksumPath)) {
-      return { valid: false, error: 'Checksum file not found' };
-    }
-
     try {
+      const checksumPath = this.resolveContainedFile(packagePath, checksumFile, new Set(['.sha256']));
+      const installerPath = this.resolveContainedFile(packagePath, installerFile, ALLOWED_INSTALLER_EXTENSIONS);
       const checksumContent = fs.readFileSync(checksumPath, 'utf8');
       const lines = checksumContent.split('\n');
 
@@ -214,30 +287,30 @@ class OfflineUpdater {
   }
 
   /**
-   * Verify digital signature (optional, requires public key)
+   * Verify the exact update-info.json bytes using the pinned public key.
    */
-  async verifySignature(packagePath, signatureFile) {
-    if (!this.publicKey || !signatureFile) {
-      return { valid: true, skipped: true, message: 'Signature verification skipped' };
+  async verifySignature(packageInfo) {
+    if (!this.publicKey) {
+      return { valid: false, skipped: false, error: 'Offline updates are disabled: no pinned public key is configured' };
     }
-
-    const signaturePath = path.join(packagePath, signatureFile);
-    if (!fs.existsSync(signaturePath)) {
-      return { valid: false, error: 'Signature file not found' };
+    if (!packageInfo.signatureFile || !packageInfo.manifestFile) {
+      return { valid: false, skipped: false, error: 'Signed update manifest is incomplete' };
     }
 
     try {
-      // Read signature
+      const signaturePath = this.resolveContainedFile(
+        packageInfo.path,
+        packageInfo.signatureFile,
+        new Set(['.sig'])
+      );
+      const manifestPath = this.resolveContainedFile(
+        packageInfo.path,
+        packageInfo.manifestFile,
+        new Set(['.json'])
+      );
       const signature = fs.readFileSync(signaturePath);
-
-      // Read the checksums file (what we're verifying)
-      const checksumPath = path.join(packagePath, 'checksums.sha256');
-      const data = fs.readFileSync(checksumPath);
-
-      // Verify signature
-      const verify = crypto.createVerify('SHA256');
-      verify.update(data);
-      const isValid = verify.verify(this.publicKey, signature);
+      const manifest = fs.readFileSync(manifestPath);
+      const isValid = crypto.verify('sha256', manifest, this.publicKey, signature);
 
       return {
         valid: isValid,
@@ -265,8 +338,16 @@ class OfflineUpdater {
       errors: []
     };
 
-    // Check version
-    if (packageInfo.isNewer) {
+    if (!packageInfo || typeof packageInfo !== 'object') {
+      results.valid = false;
+      results.errors.push('Invalid update package');
+      return results;
+    }
+
+    // Recompute version status; never trust a renderer-provided isNewer flag.
+    const isNewer = this.isValidVersion(packageInfo.version)
+      && this.compareVersions(packageInfo.version, this.currentVersion) > 0;
+    if (isNewer) {
       results.checks.version = { valid: true, message: `v${packageInfo.version} > v${this.currentVersion}` };
     } else {
       results.checks.version = { valid: false, message: `v${packageInfo.version} is not newer than v${this.currentVersion}` };
@@ -296,22 +377,35 @@ class OfflineUpdater {
     }
 
     // Check installer exists
-    const installerPath = path.join(packageInfo.path, packageInfo.installerFile);
-    if (fs.existsSync(installerPath)) {
-      results.checks.installer = { valid: true, message: 'Installer file found' };
-    } else {
-      results.checks.installer = { valid: false, message: 'Installer file missing' };
+    let installerPath;
+    try {
+      installerPath = this.resolveContainedFile(
+        packageInfo.path,
+        packageInfo.installerFile,
+        ALLOWED_INSTALLER_EXTENSIONS
+      );
+      results.checks.installer = { valid: true, message: 'Installer path and file type verified' };
+    } catch (error) {
+      results.checks.installer = { valid: false, message: error.message };
       results.valid = false;
-      results.errors.push('Installer file not found in update package');
+      results.errors.push(error.message);
     }
 
-    // Verify checksum
+    // Verify the installer hash embedded in the signed manifest.
     this.onProgress({ stage: 'validating', percent: 30, message: 'Verifying checksum...' });
-    const checksumResult = await this.verifyChecksum(
-      packageInfo.path,
-      packageInfo.installerFile,
-      packageInfo.checksumFile
-    );
+    let checksumResult = { valid: false, error: 'Installer path is invalid' };
+    if (installerPath && SHA256_PATTERN.test(packageInfo.installerSha256 || '')) {
+      const actualChecksum = await this.calculateChecksum(installerPath);
+      const expectedChecksum = packageInfo.installerSha256.toLowerCase();
+      checksumResult = {
+        valid: actualChecksum.toLowerCase() === expectedChecksum,
+        error: actualChecksum.toLowerCase() === expectedChecksum
+          ? null
+          : 'Checksum mismatch - installer differs from the signed manifest'
+      };
+    } else if (!SHA256_PATTERN.test(packageInfo.installerSha256 || '')) {
+      checksumResult.error = 'Signed manifest is missing a valid installerSha256 value';
+    }
     results.checks.checksum = {
       valid: checksumResult.valid,
       message: checksumResult.error || 'Checksum verified'
@@ -323,13 +417,13 @@ class OfflineUpdater {
 
     // Verify signature
     this.onProgress({ stage: 'validating', percent: 70, message: 'Verifying signature...' });
-    const signatureResult = await this.verifySignature(packageInfo.path, packageInfo.signatureFile);
+    const signatureResult = await this.verifySignature(packageInfo);
     results.checks.signature = {
       valid: signatureResult.valid,
       message: signatureResult.error || signatureResult.message || 'Signature verified',
       skipped: signatureResult.skipped
     };
-    if (!signatureResult.valid && !signatureResult.skipped) {
+    if (!signatureResult.valid) {
       results.valid = false;
       results.errors.push(signatureResult.error);
     }
@@ -345,10 +439,25 @@ class OfflineUpdater {
   async installUpdate(packageInfo, options = {}) {
     const { silent = false, autoRestart = true } = options;
 
-    const installerPath = path.join(packageInfo.path, packageInfo.installerFile);
+    const validation = await this.validatePackage(packageInfo);
+    if (!validation.valid) {
+      throw new Error(`Update validation failed: ${validation.errors.join('; ')}`);
+    }
 
-    if (!fs.existsSync(installerPath)) {
-      throw new Error('Installer file not found');
+    const sourceInstallerPath = this.resolveContainedFile(
+      packageInfo.path,
+      packageInfo.installerFile,
+      ALLOWED_INSTALLER_EXTENSIONS
+    );
+    const stagingParent = this.tempDir || os.tmpdir();
+    fs.mkdirSync(stagingParent, { recursive: true });
+    const stagingDirectory = fs.mkdtempSync(path.join(stagingParent, 'rtpt-update-'));
+    const installerPath = path.join(stagingDirectory, path.basename(sourceInstallerPath));
+    fs.copyFileSync(sourceInstallerPath, installerPath, fs.constants.COPYFILE_EXCL);
+
+    const stagedChecksum = await this.calculateChecksum(installerPath);
+    if (stagedChecksum.toLowerCase() !== packageInfo.installerSha256.toLowerCase()) {
+      throw new Error('Staged installer checksum mismatch');
     }
 
     this.onProgress({ stage: 'installing', percent: 0, message: 'Starting installation...' });
@@ -358,7 +467,8 @@ class OfflineUpdater {
       let installerArgs = [];
 
       // Determine installer type and arguments
-      if (installerPath.endsWith('.exe')) {
+      const installerExtension = path.extname(installerPath).toLowerCase();
+      if (installerExtension === '.exe') {
         // NSIS or Squirrel installer
         if (silent) {
           installerArgs = ['/S', '/SILENT', '/VERYSILENT'];
@@ -366,7 +476,7 @@ class OfflineUpdater {
         if (autoRestart) {
           installerArgs.push('/RESTARTAPPLICATION');
         }
-      } else if (installerPath.endsWith('.msi')) {
+      } else if (installerExtension === '.msi') {
         // MSI installer
         installerArgs = ['/i', installerPath];
         if (silent) {
@@ -380,7 +490,7 @@ class OfflineUpdater {
       const isWindows = process.platform === 'win32';
       let installer;
 
-      if (isWindows && installerPath.endsWith('.msi')) {
+      if (isWindows && installerExtension === '.msi') {
         installer = spawn('msiexec', installerArgs, {
           detached: true,
           stdio: 'ignore'
@@ -406,8 +516,7 @@ class OfflineUpdater {
       setTimeout(() => {
         resolve({
           success: true,
-          message: 'Installation started. The application will restart automatically.',
-          installerPath
+          message: 'Installation started. The application will restart automatically.'
         });
       }, 1000);
     });

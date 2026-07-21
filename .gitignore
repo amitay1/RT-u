@@ -12,6 +12,7 @@ node_modules
 
 # Build output
 dist
+rtpt-dist
 dist-ssr
 dist-electron
 *.local
@@ -64,6 +65,9 @@ output/
 /generated-icon.png
 /pdf-parse-*.tgz
 /licenses/*.json
+*.rtpt-license.json
+**/rtpt-license-private-key.pem
+**/rtpt-license-private-*.pem
 
 # User data (unified storage)
 data/
@@ -113,3 +117,7 @@ training-videos/assets/**/audio/
 training-videos/assets/**/tmp_final/
 training-videos/assets/**/tmp_segments/
 training-videos/assets/**/animations/
+
+# Local agent/CLI tooling caches (not part of the RT-PT product)
+.codex/
+.playwright-cli/

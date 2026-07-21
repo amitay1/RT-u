@@ -66,7 +66,7 @@ function drawStageReferenceFigure(
       ? '/standards/hpt-disk-setup-stage2.png'
       : '/standards/hpt-disk-setup-stage1.png';
 
-  generator.drawViewLabel(x + width / 2, y, `HPT DISK SECTION - ${figureLabel} FIGURE 2`);
+  generator.drawText(x + width / 2, y - 5, `HPT DISK SECTION - ${figureLabel} FIGURE 2`, 11, '#000000');
   generator.drawText(x + width / 2, y + height + 12, figureDescription, 10, '#666666');
 
   const raster = new scope.Raster(imagePath) as any;

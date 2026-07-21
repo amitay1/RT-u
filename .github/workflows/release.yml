@@ -1,88 +1,58 @@
-name: Build and Release
+name: Verify Release Candidate
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 1.0.1)'
+        description: "Stable version to verify (for example, 1.0.1)"
         required: true
-        default: '1.0.0'
+        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-windows:
+  verify-release-candidate:
+    name: Verify v${{ inputs.version }}
     runs-on: windows-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build application
-        run: npm run build
-      
-      - name: Build Electron app for Windows
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:win -- --publish always
 
-  build-mac:
-    runs-on: macos-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build application
-        run: npm run build
-      
-      - name: Build Electron app for macOS
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:mac -- --publish always
 
-  build-linux:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      
+          node-version: "20"
+          cache: npm
+
       - name: Install dependencies
         run: npm ci
-      
-      - name: Build application
-        run: npm run build
-      
-      - name: Build Electron app for Linux
+
+      - name: Apply requested version to verification workspace
+        shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:linux -- --publish always
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Release version '$env:RELEASE_VERSION' must be a stable semantic version."
+          }
+          npm version $env:RELEASE_VERSION --no-git-tag-version --allow-same-version
+          if ($LASTEXITCODE -ne 0) {
+            throw "npm version failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build versioned renderer
+        run: npm run build
+
+      - name: Audit release surface
+        run: npm run smoke:release

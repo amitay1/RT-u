@@ -1,10 +1,9 @@
 /**
- * Diagnostic Tests - Self-diagnostic system for Scan-Master
+ * Diagnostic Tests - Self-diagnostic system for RT-PT Inspector
  *
  * Runs various health checks on:
  * - System resources (disk, memory, CPU)
- * - Application health (database, file system, WebGL)
- * - License status
+ * - Application health (database and file system)
  * - Performance benchmarks
  */
 
@@ -15,7 +14,7 @@ export type TestStatus = 'pending' | 'running' | 'passed' | 'warning' | 'failed'
 export interface DiagnosticTest {
   id: string;
   name: string;
-  category: 'system' | 'application' | 'license' | 'performance';
+  category: 'system' | 'application' | 'performance';
   description: string;
   status: TestStatus;
   result?: string;
@@ -36,7 +35,7 @@ export interface DiagnosticReport {
   };
 }
 
-const APP_VERSION = '1.0.102';
+const APP_VERSION = __APP_VERSION__;
 
 // Thresholds
 const MEMORY_WARNING_MB = 1500;
@@ -80,13 +79,6 @@ class DiagnosticTestRunner {
 
       // Application Health
       {
-        id: 'webgl',
-        name: 'WebGL Support',
-        category: 'application',
-        description: 'Check 3D rendering capability',
-        status: 'pending',
-      },
-      {
         id: 'indexeddb',
         name: 'IndexedDB',
         category: 'application',
@@ -105,22 +97,6 @@ class DiagnosticTestRunner {
         name: 'Settings Integrity',
         category: 'application',
         description: 'Verify settings data',
-        status: 'pending',
-      },
-
-      // License
-      {
-        id: 'license_status',
-        name: 'License Status',
-        category: 'license',
-        description: 'Verify license activation',
-        status: 'pending',
-      },
-      {
-        id: 'license_expiry',
-        name: 'License Expiry',
-        category: 'license',
-        description: 'Check license validity period',
         status: 'pending',
       },
 
@@ -208,7 +184,7 @@ class DiagnosticTestRunner {
     const start = performance.now();
 
     try {
-      const testKey = 'scanmaster_diagnostic_test';
+      const testKey = 'rtpt_inspector_diagnostic_test';
       const testValue = 'test_' + Date.now();
 
       localStorage.setItem(testKey, testValue);
@@ -274,58 +250,18 @@ class DiagnosticTestRunner {
     }
   }
 
-  private async testWebGL(): Promise<void> {
-    this.updateTest('webgl', { status: 'running' });
-    const start = performance.now();
-
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-
-      if (gl) {
-        const debugInfo = (gl as WebGLRenderingContext).getExtension('WEBGL_debug_renderer_info');
-        let renderer = 'Unknown GPU';
-
-        if (debugInfo) {
-          renderer = (gl as WebGLRenderingContext).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        }
-
-        this.updateTest('webgl', {
-          status: 'passed',
-          result: 'Supported',
-          details: `GPU: ${renderer}`,
-          duration: performance.now() - start,
-        });
-      } else {
-        this.updateTest('webgl', {
-          status: 'failed',
-          result: 'Not supported',
-          details: '3D rendering will not work. Please update your browser or graphics drivers.',
-          duration: performance.now() - start,
-        });
-      }
-    } catch (error) {
-      this.updateTest('webgl', {
-        status: 'failed',
-        result: 'Error',
-        details: error instanceof Error ? error.message : 'WebGL initialization failed',
-        duration: performance.now() - start,
-      });
-    }
-  }
-
   private async testIndexedDB(): Promise<void> {
     this.updateTest('indexeddb', { status: 'running' });
     const start = performance.now();
 
     try {
-      const request = indexedDB.open('scanmaster_diagnostic_test', 1);
+      const request = indexedDB.open('rtpt_inspector_diagnostic_test', 1);
 
       await new Promise<void>((resolve, reject) => {
         request.onerror = () => reject(new Error('IndexedDB access denied'));
         request.onsuccess = () => {
           request.result.close();
-          indexedDB.deleteDatabase('scanmaster_diagnostic_test');
+          indexedDB.deleteDatabase('rtpt_inspector_diagnostic_test');
           resolve();
         };
         request.onupgradeneeded = () => {
@@ -388,7 +324,7 @@ class DiagnosticTestRunner {
     const start = performance.now();
 
     try {
-      const settings = localStorage.getItem('scanmaster_settings');
+      const settings = localStorage.getItem('rtpt_inspector_settings');
 
       if (settings) {
         JSON.parse(settings); // Validate JSON
@@ -411,114 +347,6 @@ class DiagnosticTestRunner {
         status: 'warning',
         result: 'Corrupted',
         details: 'Settings data may be corrupted - consider resetting',
-        duration: performance.now() - start,
-      });
-    }
-  }
-
-  private async testLicenseStatus(): Promise<void> {
-    this.updateTest('license_status', { status: 'running' });
-    const start = performance.now();
-
-    try {
-      const licenseData = localStorage.getItem('scanmaster_license');
-
-      if (licenseData) {
-        const license = JSON.parse(licenseData);
-
-        if (license.valid && license.activated) {
-          this.updateTest('license_status', {
-            status: 'passed',
-            result: 'Active',
-            details: `License type: ${license.type || 'Standard'}`,
-            duration: performance.now() - start,
-          });
-        } else {
-          this.updateTest('license_status', {
-            status: 'failed',
-            result: 'Invalid',
-            details: 'License is not activated or has been revoked',
-            duration: performance.now() - start,
-          });
-        }
-      } else {
-        this.updateTest('license_status', {
-          status: 'warning',
-          result: 'Not found',
-          details: 'No license data - running in web mode or trial',
-          duration: performance.now() - start,
-        });
-      }
-    } catch (error) {
-      this.updateTest('license_status', {
-        status: 'warning',
-        result: 'Error',
-        details: 'Could not read license data',
-        duration: performance.now() - start,
-      });
-    }
-  }
-
-  private async testLicenseExpiry(): Promise<void> {
-    this.updateTest('license_expiry', { status: 'running' });
-    const start = performance.now();
-
-    try {
-      const licenseData = localStorage.getItem('scanmaster_license');
-
-      if (licenseData) {
-        const license = JSON.parse(licenseData);
-
-        if (license.lifetime) {
-          this.updateTest('license_expiry', {
-            status: 'passed',
-            result: 'Lifetime',
-            details: 'License never expires',
-            duration: performance.now() - start,
-          });
-        } else if (license.expiryDate) {
-          const expiry = new Date(license.expiryDate);
-          const now = new Date();
-          const daysRemaining = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-          let status: TestStatus = 'passed';
-          if (daysRemaining <= 0) {
-            status = 'failed';
-          } else if (daysRemaining <= 30) {
-            status = 'warning';
-          }
-
-          this.updateTest('license_expiry', {
-            status,
-            result: daysRemaining <= 0 ? 'Expired' : `${daysRemaining} days`,
-            details: daysRemaining <= 0
-              ? 'License has expired - please renew'
-              : daysRemaining <= 30
-              ? 'License expiring soon - consider renewal'
-              : 'License validity is good',
-            duration: performance.now() - start,
-          });
-        } else {
-          this.updateTest('license_expiry', {
-            status: 'passed',
-            result: 'No expiry',
-            details: 'License has no expiration date',
-            duration: performance.now() - start,
-          });
-        }
-      } else {
-        this.updateTest('license_expiry', {
-          status: 'warning',
-          result: 'N/A',
-          details: 'No license installed',
-          duration: performance.now() - start,
-        });
-      }
-    } catch (error) {
-      this.updateTest('license_expiry', {
-        status: 'warning',
-        result: 'Error',
-        details: 'Could not check license expiry',
         duration: performance.now() - start,
       });
     }
@@ -577,7 +405,7 @@ class DiagnosticTestRunner {
     const start = performance.now();
 
     try {
-      const testKey = 'scanmaster_speed_test';
+      const testKey = 'rtpt_inspector_speed_test';
       const testData = 'x'.repeat(10000); // 10KB of data
       const iterations = 50;
 
@@ -625,12 +453,9 @@ class DiagnosticTestRunner {
     await this.testMemory();
     await this.testStorage();
     await this.testNetwork();
-    await this.testWebGL();
     await this.testIndexedDB();
     await this.testCrashes();
     await this.testSettings();
-    await this.testLicenseStatus();
-    await this.testLicenseExpiry();
     await this.testRenderSpeed();
     await this.testStorageSpeed();
 

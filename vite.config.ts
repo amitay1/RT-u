@@ -1,4 +1,4 @@
-import { defineConfig, Plugin } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import fs from "fs";
 import path from "path";
@@ -8,40 +8,21 @@ const appPackageVersion =
   process.env.npm_package_version ||
   JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf8")).version;
 
-// Plugin to stub out @mediapipe/tasks-vision imports
-const mediapipeStubPlugin = (): Plugin => ({
-  name: "mediapipe-stub",
-  resolveId(id) {
-    if (id === "@mediapipe/tasks-vision") {
-      return "\0mediapipe-stub";
-    }
-  },
-  load(id) {
-    if (id === "\0mediapipe-stub") {
-      return `
-        export const FilesetResolver = { forVisionTasks: () => Promise.resolve({}) };
-        export const FaceLandmarker = { createFromOptions: () => Promise.resolve({}) };
-        export default { FilesetResolver, FaceLandmarker };
-      `;
-    }
-  },
-});
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Use relative paths for Electron file:// protocol
+  // Keep inactive legacy assets outside the RT/PT web and desktop builds.
+  publicDir: path.resolve(__dirname, "./public/rtpt"),
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(appPackageVersion),
   },
   server: {
-    host: "0.0.0.0",
-    allowedHosts: true, // Allow all Replit preview URLs
+    host: "127.0.0.1",
+    allowedHosts: ["127.0.0.1", "localhost"],
     port: 5000,
   },
   plugins: [
     react(),
-    mediapipeStubPlugin(),
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
@@ -52,13 +33,16 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
   optimizeDeps: {
-    include: ["react", "react-dom", "react/jsx-runtime", "pdfjs-dist"],
-    exclude: ["@mediapipe/tasks-vision"],
+    include: ["react", "react-dom", "react/jsx-runtime", "jspdf", "jspdf-autotable"],
     esbuildOptions: {
       target: "esnext",
     },
   },
   build: {
+    // Keep RT/PT artifacts physically separate from the legacy shared workspace.
+    outDir: path.resolve(__dirname, "./rtpt-dist"),
+    // A release must never retain stale assets from the legacy shared workspace.
+    emptyOutDir: true,
     commonjsOptions: {
       include: [/node_modules/],
       exclude: ["@mediapipe/tasks-vision"],
@@ -69,7 +53,6 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           // Split vendor chunks for better caching
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'three-vendor': ['three', '@react-three/fiber', '@react-three/drei', 'three-csg-ts'],
           'ui-vendor': [
             '@radix-ui/react-accordion',
             '@radix-ui/react-alert-dialog',
@@ -79,8 +62,7 @@ export default defineConfig(({ mode }) => ({
             '@radix-ui/react-tabs',
             '@radix-ui/react-toast'
           ],
-          'pdf-vendor': ['jspdf', 'jspdf-autotable', 'docx', 'dxf-writer'],
-          'drawing-vendor': ['paper', 'makerjs', 'opentype.js', '@jscad/modeling'],
+          'pdf-vendor': ['jspdf', 'jspdf-autotable'],
         },
       },
     },
@@ -90,7 +72,7 @@ export default defineConfig(({ mode }) => ({
     minify: 'esbuild',
     target: 'esnext',
     // Skip per-chunk gzip reporting — adds 10-30s on a large bundle for a
-    // log line that doesn't affect the artifact. Same dist/ output either way.
+    // log line that doesn't affect the artifact. Same rtpt-dist/ output either way.
     reportCompressedSize: false,
   },
 }));
