@@ -13,6 +13,7 @@ export default defineConfig({
     environment: 'node',
     include: [
       'src/lib/__tests__/rtGeometry.test.ts',
+      'src/lib/__tests__/appUpdateState.test.ts',
       'src/**/__tests__/rtPt*.test.ts',
       'src/**/__tests__/RtPt*.test.ts',
       'src/electron/__tests__/*.test.ts',
