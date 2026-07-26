@@ -12,8 +12,15 @@ const {
 const { decodeRtPtPdfSavePayload } = require('./rtpt-pdf-save.cjs');
 
 const EMBEDDED_SERVER_HOST = '127.0.0.1';
+// Dev-only: the external `npm run dev` server. In a packaged build the embedded
+// server binds an OS-assigned free port (see startEmbeddedServer) so this app can
+// never collide with — or load — a different co-installed application that also
+// happens to listen on 127.0.0.1:5000.
 const EMBEDDED_SERVER_PORT = 5000;
 const EMBEDDED_SERVER_ORIGIN = `http://${EMBEDDED_SERVER_HOST}:${EMBEDDED_SERVER_PORT}`;
+// The origin actually loaded and trusted at runtime. Stays the dev origin above
+// until the packaged embedded server binds its own free port.
+let activeServerOrigin = EMBEDDED_SERVER_ORIGIN;
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['https:', 'mailto:']);
 
 // GPU stability flags - keep GPU enabled for WebGL without disabling Chromium's sandbox
@@ -197,7 +204,7 @@ let lastDownloadPercent = 0;
 
 function isTrustedAppUrl(value) {
   try {
-    return new URL(String(value || '')).origin === EMBEDDED_SERVER_ORIGIN;
+    return new URL(String(value || '')).origin === activeServerOrigin;
   } catch {
     return false;
   }
@@ -1219,12 +1226,12 @@ async function createWindow() {
     // In production, start embedded server first, then load through it
     try {
       await startEmbeddedServer();
-      console.log(`Server started, loading from ${EMBEDDED_SERVER_ORIGIN}`);
-      
+      console.log(`Server started, loading from ${activeServerOrigin}`);
+
       // Wait a moment for server to be ready
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      mainWindow.loadURL(EMBEDDED_SERVER_ORIGIN);
+
+      mainWindow.loadURL(activeServerOrigin);
     } catch (error) {
       console.error('Server failed:', error);
       // If server fails, show error
@@ -1274,14 +1281,10 @@ function startEmbeddedServer() {
       const expressApp = express();
       const dataDir = path.join(app.getPath('userData'), 'data');
 
-      const allowedHosts = new Set([
-        `${EMBEDDED_SERVER_HOST}:${EMBEDDED_SERVER_PORT}`,
-        `localhost:${EMBEDDED_SERVER_PORT}`,
-      ]);
-      const allowedOrigins = new Set([
-        EMBEDDED_SERVER_ORIGIN,
-        `http://localhost:${EMBEDDED_SERVER_PORT}`,
-      ]);
+      // Populated once the OS assigns the free port in the listen callback below.
+      // Until then the allowlists are empty, so any early request is rejected.
+      const allowedHosts = new Set();
+      const allowedOrigins = new Set();
 
       expressApp.use((req, res, next) => {
         const host = req.get('host');
@@ -1594,8 +1597,17 @@ function startEmbeddedServer() {
         }
       });
 
-      embeddedServer = expressApp.listen(EMBEDDED_SERVER_PORT, EMBEDDED_SERVER_HOST, () => {
-        console.log(`Embedded server running at ${EMBEDDED_SERVER_ORIGIN}`);
+      // Bind an OS-assigned free port (0) instead of a fixed 5000. This is the
+      // fix for the cross-product collision: the desktop app now serves and loads
+      // its own private origin and can never pick up another app's 5000 server.
+      embeddedServer = expressApp.listen(0, EMBEDDED_SERVER_HOST, () => {
+        const { port } = embeddedServer.address();
+        activeServerOrigin = `http://${EMBEDDED_SERVER_HOST}:${port}`;
+        allowedHosts.add(`${EMBEDDED_SERVER_HOST}:${port}`);
+        allowedHosts.add(`localhost:${port}`);
+        allowedOrigins.add(activeServerOrigin);
+        allowedOrigins.add(`http://localhost:${port}`);
+        console.log(`Embedded server running at ${activeServerOrigin}`);
         resolve();
       });
       
