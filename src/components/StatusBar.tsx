@@ -9,6 +9,7 @@ interface StatusBarProps {
   totalRequiredFields: number;
   autoSaveStatus?: AutoSaveStatus;
   lastSaved?: Date | null;
+  completionLabel?: string;
 }
 
 export const StatusBar = ({
@@ -17,6 +18,7 @@ export const StatusBar = ({
   totalRequiredFields,
   autoSaveStatus = "idle",
   lastSaved,
+  completionLabel = "Required technique fields",
 }: StatusBarProps) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [appVersion, setAppVersion] = useState(`v${__APP_VERSION__}`);
@@ -92,7 +94,7 @@ export const StatusBar = ({
   return (
     <footer className="status-ribbon flex h-11 flex-shrink-0 items-center gap-2 overflow-hidden px-2 text-xs text-muted-foreground md:gap-3 md:px-4" aria-label="Application status">
       <span className="sr-only" role="status" aria-live="polite">
-        {isOnline ? 'Online' : 'Offline'}{autoSaveDisplay ? `. ${autoSaveDisplay.text}` : ''}. Required field completion {Math.round(completionPercent)} percent. Controlled release readiness is verified separately.
+        {isOnline ? 'Online' : 'Offline'}{autoSaveDisplay ? `. ${autoSaveDisplay.text}` : ''}. {completionLabel} completion {Math.round(completionPercent)} percent. Controlled release readiness is verified separately.
       </span>
       <div className="flex flex-shrink-0 items-center gap-2 rounded-md border border-border/75 bg-muted/30 px-2.5 py-1.5">
         {isOnline ? (
@@ -128,11 +130,11 @@ export const StatusBar = ({
             <AlertCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
           )}
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="hidden shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">Required fields</span>
+            <span className="hidden shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">{completionLabel}</span>
             <div
               className="relative h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-background/80"
               role="progressbar"
-              aria-label="Required technique fields completed"
+              aria-label={`${completionLabel} completed`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(completionPercent)}

@@ -8,20 +8,22 @@ import {
   MenubarShortcut,
   MenubarTrigger,
 } from "@/components/ui/menubar";
-import { FileText, Save, Download, FolderOpen, Info, Book, Stethoscope, HardDrive, Usb } from "lucide-react";
+import { FileText, Save, Download, FolderOpen, Info, Book, Stethoscope, HardDrive, Usb, ClipboardCheck } from "lucide-react";
 
 interface MenuBarProps {
   onSave: () => void;
   onSaveAs?: () => void;
   onOpenSavedCards: () => void;
-  onExport: () => void;
+  onExportTechnique: () => void;
+  onExportInspectionReport: () => void;
+  workspaceMode: "technique" | "inspection";
   onNew: () => void;
   onExportDiagnostics?: () => void;
   onRunDiagnostics?: () => void;
   onOfflineUpdate?: () => void;
 }
 
-export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExport, onNew, onExportDiagnostics, onRunDiagnostics, onOfflineUpdate }: MenuBarProps) => {
+export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExportTechnique, onExportInspectionReport, workspaceMode, onNew, onExportDiagnostics, onRunDiagnostics, onOfflineUpdate }: MenuBarProps) => {
   return (
     <Menubar className="h-10 flex-shrink-0 rounded-none border-x-0 border-t-0 border-b border-border/80 bg-card/95 px-2 shadow-none">
       <MenubarMenu>
@@ -50,10 +52,15 @@ export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExport, onNew, o
               <MenubarShortcut className="text-sm">Ctrl+Shift+S</MenubarShortcut>
             </MenubarItem>
           )}
-          <MenubarItem onClick={onExport} className="text-base py-2">
+          <MenubarItem onClick={onExportTechnique} className="text-base py-2">
             <Download className="mr-3 h-5 w-5" />
-            Export PDF
-            <MenubarShortcut className="text-sm">Ctrl+E</MenubarShortcut>
+            Export Technique PDF
+            {workspaceMode === "technique" && <MenubarShortcut className="text-sm">Ctrl+E</MenubarShortcut>}
+          </MenubarItem>
+          <MenubarItem onClick={onExportInspectionReport} className="text-base py-2">
+            <ClipboardCheck className="mr-3 h-5 w-5" />
+            Export Inspection Report PDF
+            {workspaceMode === "inspection" && <MenubarShortcut className="text-sm">Ctrl+E</MenubarShortcut>}
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>

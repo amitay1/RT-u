@@ -1,25 +1,27 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Save,
   CheckCircle,
   Settings,
-  RefreshCw,
   FileDown,
+  FileText,
+  ClipboardCheck,
+  ClipboardList,
   FolderOpen,
   Minus,
   Square,
   X,
-  Download,
-  Rocket,
   Film,
   Camera,
   Droplets,
   ScanLine,
   FilePlus2,
   KeyRound,
+  Loader2,
 } from "lucide-react";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { UpdateCenter } from "@/components/updates/UpdateCenter";
 import { SavedCardsDialog } from "@/components/SavedCardsDialog";
 import { ProfileIndicator } from "@/components/inspector";
 import { useSavedCards } from "@/hooks/useSavedCards";
@@ -28,23 +30,7 @@ import { RT_PT_METHOD_LABEL, type RtPtMethod } from "@/types/rtPtDocument";
 import { RtPtLicenseCenterDialog } from "@/components/rtpt/RtPtLicenseCenterDialog";
 import { useRtPtLicense } from "@/contexts/RtPtLicenseContext";
 
-type UpdateStatusPayload = {
-  status: UpdateState | 'downloaded' | 'not-available';
-  version?: string;
-  percent?: number;
-};
-
 type ElectronBridge = {
-  checkForUpdates?: () => Promise<unknown> | void;
-  forceCheckUpdates?: () => Promise<unknown> | void;
-  getUpdateInfo?: () => Promise<{
-    updateDownloaded?: boolean;
-    updateAvailable?: boolean;
-    updateVersion?: string;
-  }>;
-  installUpdate?: (silent?: boolean) => Promise<unknown> | void;
-  onUpdateStatus?: (callback: (event: unknown, status: UpdateStatusPayload) => void) => void;
-  removeUpdateListener?: (callback: (event: unknown, status: UpdateStatusPayload) => void) => void;
   minimize?: () => Promise<unknown> | void;
   maximize?: () => Promise<unknown> | void;
   quit?: () => Promise<unknown> | void;
@@ -56,7 +42,8 @@ type ElectronWindow = Window & {
   electronAPI?: ElectronBridge;
 };
 
-// Safe access to electron API
+// Safe access to electron API (window controls + offline-update availability).
+// All auto-update state lives in <UpdateCenter /> via the useAppUpdates hook.
 const getElectron = (): ElectronBridge | undefined => {
   if (typeof window === 'undefined') {
     return undefined;
@@ -65,84 +52,17 @@ const getElectron = (): ElectronBridge | undefined => {
   return electronWindow.electron || electronWindow.electronAPI;
 };
 
-type UpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
-
-function useUpdateStatus() {
-  const [state, setState] = useState<UpdateState>('idle');
-  const [version, setVersion] = useState<string | null>(null);
-  const [percent, setPercent] = useState(0);
-
-  useEffect(() => {
-    const electron = getElectron();
-    if (!electron?.onUpdateStatus) return;
-
-    const handler = (_event: unknown, status: UpdateStatusPayload) => {
-      switch (status.status) {
-        case 'checking':
-          setState('checking');
-          break;
-        case 'available':
-          setState('available');
-          if (status.version) setVersion(status.version);
-          break;
-        case 'downloading':
-          setState('downloading');
-          setPercent(Math.round(status.percent || 0));
-          break;
-        case 'downloaded':
-          setState('ready');
-          if (status.version) setVersion(status.version);
-          break;
-        case 'not-available':
-          setState('idle');
-          break;
-        case 'error':
-          setState('error');
-          break;
-      }
-    };
-
-    electron.onUpdateStatus(handler);
-
-    // Check if update was already downloaded
-    electron.getUpdateInfo?.().then((info) => {
-      if (info?.updateDownloaded && info.updateVersion) {
-        setState('ready');
-        setVersion(info.updateVersion);
-      } else if (info?.updateAvailable && info.updateVersion) {
-        setState('available');
-        setVersion(info.updateVersion);
-      }
-    });
-
-    return () => {
-      electron.removeUpdateListener?.(handler);
-    };
-  }, []);
-
-  const checkForUpdates = useCallback(() => {
-    const electron = getElectron();
-    if (electron?.forceCheckUpdates) {
-      electron.forceCheckUpdates();
-    } else if (electron?.checkForUpdates) {
-      electron.checkForUpdates();
-    }
-    setState('checking');
-  }, []);
-
-  const installUpdate = useCallback(() => {
-    getElectron()?.installUpdate?.(true);
-  }, []);
-
-  return { state, version, percent, checkForUpdates, installUpdate };
-}
-
 interface ToolbarProps {
   onNew: () => void;
   onSave: () => void;
-  onExport: () => void;
+  onExportTechnique: () => void;
+  onExportInspectionReport: () => void;
+  isExportingTechnique?: boolean;
+  isExportingInspectionReport?: boolean;
   onValidate: () => void;
   ndtMethod: RtPtMethod;
+  workspaceMode: "technique" | "inspection";
+  onWorkspaceModeChange: (mode: "technique" | "inspection") => void;
   onLoadLocalCard?: (card: SavedCard) => void;
   onOfflineUpdate?: () => void;
 }
@@ -159,9 +79,14 @@ export type { SavedCard } from '@/contexts/SavedCardsContext';
 export const Toolbar = ({
   onNew,
   onSave,
-  onExport,
+  onExportTechnique,
+  onExportInspectionReport,
+  isExportingTechnique = false,
+  isExportingInspectionReport = false,
   onValidate,
   ndtMethod,
+  workspaceMode,
+  onWorkspaceModeChange,
   onLoadLocalCard,
   onOfflineUpdate,
 }: ToolbarProps) => {
@@ -169,11 +94,9 @@ export const Toolbar = ({
   const [licenseCenterOpen, setLicenseCenterOpen] = useState(false);
   const [localSavedCardsOpen, setLocalSavedCardsOpen] = useState(false);
   const { cards } = useSavedCards();
-  const { state: updateState, version: updateVersion, percent: updatePercent, checkForUpdates, installUpdate } = useUpdateStatus();
   const electron = getElectron();
   const { status: licenseStatus } = useRtPtLicense();
   const hasWindowControls = Boolean(electron?.minimize || electron?.maximize || electron?.quit);
-  const hasUpdateControls = Boolean(electron?.forceCheckUpdates || electron?.checkForUpdates);
   const MethodIcon = METHOD_ICONS[ndtMethod];
   const licenseExpiryTimestamp = licenseStatus.license?.expiresAt
     ? Date.parse(licenseStatus.license.expiresAt)
@@ -213,6 +136,31 @@ export const Toolbar = ({
           </div>
         </div>
 
+        <div className="workbench-group flex min-w-fit items-center gap-1 p-1" aria-label="Workspace mode">
+          <Button
+            variant={workspaceMode === "technique" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => onWorkspaceModeChange("technique")}
+            aria-pressed={workspaceMode === "technique"}
+            title="Technique planning workspace"
+            className="h-10 px-3"
+          >
+            <FileText className="h-4 w-4" />
+            <span className="hidden 2xl:inline">Technique</span>
+          </Button>
+          <Button
+            variant={workspaceMode === "inspection" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => onWorkspaceModeChange("inspection")}
+            aria-pressed={workspaceMode === "inspection"}
+            title="Performed inspection record workspace"
+            className="h-10 px-3"
+          >
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden 2xl:inline">Inspection Record</span>
+          </Button>
+        </div>
+
         <div className="workbench-group flex min-w-fit items-center gap-1 p-1">
           <Button variant="ghost" size="sm" onClick={onNew} title="Start a new technique (Ctrl+N)" aria-label="Start a new technique" className="h-10 px-3">
             <FilePlus2 className="h-4 w-4" />
@@ -226,9 +174,33 @@ export const Toolbar = ({
             <CheckCircle className="h-4 w-4" />
             <span className="hidden md:inline">Validate</span>
           </Button>
-          <Button size="sm" onClick={onExport} title="Export PDF" className="h-10 px-3.5">
-            <FileDown className="h-4 w-4" />
-            <span className="hidden sm:inline">Export PDF</span>
+          <Button
+            variant={workspaceMode === "technique" ? "default" : "outline"}
+            size="sm"
+            onClick={onExportTechnique}
+            disabled={isExportingTechnique || isExportingInspectionReport}
+            title={isExportingTechnique ? "Exporting technique PDF" : "Export technique PDF"}
+            aria-label={isExportingTechnique ? "Exporting technique PDF" : "Export technique PDF"}
+            className="h-10 px-3.5"
+          >
+            {isExportingTechnique ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+            <span className="hidden xl:inline">{isExportingTechnique ? "Exporting…" : "Technique PDF"}</span>
+          </Button>
+          <Button
+            variant={workspaceMode === "inspection" ? "default" : "outline"}
+            size="sm"
+            onClick={onExportInspectionReport}
+            disabled={isExportingTechnique || isExportingInspectionReport}
+            title={isExportingInspectionReport
+              ? "Exporting inspection report PDF"
+              : workspaceMode === "inspection" ? "Export inspection report PDF" : "Open inspection record before report export"}
+            aria-label={isExportingInspectionReport
+              ? "Exporting inspection report PDF"
+              : workspaceMode === "inspection" ? "Export inspection report PDF" : "Open inspection record before report export"}
+            className="h-10 px-3.5"
+          >
+            {isExportingInspectionReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
+            <span className="hidden xl:inline">{isExportingInspectionReport ? "Exporting…" : workspaceMode === "inspection" ? "Report PDF" : "Open Report"}</span>
           </Button>
         </div>
 
@@ -239,26 +211,9 @@ export const Toolbar = ({
         </div>
 
         <div className="workbench-group ml-auto flex min-w-fit items-center gap-1 p-1 md:ml-0">
-          {hasUpdateControls && (updateState === 'ready' ? (
-            <Button variant="ghost" size="sm" title={`Install Update v${updateVersion}`} className="h-10 border border-success/30 bg-success/10 px-3 text-success hover:bg-success/20" onClick={installUpdate}>
-              <Rocket className="h-4 w-4" />
-              <span className="hidden xl:inline">Install v{updateVersion}</span>
-            </Button>
-          ) : updateState === 'downloading' ? (
-            <Button variant="ghost" size="sm" title={`Downloading update: ${updatePercent}%`} className="h-10 px-3 text-primary" disabled>
-              <Download className="h-4 w-4" />
-              <span>{updatePercent}%</span>
-            </Button>
-          ) : updateState === 'available' ? (
-            <Button variant="ghost" size="sm" title={`Update v${updateVersion} is downloading`} className="h-10 px-3 text-warning" disabled>
-              <Download className="h-4 w-4" />
-              <span className="hidden xl:inline">v{updateVersion}</span>
-            </Button>
-          ) : (
-            <Button variant="ghost" size="icon" title="Check for updates" aria-label="Check for updates" className="h-10 w-10" onClick={checkForUpdates} disabled={updateState === 'checking'}>
-              <RefreshCw className={`h-4 w-4 ${updateState === 'checking' ? 'animate-spin' : ''}`} />
-            </Button>
-          ))}
+          <UpdateCenter
+            onOfflineUpdate={electron?.offlineUpdate && onOfflineUpdate ? onOfflineUpdate : undefined}
+          />
 
           <Button variant="ghost" size="icon" title="Local saved cards" aria-label="Open local saved cards" className="relative h-10 w-10" onClick={() => setLocalSavedCardsOpen(true)}>
             <FolderOpen className="h-4 w-4" />

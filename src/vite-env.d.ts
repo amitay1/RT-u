@@ -77,13 +77,33 @@ interface ElectronAPI {
   onPrepareForUpdateInstall?: (callback: (payload: PrepareForUpdateInstallPayload) => void) => void;
   removePrepareForUpdateInstall?: (callback: (payload: PrepareForUpdateInstallPayload) => void) => void;
   confirmUpdateInstallReady?: (requestId: string) => Promise<{ acknowledged: boolean }>;
+  savePDF?: (data: string, filename: string) => Promise<{
+    success: boolean;
+    path?: string;
+    error?: string;
+    cancelled?: boolean;
+  }>;
 }
 
 interface UpdateStatusEvent {
-  status: 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
+  status:
+    | 'checking'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'not-available'
+    | 'error'
+    | 'restart-scheduled';
   version?: string;
   percent?: number;
+  bytesPerSecond?: number;
+  transferred?: number;
+  total?: number;
   error?: string;
+  canRetry?: boolean;
+  releaseNotes?: unknown;
+  releaseDate?: string;
+  restartIn?: number;
 }
 
 interface PrepareForUpdateInstallPayload {

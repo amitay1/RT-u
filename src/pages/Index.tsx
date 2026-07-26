@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import type { jsPDF } from "jspdf";
 import { toast } from "sonner";
 
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
@@ -9,6 +10,7 @@ import { ProfileSelectionDialog } from "@/components/inspector";
 import { RtPtSidebar } from "@/components/RtPtSidebar";
 import { RtPtWorkspace } from "@/components/RtPtWorkspace";
 import { RtPtValidationDialog } from "@/components/rtpt/RtPtValidationDialog";
+import { RtPtInspectionWorkspace } from "@/components/rtpt/RtPtInspectionWorkspace";
 import { SelfDiagnosticPanel } from "@/components/diagnostics/SelfDiagnosticPanel";
 import { StatusBar } from "@/components/StatusBar";
 import { Toolbar } from "@/components/Toolbar";
@@ -28,6 +30,7 @@ import type { SavedCard } from "@/contexts/SavedCardsContext";
 import { useInspectorProfile } from "@/contexts/InspectorProfileContext";
 import { useRtPtLicense } from "@/contexts/RtPtLicenseContext";
 import { useRtPtWorkspaceState } from "@/hooks/useRtPtWorkspaceState";
+import { useRtPtInspectionReportState } from "@/hooks/useRtPtInspectionReportState";
 import { useSheetPersistence } from "@/hooks/useSheetPersistence";
 import { decodeRtPtDocument, fingerprintRtPtContent } from "@/lib/rtPtDocumentCodec";
 import { validateRtPtDocument, type RtPtValidationIssue } from "@/lib/rtPtValidation";
@@ -36,7 +39,16 @@ import type {
   TechniqueSheetRecord,
 } from "@/services/techniqueSheetService";
 import { RT_PT_METHOD_LABEL, type RtPtMethod } from "@/types/rtPtDocument";
-import { exportRtPtTechniquePdf, getRtPtPdfReleaseState } from "@/utils/export/RtPtTechniquePDF";
+import {
+  buildRtPtTechniquePdf,
+  getRtPtPdfReleaseState,
+  getRtPtTechniquePdfFilename,
+} from "@/utils/export/RtPtTechniquePDF";
+import {
+  buildRtPtInspectionReportPdf,
+  getRtPtInspectionReportPdfFilename,
+  getRtPtInspectionReportPdfReleaseState,
+} from "@/utils/export/RtPtInspectionReportPDF";
 import {
   clearTechniqueSheetDraft,
   clearUpdateRecoveryRecord,
@@ -136,7 +148,7 @@ const focusValidationIssue = (issue: RtPtValidationIssue) => {
 };
 
 const Index = () => {
-  const { needsProfileSelection, isLoading: profileLoading } = useInspectorProfile();
+  const { currentProfile, needsProfileSelection, isLoading: profileLoading } = useInspectorProfile();
   const { refresh: refreshLicense } = useRtPtLicense();
   const isElectron = typeof window !== "undefined" && Boolean(window.electron);
 
@@ -158,6 +170,9 @@ const Index = () => {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [unsavedCloseDialogOpen, setUnsavedCloseDialogOpen] = useState(false);
   const [updateRecoveryNotice, setUpdateRecoveryNotice] = useState<UpdateRecoveryRecord | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<"technique" | "inspection">("technique");
+  const [isExportingTechniquePdf, setIsExportingTechniquePdf] = useState(false);
+  const [isExportingInspectionReportPdf, setIsExportingInspectionReportPdf] = useState(false);
   const [isClosingAfterSave, setIsClosingAfterSave] = useState(false);
   const [isReplacingCard, setIsReplacingCard] = useState(false);
   const [isSavingBeforeCardLoad, setIsSavingBeforeCardLoad] = useState(false);
@@ -167,6 +182,8 @@ const Index = () => {
   const recoveredDraftRef = useRef(false);
   const suppressClosePromptRef = useRef(false);
   const pendingNewTechniqueBaselineRef = useRef(false);
+  const techniquePdfExportInFlightRef = useRef(false);
+  const inspectionReportPdfExportInFlightRef = useRef(false);
 
   const activeRtPtGeneral = rtPtDocument.technique.general;
   const rtPtDocumentTitle = rtPtDocument.documentControl.title
@@ -181,6 +198,11 @@ const Index = () => {
     () => validateRtPtDocument(rtPtDocument),
     [rtPtDocument],
   );
+  const inspectionReportWorkspace = useRtPtInspectionReportState(
+    rtPtDocument,
+    currentProfile,
+    workspaceMode === "inspection",
+  );
   const activeRtPtTab = ndtMethod === "RT-Film"
     ? rtPtWorkspace.activeTabs.rtFilm
     : ndtMethod === "RT-Digital"
@@ -194,6 +216,7 @@ const Index = () => {
     if (decoded.status !== "success") {
       throw new Error(decoded.message);
     }
+    setWorkspaceMode("technique");
   }, [hydrateRtPtDocument]);
 
   const applyLoadedRtPtSheet = useCallback((record: TechniqueSheetRecord) => {
@@ -232,19 +255,80 @@ const Index = () => {
     return false;
   }, [refreshLicense]);
 
-  const handleExportPDF = useCallback(async () => {
-    if (!await confirmActiveLicense()) return;
-    const filename = exportRtPtTechniquePdf(rtPtDocument, rtPtValidation);
-    const release = getRtPtPdfReleaseState(rtPtDocument, rtPtValidation);
-    if (release.controlledRelease) toast.success(`Exported controlled document ${filename}`);
-    else toast.warning(`Exported draft/uncontrolled document ${filename}.`);
-  }, [confirmActiveLicense, rtPtDocument, rtPtValidation]);
+  const saveGeneratedPdf = useCallback(async (pdf: jsPDF, filename: string): Promise<boolean> => {
+    const electron = window.electron;
+    if (electron?.isElectron === true) {
+      if (typeof electron.savePDF !== "function") {
+        throw new Error("The secure desktop PDF save service is unavailable.");
+      }
+      const dataUri = pdf.output("datauristring");
+      const separatorIndex = dataUri.indexOf(",");
+      if (separatorIndex < 0) throw new Error("The generated PDF could not be encoded.");
+      const result = await electron.savePDF(dataUri.slice(separatorIndex + 1), filename);
+      if (result.cancelled) {
+        toast.info("PDF export cancelled.");
+        return false;
+      }
+      if (!result.success) throw new Error(result.error || "The PDF could not be saved.");
+      return true;
+    }
+    pdf.save(filename);
+    return true;
+  }, []);
+
+  const handleExportTechniquePdf = useCallback(async () => {
+    if (techniquePdfExportInFlightRef.current || inspectionReportPdfExportInFlightRef.current) return;
+    techniquePdfExportInFlightRef.current = true;
+    setIsExportingTechniquePdf(true);
+    try {
+      if (!await confirmActiveLicense()) return;
+      const pdf = buildRtPtTechniquePdf(rtPtDocument, rtPtValidation);
+      const filename = getRtPtTechniquePdfFilename(rtPtDocument, rtPtValidation);
+      const release = getRtPtPdfReleaseState(rtPtDocument, rtPtValidation);
+      if (!await saveGeneratedPdf(pdf, filename)) return;
+      if (release.controlledRelease) toast.success(`Exported controlled technique ${filename}`);
+      else toast.warning(`Exported draft/uncontrolled technique ${filename}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The technique PDF could not be exported.");
+    } finally {
+      techniquePdfExportInFlightRef.current = false;
+      setIsExportingTechniquePdf(false);
+    }
+  }, [confirmActiveLicense, rtPtDocument, rtPtValidation, saveGeneratedPdf]);
+
+  const handleExportInspectionReportPdf = useCallback(async () => {
+    if (inspectionReportPdfExportInFlightRef.current || techniquePdfExportInFlightRef.current) return;
+    if (workspaceMode !== "inspection") {
+      setWorkspaceMode("inspection");
+      toast.info("Inspection Record opened. Review the performed data before exporting the report PDF.");
+      return;
+    }
+    inspectionReportPdfExportInFlightRef.current = true;
+    setIsExportingInspectionReportPdf(true);
+    try {
+      if (!await confirmActiveLicense()) return;
+      const { report, validation } = inspectionReportWorkspace;
+      const pdf = buildRtPtInspectionReportPdf(report, rtPtDocument, validation);
+      const filename = getRtPtInspectionReportPdfFilename(report, rtPtDocument, validation);
+      const release = getRtPtInspectionReportPdfReleaseState(report, rtPtDocument, validation);
+      if (!await saveGeneratedPdf(pdf, filename)) return;
+      if (release.controlledRelease) toast.success(`Exported controlled inspection report ${filename}`);
+      else toast.warning(`Exported draft/uncontrolled inspection report ${filename}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The inspection report PDF could not be exported.");
+    } finally {
+      inspectionReportPdfExportInFlightRef.current = false;
+      setIsExportingInspectionReportPdf(false);
+    }
+  }, [confirmActiveLicense, inspectionReportWorkspace, rtPtDocument, saveGeneratedPdf, workspaceMode]);
 
   const currentCardSnapshot = useMemo(
     () => fingerprintRtPtContent(rtPtDocument),
     [rtPtDocument],
   );
-  const isDirty = lastSavedSnapshot !== null && currentCardSnapshot !== lastSavedSnapshot;
+  const isTechniqueDirty = lastSavedSnapshot !== null && currentCardSnapshot !== lastSavedSnapshot;
+  const hasReportPersistenceRisk = Boolean(inspectionReportWorkspace.saveError);
+  const isDirty = isTechniqueDirty || hasReportPersistenceRisk;
 
   useEffect(() => {
     if (!pendingNewTechniqueBaselineRef.current) return;
@@ -253,6 +337,7 @@ const Index = () => {
   }, [currentCardSnapshot]);
 
   const startNdtMethodTechnique = useCallback((method: RtPtMethod) => {
+    setWorkspaceMode("technique");
     setCurrentSheetId(null);
     setCurrentLocalCardId(null);
     setCurrentSheetName("");
@@ -328,6 +413,10 @@ const Index = () => {
       reason: UpdateRecoveryRecord["reason"];
       version?: string;
     }) => {
+      if (inspectionReportWorkspace.saveError && !inspectionReportWorkspace.saveReportNow()) {
+        toast.error(inspectionReportWorkspace.persistenceError || "The inspection report could not be secured before the update.");
+        return;
+      }
       const cardName = currentSheetName
         || activeRtPtGeneral.partName
         || activeRtPtGeneral.partNumber
@@ -340,7 +429,7 @@ const Index = () => {
         reason: payload.reason,
         version: payload.version,
         activeTab: activeRtPtTab,
-        reportMode: "Technique",
+        reportMode: workspaceMode === "inspection" ? "Report" : "Technique",
       });
 
       await updateInstallElectron.confirmUpdateInstallReady?.(payload.requestId);
@@ -355,7 +444,9 @@ const Index = () => {
     activeRtPtGeneral.partNumber,
     activeRtPtTab,
     currentSheetName,
+    inspectionReportWorkspace,
     rtPtDocument,
+    workspaceMode,
   ]);
 
   const confirmAppClose = useCallback(async () => {
@@ -457,6 +548,10 @@ const Index = () => {
     setIsSavingBeforeCardLoad(true);
     try {
       if (!await confirmActiveLicense()) return;
+      if (inspectionReportWorkspace.saveError && !inspectionReportWorkspace.saveReportNow()) {
+        toast.error(inspectionReportWorkspace.persistenceError || "Unable to save the current inspection report. The selected card was not loaded.");
+        return;
+      }
       const saved = await saveCurrentCardSilently();
       if (!saved?.saved) {
         toast.error("Unable to save the current technique. The selected card was not loaded.");
@@ -471,6 +566,7 @@ const Index = () => {
   }, [
     confirmActiveLicense,
     executePendingCardLoad,
+    inspectionReportWorkspace,
     isReplacingCard,
     isSavingBeforeCardLoad,
     markCurrentAsSaved,
@@ -507,18 +603,23 @@ const Index = () => {
     setIsClosingAfterSave(true);
 
     try {
-      const result = await saveCurrentCardSilently();
-      if (!result?.saved) {
-        toast.error("Unable to save the latest changes before closing.");
+      if (inspectionReportWorkspace.saveError && !inspectionReportWorkspace.saveReportNow()) {
+        toast.error(inspectionReportWorkspace.persistenceError || "Unable to save the inspection report before closing.");
         return;
       }
-
-      markCurrentAsSaved();
+      if (isTechniqueDirty) {
+        const result = await saveCurrentCardSilently();
+        if (!result?.saved) {
+          toast.error("Unable to save the latest technique changes before closing.");
+          return;
+        }
+        markCurrentAsSaved();
+      }
       await continueClosing();
     } finally {
       setIsClosingAfterSave(false);
     }
-  }, [continueClosing, markCurrentAsSaved, saveCurrentCardSilently]);
+  }, [continueClosing, inspectionReportWorkspace, isTechniqueDirty, markCurrentAsSaved, saveCurrentCardSilently]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -570,7 +671,10 @@ const Index = () => {
       switch (event.key.toLowerCase()) {
         case "s":
           event.preventDefault();
-          if (event.shiftKey) {
+          if (workspaceMode === "inspection") {
+            if (inspectionReportWorkspace.saveReportNow()) toast.success("Inspection report saved to local report history.");
+            else toast.error(inspectionReportWorkspace.persistenceError || "The inspection report could not be saved locally.");
+          } else if (event.shiftKey) {
             persistSaveAs();
           } else {
             void handleSaveCard();
@@ -578,7 +682,8 @@ const Index = () => {
           break;
         case "e":
           event.preventDefault();
-          void handleExportPDF();
+          if (workspaceMode === "inspection") void handleExportInspectionReportPdf();
+          else void handleExportTechniquePdf();
           break;
         case "n":
           event.preventDefault();
@@ -589,9 +694,28 @@ const Index = () => {
 
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
-  }, [handleExportPDF, handleNewProject, handleSaveCard, persistSaveAs]);
+  }, [
+    handleExportInspectionReportPdf,
+    handleExportTechniquePdf,
+    handleNewProject,
+    handleSaveCard,
+    inspectionReportWorkspace,
+    persistSaveAs,
+    workspaceMode,
+  ]);
 
   const handleValidate = useCallback(() => {
+    if (workspaceMode === "inspection") {
+      const issueCount = inspectionReportWorkspace.validation.issues.length;
+      if (issueCount > 0) {
+        toast.warning(`${issueCount} inspection report check${issueCount === 1 ? "" : "s"} require attention.`);
+      } else if (inspectionReportWorkspace.validation.isApprovalReady) {
+        toast.success("Inspection report is complete and ready for approval.");
+      } else {
+        toast.info("Inspection report data is complete; approval readiness remains separate.");
+      }
+      return;
+    }
     const errors = rtPtValidation.issues.filter((issue) => issue.severity === "error");
     const warnings = rtPtValidation.issues.filter((issue) => issue.severity === "warning");
     if (errors.length > 0) {
@@ -607,7 +731,20 @@ const Index = () => {
       return;
     }
     setValidationDialogOpen(true);
-  }, [rtPtValidation]);
+  }, [inspectionReportWorkspace.validation, rtPtValidation, workspaceMode]);
+
+  const handleSaveActiveWorkspace = useCallback(async () => {
+    if (workspaceMode === "technique") {
+      await handleSaveCard();
+      return;
+    }
+    if (!await confirmActiveLicense()) return;
+    if (!inspectionReportWorkspace.saveReportNow()) {
+      toast.error(inspectionReportWorkspace.persistenceError || "The inspection report could not be saved locally.");
+      return;
+    }
+    toast.success("Inspection report saved to local report history.");
+  }, [confirmActiveLicense, handleSaveCard, inspectionReportWorkspace, workspaceMode]);
 
   return (
     <div className="workbench-shell fixed inset-0 flex h-screen w-screen flex-col overflow-hidden bg-background">
@@ -619,10 +756,12 @@ const Index = () => {
       {!isElectron && (
         <div className="hidden md:block">
           <MenuBar
-            onSave={handleSaveCard}
-            onSaveAs={persistSaveAs}
+            onSave={handleSaveActiveWorkspace}
+            onSaveAs={workspaceMode === "technique" ? persistSaveAs : undefined}
             onOpenSavedCards={openSavedCards}
-            onExport={handleExportPDF}
+            onExportTechnique={handleExportTechniquePdf}
+            onExportInspectionReport={handleExportInspectionReportPdf}
+            workspaceMode={workspaceMode}
             onNew={handleNewProject}
             onExportDiagnostics={() => setDiagnosticsDialogOpen(true)}
             onRunDiagnostics={() => setDiagnosticsPanelOpen(true)}
@@ -632,10 +771,15 @@ const Index = () => {
 
       <Toolbar
         onNew={handleNewProject}
-        onSave={handleSaveCard}
-        onExport={handleExportPDF}
+        onSave={handleSaveActiveWorkspace}
+        onExportTechnique={handleExportTechniquePdf}
+        onExportInspectionReport={handleExportInspectionReportPdf}
+        isExportingTechnique={isExportingTechniquePdf}
+        isExportingInspectionReport={isExportingInspectionReportPdf}
         onValidate={handleValidate}
         ndtMethod={ndtMethod}
+        workspaceMode={workspaceMode}
+        onWorkspaceModeChange={setWorkspaceMode}
         onLoadLocalCard={requestLoadLocalSavedCard}
         onOfflineUpdate={() => setOfflineUpdateDialogOpen(true)}
       />
@@ -654,16 +798,29 @@ const Index = () => {
         </CollapsibleSidebar>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <RtPtWorkspace workspace={rtPtWorkspace} validation={rtPtValidation} />
+          {workspaceMode === "technique" ? (
+            <RtPtWorkspace workspace={rtPtWorkspace} validation={rtPtValidation} />
+          ) : (
+            <RtPtInspectionWorkspace controller={inspectionReportWorkspace} technique={rtPtDocument} />
+          )}
         </div>
       </div>
 
       <StatusBar
-        completionPercent={rtPtValidation.completionPercent}
-        requiredFieldsComplete={rtPtValidation.completedFieldsCount}
-        totalRequiredFields={rtPtValidation.totalRequiredFields}
-        autoSaveStatus={persistence.autoSaveStatus}
-        lastSaved={persistence.lastSaved}
+        completionPercent={workspaceMode === "technique"
+          ? rtPtValidation.completionPercent
+          : inspectionReportWorkspace.validation.completionPercent}
+        requiredFieldsComplete={workspaceMode === "technique"
+          ? rtPtValidation.completedFieldsCount
+          : inspectionReportWorkspace.validation.completedFieldsCount}
+        totalRequiredFields={workspaceMode === "technique"
+          ? rtPtValidation.totalRequiredFields
+          : inspectionReportWorkspace.validation.totalRequiredFields}
+        completionLabel={workspaceMode === "technique" ? "Required technique fields" : "Inspection report fields"}
+        autoSaveStatus={workspaceMode === "technique"
+          ? persistence.autoSaveStatus
+          : inspectionReportWorkspace.persistenceError ? "error" : "saved"}
+        lastSaved={workspaceMode === "technique" ? persistence.lastSaved : null}
       />
 
       <DiagnosticsExportDialog
@@ -707,16 +864,18 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Save changes before loading another card?</DialogTitle>
             <DialogDescription>
-              The current technique contains changes that have not been saved. Choose how to continue before loading the selected card.
+              The current RT/PT workspace has changes or report data that are not safely persisted. Choose how to continue before loading the selected card.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded-lg border border-warning/30 bg-warning/10 p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Current technique</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Current workspace</div>
               <div className="mt-1 truncate text-sm font-semibold">
                 {persistence.currentSheetName || rtPtDocumentTitle || "Unsaved technique"}
               </div>
-              <div className="mt-1 text-xs font-medium text-warning">Unsaved changes</div>
+              <div className="mt-1 text-xs font-medium text-warning">
+                {hasReportPersistenceRisk ? 'Inspection report storage requires attention' : 'Unsaved technique changes'}
+              </div>
             </div>
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Selected card</div>
@@ -763,14 +922,14 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Start a new {pendingMethodChange ? RT_PT_METHOD_LABEL[pendingMethodChange] : ''} technique?</DialogTitle>
             <DialogDescription>
-              Changing the inspection method creates a separate controlled document. Unsaved changes in the current technique will be discarded.
+              Changing the inspection method creates a separate controlled document. Unsaved technique work or unpersisted report changes will be discarded.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Current document</div>
               <div className="mt-1 text-sm font-semibold">{RT_PT_METHOD_SHORT_LABEL[ndtMethod]}</div>
-              <div className="mt-1 text-xs text-warning">Unsaved changes</div>
+              <div className="mt-1 text-xs text-warning">{hasReportPersistenceRisk ? 'Report storage requires attention' : 'Unsaved changes'}</div>
             </div>
             <span className="hidden text-muted-foreground sm:block" aria-hidden="true">→</span>
             <div className="rounded-lg border border-primary/30 bg-primary/10 p-3">
@@ -802,11 +961,13 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Start a new project?</DialogTitle>
             <DialogDescription>
-              This clears the current workspace and starts a fresh RT/PT project. Save the current card first if you need to keep it.
+              This closes the current workspace and starts a fresh RT/PT project. Stored report history is retained; save any unresolved technique or report changes first.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-3 text-sm text-foreground">
-            {isDirty ? 'The current technique contains unsaved changes.' : 'The current technique will be closed.'}
+            {hasReportPersistenceRisk
+              ? 'The active inspection report is not safely persisted.'
+              : isTechniqueDirty ? 'The current technique contains unsaved changes.' : 'The current workspace will be closed.'}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewProjectDialogOpen(false)}>Cancel</Button>
@@ -892,11 +1053,12 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Save your latest changes before closing?</DialogTitle>
             <DialogDescription>
-              You made updates to this card that have not been saved yet. We can save them into the current card before RT-PT Inspector closes.
+              The current technique or inspection report has data that is not safely persisted. RT-PT Inspector can retry the required saves before closing.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm">
-            Current card: {persistence.currentSheetName || rtPtDocumentTitle || "Unsaved card"}
+            Current workspace: {persistence.currentSheetName || rtPtDocumentTitle || "Unsaved card"}
+            {hasReportPersistenceRisk && <div className="mt-1 text-xs">Report: {inspectionReportWorkspace.persistenceError}</div>}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
