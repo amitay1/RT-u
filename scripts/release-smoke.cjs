@@ -231,8 +231,9 @@ function assertReleaseConfiguration() {
   assertRelease(filePatterns.includes("!rtpt-dist/standards/MRO/**"), "MRO standards must be excluded from desktop packages.");
   assertRelease(
     filePatterns.includes("electron/rtpt-license-service.cjs")
+      && filePatterns.includes("electron/rtpt-pdf-save.cjs")
       && filePatterns.includes("electron/rtpt-license-public-key.pem"),
-    "The RT/PT license service and exact public-key file must be explicitly included.",
+    "The RT/PT license service, secure PDF-save boundary, and exact public-key file must be explicitly included.",
   );
   assertRelease(
     filePatterns.includes("electron/update-public-key.pem"),
@@ -241,8 +242,9 @@ function assertReleaseConfiguration() {
   assertRelease(filePatterns.includes("!electron/license-manager.cjs"), "Legacy license-manager.cjs must be excluded.");
   assertRelease(
     electronMain.includes("require('./rtpt-license-service.cjs')")
+      && electronMain.includes("require('./rtpt-pdf-save.cjs')")
       && electronMain.includes("rtpt-license-public-key.pem"),
-    "The independent RT/PT license service and pinned verification key path must be wired into Electron.",
+    "The independent RT/PT license service, secure PDF-save boundary, and pinned verification key path must be wired into Electron.",
   );
   assertRelease(
     electronMain.includes("require('./offline-updater.cjs')")
@@ -446,6 +448,10 @@ function assertPackagedApplication(buildDirectory) {
   assertRelease(
     lowerAsarEntries.includes("/electron/rtpt-license-service.cjs"),
     "Packaged application is missing electron/rtpt-license-service.cjs inside app.asar.",
+  );
+  assertRelease(
+    lowerAsarEntries.includes("/electron/rtpt-pdf-save.cjs"),
+    "Packaged application is missing electron/rtpt-pdf-save.cjs inside app.asar.",
   );
 
   const packagedLicensePublicKeyEntry = "/electron/rtpt-license-public-key.pem";
@@ -743,7 +749,10 @@ async function clickFirstVisible(page, locators, label) {
 }
 
 async function readActiveDocumentId(page) {
-  await page.locator('[role="tab"][title^="Control & Approval"]').click({ timeout: 10_000 });
+  const controlTab = page.locator('[role="tab"][title^="Control & Approval"]');
+  if (await controlTab.getAttribute("data-state") !== "active") {
+    await controlTab.click({ timeout: 10_000 });
+  }
   const documentId = await page.getByLabel(/^Document ID/i).inputValue({ timeout: 10_000 });
   assertRelease(documentId.trim().length > 0, "The active RT/PT technique has no Document ID.");
   return documentId;
@@ -827,6 +836,10 @@ async function readActiveDocumentId(page) {
         onPrepareForUpdateInstall: () => undefined,
         removePrepareForUpdateInstall: () => undefined,
         confirmUpdateInstallReady: async () => ({ acknowledged: true }),
+        savePDF: async (data, filename) => {
+          window.__rtptSmokePdfExport = { data, filename };
+          return { success: true, path: `C:\\smoke-export\\${filename}` };
+        },
       };
       Object.defineProperty(window, "electron", {
         configurable: true,
@@ -878,20 +891,104 @@ async function readActiveDocumentId(page) {
     // The first-launch dialog intentionally cannot be dismissed without an
     // inspector selection, so confirm the seeded smoke-test profile via the
     // current CTA while retaining compatibility with the legacy label.
-    const profileConfirmation = page.getByRole("button", { name: /^(?:Use Inspector|Continue)$/i });
-    if (await profileConfirmation.isVisible().catch(() => false)) {
-      await profileConfirmation.click();
-      await page.waitForTimeout(500);
+    const profileDialog = page.getByRole("dialog", { name: /^Select Working Inspector$/i });
+    await profileDialog.waitFor({ state: "visible", timeout: 20_000 });
+    const profileConfirmation = profileDialog.getByRole("button", { name: /^Use Inspector$/i });
+    if (await profileConfirmation.isDisabled().catch(() => false)) {
+      await profileDialog.getByRole("button", { name: /Use Smoke Tester/i }).click();
     }
+    await profileConfirmation.click();
+    await profileDialog.waitFor({ state: "hidden", timeout: 10_000 });
+    const unexpectedDialogs = await page.locator('[role="dialog"]:visible').allInnerTexts();
+    assertRelease(
+      unexpectedDialogs.length === 0,
+      `Unexpected modal blocked the workspace: ${unexpectedDialogs.join(" | ").slice(0, 500)}`,
+    );
     await assertNoCrash(page, errors, "confirming profile selection");
+
+    try {
+      await page.locator('[role="tab"][title^="Control & Approval"]').click({ timeout: 10_000 });
+    } catch (error) {
+      const blockingDialogs = await page.locator('[role="dialog"]:visible').allInnerTexts();
+      throw new Error(
+        `${error.message}\nBlocking dialogs: ${blockingDialogs.join(" | ").slice(0, 1_000) || "none"}`,
+      );
+    }
+    await page.getByRole("button", { name: /^Add Approval$/i }).click({ timeout: 10_000 });
+    assertRelease(
+      await page.getByText(/^Approval 1$/i).count() === 1,
+      "Approval lifecycle smoke setup did not create an approval record.",
+    );
+
+    const documentStatus = page.getByLabel("Document Status");
+    await documentStatus.click({ timeout: 10_000 });
+    await page.getByRole("option", { name: /^Approved$/i }).click({ timeout: 10_000 });
+    assertRelease(
+      /Approved/i.test(await documentStatus.innerText()),
+      "Document status could not enter the approval lifecycle smoke state.",
+    );
+
+    await page.getByLabel("Title").fill("Release smoke controlled-content edit");
+    await page.waitForFunction((controlId) => (
+      document.getElementById(controlId)?.textContent?.includes("Draft") === true
+    ), await documentStatus.getAttribute("id"), { timeout: 10_000 });
+    assertRelease(
+      await page.getByText(/No approvals recorded/i).count() === 1,
+      "Editing approved content did not clear stale approval records.",
+    );
+    await assertNoCrash(page, errors, "invalidating approval after a controlled-content edit");
 
     await clickFirstVisible(page, [
       page.getByRole("button", { name: /^Export$/i }),
+      page.getByRole("button", { name: /Export technique PDF/i }),
       page.getByRole("button", { name: /Export PDF/i }),
       page.getByText("Export PDF", { exact: false }),
     ], "Export action");
-    await page.waitForTimeout(900);
+    await page.waitForFunction(
+      () => Boolean(window.__rtptSmokePdfExport),
+      { timeout: 20_000 },
+    );
+    const pdfExport = await page.evaluate(() => {
+      const captured = window.__rtptSmokePdfExport;
+      return {
+        filename: captured?.filename,
+        dataLength: captured?.data?.length || 0,
+        signature: captured?.data ? atob(captured.data.slice(0, 12)).slice(0, 5) : "",
+      };
+    });
+    assertRelease(
+      /^DRAFT-UNCONTROLLED-RTPT-RT-Film-[A-Za-z0-9._-]+\.pdf$/.test(pdfExport.filename || ""),
+      `Draft PDF export used an unsafe or uncontrolled filename: ${pdfExport.filename || "missing"}`,
+    );
+    assertRelease(pdfExport.signature === "%PDF-", "Draft PDF export did not produce PDF bytes.");
+    assertRelease(pdfExport.dataLength > 1_000, "Draft PDF export payload is unexpectedly small.");
     await assertNoCrash(page, errors, "exporting an uncontrolled draft PDF");
+
+    await page.locator('button[title="Performed inspection record workspace"]').click({ timeout: 10_000 });
+    await page.evaluate(() => {
+      window.__rtptSmokePdfExport = undefined;
+    });
+    await page.getByRole("button", { name: /Export inspection report PDF/i }).click({ timeout: 10_000 });
+    await page.waitForFunction(
+      () => /^RTPT-REPORT-DRAFT-UNCONTROLLED-/.test(window.__rtptSmokePdfExport?.filename || ""),
+      { timeout: 20_000 },
+    );
+    const reportPdfExport = await page.evaluate(() => {
+      const captured = window.__rtptSmokePdfExport;
+      return {
+        filename: captured?.filename,
+        dataLength: captured?.data?.length || 0,
+        signature: captured?.data ? atob(captured.data.slice(0, 12)).slice(0, 5) : "",
+      };
+    });
+    assertRelease(
+      /^RTPT-REPORT-DRAFT-UNCONTROLLED-RT-Film-[A-Za-z0-9._-]+\.pdf$/.test(reportPdfExport.filename || ""),
+      `Draft inspection report PDF used an unsafe filename: ${reportPdfExport.filename || "missing"}`,
+    );
+    assertRelease(reportPdfExport.signature === "%PDF-", "Draft inspection report export did not produce PDF bytes.");
+    assertRelease(reportPdfExport.dataLength > 1_000, "Draft inspection report export payload is unexpectedly small.");
+    await assertNoCrash(page, errors, "exporting an uncontrolled inspection report PDF");
+    await page.locator('button[title="Technique planning workspace"]').click({ timeout: 10_000 });
 
     await page.getByRole("button", { name: /^Validate$/i }).click({ timeout: 10_000 });
     await page.waitForTimeout(700);
@@ -905,6 +1002,10 @@ async function readActiveDocumentId(page) {
     const filmDocumentId = await readActiveDocumentId(page);
 
     await page.getByRole("button", { name: /^RT Digital$/i }).click({ timeout: 10_000 });
+    const filmMethodConfirmation = page.getByRole("button", { name: /^Discard changes (?:&|and) start /i });
+    if (await filmMethodConfirmation.isVisible().catch(() => false)) {
+      await filmMethodConfirmation.click({ timeout: 10_000 });
+    }
     await page.waitForTimeout(700);
     await assertNoCrash(page, errors, "RT Digital workspace switch");
 
@@ -949,7 +1050,7 @@ async function readActiveDocumentId(page) {
       "Switching from RT Digital to PT reused the previous document identity.",
     );
 
-    console.log("Release smoke passed: RT/PT production UI, PDF export, validation, fresh method identities, dirty-switch confirmation, and acquisition CRUD.");
+    console.log("Release smoke passed: RT/PT production UI, approval invalidation, PDF export, validation, fresh method identities, dirty-switch confirmation, and acquisition CRUD.");
   } finally {
     await browser.close().catch(() => {});
     await server.close().catch(() => {});

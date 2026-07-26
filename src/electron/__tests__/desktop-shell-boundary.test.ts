@@ -32,6 +32,13 @@ describe('RT/PT desktop shell boundary', () => {
     expect(main).toContain('assertActiveRtPtLicense();');
     expect(main).toContain("session.defaultSession.on('will-download'");
     expect(main).toContain('Blocked a renderer download while the license was inactive.');
+    expect(main).toContain("decodeRtPtPdfSavePayload(payload)");
+    expect(preload).toContain("savePDF: (data, filename) => ipcRenderer.invoke('save-pdf'");
+    const pdfSaveHandler = main.slice(
+      main.indexOf("ipcMain.handle('save-pdf'"),
+      main.indexOf("// ==========================================", main.indexOf("ipcMain.handle('save-pdf'")),
+    );
+    expect(pdfSaveHandler.match(/assertActiveRtPtLicense\(\);/g)).toHaveLength(2);
     expect(main).toContain("label: 'License Information'");
     expect(main).toContain('showRtPtLicenseInformation');
     expect(main).toContain("'/api/technique-sheets'");

@@ -9,6 +9,7 @@ const {
   PRODUCT: RT_PT_LICENSE_PRODUCT,
   APP_ID: RT_PT_LICENSE_APP_ID,
 } = require('./rtpt-license-service.cjs');
+const { decodeRtPtPdfSavePayload } = require('./rtpt-pdf-save.cjs');
 
 const EMBEDDED_SERVER_HOST = '127.0.0.1';
 const EMBEDDED_SERVER_PORT = 5000;
@@ -779,10 +780,11 @@ function setupIPCHandlers() {
   });
 
   // PDF/File Save IPC Handler - more reliable than blob downloads
-  ipcMain.handle('save-pdf', async (event, { data, filename }) => {
+  ipcMain.handle('save-pdf', async (event, payload) => {
     try {
       assertTrustedIpcSender(event);
       assertActiveRtPtLicense();
+      const { buffer, filename } = decodeRtPtPdfSavePayload(payload);
 
       // Show save dialog
       const { filePath } = await dialog.showSaveDialog(mainWindow, {
@@ -793,8 +795,9 @@ function setupIPCHandlers() {
       });
 
       if (filePath) {
-        // Convert base64 to buffer and save
-        const buffer = Buffer.from(data, 'base64');
+        // The save dialog can remain open long enough for a license to expire
+        // or be deactivated. Revalidate immediately before the disk write.
+        assertActiveRtPtLicense();
         fs.writeFileSync(filePath, buffer);
         console.log('PDF saved to:', filePath);
 

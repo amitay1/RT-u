@@ -22,6 +22,7 @@
         "build/icon.png",
         "!rtpt-dist/standards/MRO/**",
         "electron/rtpt-license-service.cjs",
+        "electron/rtpt-pdf-save.cjs",
         "electron/rtpt-license-public-key.pem",
         "electron/update-public-key.pem",
         "electron/**/*",

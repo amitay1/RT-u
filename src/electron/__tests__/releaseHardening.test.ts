@@ -29,6 +29,7 @@ describe("RT-PT release hardening", () => {
     expect(builder.asarUnpack).toEqual(["rtpt-dist/**/*"]);
     expect(patterns).toContain("!rtpt-dist/standards/MRO/**");
     expect(patterns).toContain("electron/rtpt-license-service.cjs");
+    expect(patterns).toContain("electron/rtpt-pdf-save.cjs");
     expect(patterns).toContain("electron/rtpt-license-public-key.pem");
     expect(patterns).toContain("!electron/license-manager.cjs");
     expect(patterns).toContain("!electron/**/*private*.pem");
