@@ -1072,7 +1072,7 @@ const drawPageFurniture = (
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(6.4);
     pdf.text(
-      truncateToWidth(pdf, `${report.organization.name || 'RT-PT Inspector'} / ${reportNumber} / Rev ${revision}`, 68),
+      truncateToWidth(pdf, `${report.organization.name || 'RT Inspector'} / ${reportNumber} / Rev ${revision}`, 68),
       PDF_MARGIN,
       pageHeight - 9.5,
     );
@@ -1097,8 +1097,8 @@ export function buildRtPtInspectionReportPdf(
     subject: `${METHOD_TITLE[report.method]} - Performed inspection report - ${release.controlledRelease
       ? 'Controlled'
       : report.status === 'superseded' ? 'Superseded / Uncontrolled' : 'Draft / Uncontrolled'}`,
-    author: report.organization.name || 'RT-PT Inspector',
-    creator: 'RT-PT Inspector',
+    author: report.organization.name || 'RT Inspector',
+    creator: 'RT Inspector',
     keywords: release.watermark || 'CONTROLLED INSPECTION REPORT',
   });
 

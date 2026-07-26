@@ -147,7 +147,7 @@ export function SettingsDialog({ open, onOpenChange, onOfflineUpdate }: Settings
               </div>
               <DialogTitle className="text-xl font-semibold text-card-foreground">Settings</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                Configure your RT-PT Inspector preferences
+                Configure your RT Inspector preferences
               </DialogDescription>
             </div>
           </div>
@@ -413,7 +413,7 @@ function GeneralSettings({ onOfflineUpdate }: { onOfflineUpdate?: () => void }) 
                 {selectedFont.label}
               </div>
               <div className="text-sm text-foreground/90">
-                RT-PT Inspector Technique Preview 123
+                RT Inspector Technique Preview 123
               </div>
               <div className="text-xs text-muted-foreground">
                 {selectedFont.sample}

@@ -347,7 +347,7 @@ class DiagnosticsCollectorService {
 RT-PT INSPECTOR DIAGNOSTICS EXPORT
 ==================================
 
-This file contains diagnostic information from your RT-PT Inspector installation.
+This file contains diagnostic information from your RT Inspector installation.
 It was generated automatically and can be sent to technical support for
 troubleshooting purposes.
 

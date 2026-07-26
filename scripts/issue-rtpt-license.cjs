@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Issues an offline RT-PT Inspector license using an externally managed
+ * Issues an offline RT Inspector license using an externally managed
  * Ed25519 private key. The private key is never generated, copied, or stored by
  * this repository.
  */
@@ -17,7 +17,7 @@ const FEATURES = Object.freeze(['rt-film', 'rt-digital', 'pt']);
 
 function printHelp() {
   console.log(`
-RT-PT Inspector offline license issuer
+RT Inspector offline license issuer
 
 Usage:
   node scripts/issue-rtpt-license.cjs \\
@@ -29,7 +29,7 @@ Usage:
 
 Required:
   --private-key       Path to an externally controlled Ed25519 private key.
-  --installation-id  Installation code shown by RT-PT Inspector.
+  --installation-id  Installation code shown by RT Inspector.
   --customer         Licensed customer or organization name.
   --expires          Expiry date (YYYY-MM-DD or ISO timestamp), or
   --perpetual        Issue a license without an expiry date.
@@ -183,7 +183,7 @@ function main() {
     const result = issueLicense(options);
     const outputPath = options.output ? writeOutput(options.output, result) : null;
 
-    console.log('RT-PT Inspector license issued.');
+    console.log('RT Inspector license issued.');
     console.log(`License ID: ${result.payload.licenseId}`);
     console.log(`Customer: ${result.payload.customer}`);
     console.log(`Installation ID: ${result.payload.installationId}`);

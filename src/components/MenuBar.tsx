@@ -92,7 +92,7 @@ export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExportTechnique,
             </MenubarItem>
           )}
           <MenubarSeparator />
-          <MenubarItem onClick={() => alert(`RT-PT Inspector v${__APP_VERSION__}\nRadiographic and Penetrant Testing Inspection System`)} className="text-base py-2">
+          <MenubarItem onClick={() => alert(`RT Inspector v${__APP_VERSION__}\nRadiographic and Penetrant Testing Inspection System`)} className="text-base py-2">
             <Info className="mr-3 h-5 w-5" />
             About
           </MenubarItem>

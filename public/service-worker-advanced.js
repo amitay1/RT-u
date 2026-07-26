@@ -359,7 +359,7 @@ self.addEventListener('push', (event) => {
   };
   
   event.waitUntil(
-    self.registration.showNotification('RT-PT Inspector', options)
+    self.registration.showNotification('RT Inspector', options)
   );
 });
 

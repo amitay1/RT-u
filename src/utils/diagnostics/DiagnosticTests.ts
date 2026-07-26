@@ -1,5 +1,5 @@
 /**
- * Diagnostic Tests - Self-diagnostic system for RT-PT Inspector
+ * Diagnostic Tests - Self-diagnostic system for RT Inspector
  *
  * Runs various health checks on:
  * - System resources (disk, memory, CPU)

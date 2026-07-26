@@ -224,7 +224,7 @@ export function RtPtLicenseCenterDialog({ open, onOpenChange }: RtPtLicenseCente
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this workstation license?</AlertDialogTitle>
             <AlertDialogDescription>
-              RT-PT Inspector will lock immediately. The same installation code remains available so a valid license can be activated again.
+              RT Inspector will lock immediately. The same installation code remains available so a valid license can be activated again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

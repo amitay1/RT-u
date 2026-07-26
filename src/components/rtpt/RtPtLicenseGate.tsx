@@ -74,7 +74,7 @@ const STATUS_PRESENTATIONS: Record<Exclude<RtPtLicenseStatusCode, "active">, Sta
   "configuration-required": {
     label: "Configuration required",
     title: "License verification is not configured",
-    description: "The trusted RT-PT Inspector licensing key is unavailable or invalid in this build.",
+    description: "The trusted RT Inspector licensing key is unavailable or invalid in this build.",
     tone: "critical",
     icon: ShieldCheck,
   },
@@ -88,7 +88,7 @@ const STATUS_PRESENTATIONS: Record<Exclude<RtPtLicenseStatusCode, "active">, Sta
   "runtime-unavailable": {
     label: "Desktop service unavailable",
     title: "License verification could not start",
-    description: "RT-PT Inspector could not connect to its local desktop license service.",
+    description: "RT Inspector could not connect to its local desktop license service.",
     tone: "critical",
     icon: MonitorCog,
   },
@@ -153,7 +153,7 @@ function LicenseLoadingScreen() {
           Verifying workstation license
         </h1>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          RT-PT Inspector is validating the local activation before opening the controlled workspace.
+          RT Inspector is validating the local activation before opening the controlled workspace.
         </p>
       </section>
     </main>
@@ -184,7 +184,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
     if (status.status === "clock-invalid") return "Correct the workstation clock before entering a license.";
     if (status.status === "configuration-required") return "A correctly configured application build is required before activation.";
     if (status.status === "storage-unavailable") return "Secure storage must be restored before activation.";
-    return "Reconnect to the RT-PT Inspector desktop service before activation.";
+    return "Reconnect to the RT Inspector desktop service before activation.";
   }, [canActivate, status.status]);
 
   useEffect(() => () => {
@@ -235,7 +235,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
             </div>
             <div>
               <div className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-primary">
-                RT-PT Inspector
+                RT Inspector
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">Controlled technique workspace</div>
             </div>
@@ -253,7 +253,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
               Workstation activation
             </div>
             <h1 id="license-page-title" className="max-w-lg text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-              Activate RT-PT Inspector
+              Activate RT Inspector
             </h1>
             <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">
               Unlock the RT Film, RT Digital/DDA, and Liquid Penetrant technique workspaces with a license issued specifically for this installation.
@@ -332,7 +332,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
                   {installationId || "Unavailable"}
                 </div>
                 <p className={cn("mt-1.5 text-xs", copyState === "failed" ? "text-destructive" : "text-muted-foreground")} aria-live="polite">
-                  {copyState === "failed" ? "Could not copy automatically. Select the code and copy it manually." : "The code identifies this RT-PT Inspector installation only."}
+                  {copyState === "failed" ? "Could not copy automatically. Select the code and copy it manually." : "The code identifies this RT Inspector installation only."}
                 </p>
               </div>
 
@@ -390,7 +390,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
         </div>
 
         <footer className="border-t border-border/70 pt-4 text-xs leading-5 text-muted-foreground">
-          License validation is performed locally using the trusted RT-PT Inspector verification key. Activation does not change technique approval or controlled-release requirements.
+          License validation is performed locally using the trusted RT Inspector verification key. Activation does not change technique approval or controlled-release requirements.
         </footer>
       </div>
     </main>

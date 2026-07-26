@@ -1916,7 +1916,7 @@ const drawPageFurniture = (
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(6.4);
     pdf.text(
-      truncateToWidth(pdf, `${document.organization.name || 'RT-PT Inspector'} / ${docNumber} / Rev ${revision}`, 68),
+      truncateToWidth(pdf, `${document.organization.name || 'RT Inspector'} / ${docNumber} / Rev ${revision}`, 68),
       PDF_MARGIN,
       pageHeight - 9.5,
     );
@@ -1940,8 +1940,8 @@ export function buildRtPtTechniquePdf(
     subject: `${METHOD_TITLE[document.method]} - ${release.controlledRelease
       ? 'Controlled'
       : document.status === 'superseded' ? 'Superseded / Uncontrolled' : 'Draft / Uncontrolled'}`,
-    author: document.organization.name || 'RT-PT Inspector',
-    creator: 'RT-PT Inspector',
+    author: document.organization.name || 'RT Inspector',
+    creator: 'RT Inspector',
     keywords: release.watermark || 'CONTROLLED TECHNIQUE',
   });
 

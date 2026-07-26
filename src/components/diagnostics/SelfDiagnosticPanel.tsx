@@ -160,7 +160,7 @@ export function SelfDiagnosticPanel({ open, onOpenChange }: SelfDiagnosticPanelP
             <div>
               <DialogTitle>System Diagnostics</DialogTitle>
               <DialogDescription>
-                Run health checks on your RT-PT Inspector installation
+                Run health checks on your RT Inspector installation
               </DialogDescription>
             </div>
           </div>

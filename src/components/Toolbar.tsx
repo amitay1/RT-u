@@ -123,7 +123,7 @@ export const Toolbar = ({
             <ScanLine className="h-5 w-5" />
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight">RT-PT Inspector</div>
+            <div className="text-sm font-semibold tracking-tight">RT Inspector</div>
             <div className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Technique workstation</div>
           </div>
         </div>

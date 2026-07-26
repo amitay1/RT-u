@@ -433,10 +433,10 @@ function initAutoUpdater() {
   autoUpdater.logger.transports.file.level = 'info';
   console.log('📋 Update log file:', log.transports.file.getFile().path);
 
-  // RT-PT Inspector has its own GitHub release channel. The generated
+  // RT Inspector has its own GitHub release channel. The generated
   // app-update.yml points exclusively at amitay1/RT-u.
   console.log('📦 Current app version:', app.getVersion());
-  console.log('🔗 Update provider: GitHub amitay1/RT-u (RT-PT Inspector only)');
+  console.log('🔗 Update provider: GitHub amitay1/RT-u (RT Inspector only)');
 
   setupAutoUpdaterHandlers();
   
@@ -937,7 +937,7 @@ function showRtPtLicenseInformation() {
 
   return dialog.showMessageBox(mainWindow, {
     type: status.active === true ? 'info' : 'warning',
-    title: 'RT-PT Inspector License',
+    title: 'RT Inspector License',
     message: status.active === true ? 'License is active' : 'License is not active',
     detail,
     buttons: ['OK'],
@@ -1051,12 +1051,12 @@ function buildMenuTemplate() {
         },
         { type: 'separator' },
         {
-          label: 'About RT-PT Inspector',
+          label: 'About RT Inspector',
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: 'About RT-PT Inspector',
-              message: 'RT-PT Inspector',
+              title: 'About RT Inspector',
+              message: 'RT Inspector',
               detail: `Radiographic and penetrant technique-sheet creator\n(ASTM E1742 / E2698 / E1417)\n\nVersion: ${app.getVersion()}\n\nBuilt with Electron, React, and Node.js`,
               buttons: ['OK']
             });
@@ -1163,7 +1163,7 @@ async function createWindow() {
     },
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    title: 'RT-PT Inspector',
+    title: 'RT Inspector',
     // Use content size to ensure proper fitting
     useContentSize: true,
     // Start maximized (not kiosk – allows restore/minimize)

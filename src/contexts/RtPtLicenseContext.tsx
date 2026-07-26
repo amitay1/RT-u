@@ -271,7 +271,7 @@ export const normaliseRtPtLicenseStatus = (value: unknown): RtPtLicenseStatus =>
 
   if (value.product !== PRODUCT || value.appId !== APP_ID) {
     return createClosedStatus(
-      "The license response does not belong to RT-PT Inspector.",
+      "The license response does not belong to RT Inspector.",
       "product-mismatch",
       cleanText(value.installationId, 128),
       "invalid",
@@ -541,7 +541,7 @@ export function RtPtLicenseProvider({ children }: RtPtLicenseProviderProps) {
       const bridge = getLicenseBridge();
       if (!bridge) {
         const nextStatus = createClosedStatus(
-          "RT-PT Inspector must connect to its local license service before it can open.",
+          "RT Inspector must connect to its local license service before it can open.",
           "bridge-unavailable",
           statusRef.current.installationId,
         );
@@ -618,7 +618,7 @@ export function RtPtLicenseProvider({ children }: RtPtLicenseProviderProps) {
       const bridge = getLicenseBridge();
       if (!bridge) {
         const mutationStatus = createClosedStatus(
-          "The local license service is unavailable. Reload or reopen RT-PT Inspector and try again.",
+          "The local license service is unavailable. Reload or reopen RT Inspector and try again.",
           "bridge-unavailable",
           statusRef.current.installationId,
         );

@@ -1513,7 +1513,7 @@ export function decodeRtPtDocument(
     return { status: 'legacy-ut', message: 'This card uses an unsupported legacy inspection data model.' };
   }
   if (value.documentKind !== RT_PT_DOCUMENT_KIND) {
-    return { status: 'invalid', message: 'The saved document is not an RT-PT Inspector document.' };
+    return { status: 'invalid', message: 'The saved document is not an RT Inspector document.' };
   }
   const maxSupportedVersion = options.maxSupportedVersion ?? RT_PT_DOCUMENT_VERSION;
   if (typeof value.schemaVersion === 'number' && value.schemaVersion > maxSupportedVersion) {

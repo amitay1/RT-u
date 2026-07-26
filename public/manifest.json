@@ -1,6 +1,6 @@
 {
-  "name": "RT-PT Inspector",
-  "short_name": "RT-PT Inspector",
+  "name": "RT Inspector",
+  "short_name": "RT Inspector",
   "description": "Radiographic and penetrant technique-sheet creator (ASTM E1742 / E2698 / E1417).",
   "start_url": "/",
   "display": "standalone",

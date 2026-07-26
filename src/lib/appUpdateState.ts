@@ -1,5 +1,5 @@
 /**
- * Pure update state machine for the RT-PT Inspector desktop shell.
+ * Pure update state machine for the RT Inspector desktop shell.
  *
  * The Electron main process (electron/main.cjs) drives auto-updates through
  * electron-updater and pushes `update-status` events over the preload bridge.

@@ -1019,7 +1019,7 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Progress Restored After Update</DialogTitle>
             <DialogDescription>
-              RT-PT Inspector restored the in-progress card that was open before the app restarted to install an update.
+              RT Inspector restored the in-progress card that was open before the app restarted to install an update.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 rounded-lg border border-success/30 bg-success/10 px-3 py-3 text-sm">
@@ -1053,7 +1053,7 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Save your latest changes before closing?</DialogTitle>
             <DialogDescription>
-              The current technique or inspection report has data that is not safely persisted. RT-PT Inspector can retry the required saves before closing.
+              The current technique or inspection report has data that is not safely persisted. RT Inspector can retry the required saves before closing.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm">
