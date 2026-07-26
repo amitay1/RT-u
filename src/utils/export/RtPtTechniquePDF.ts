@@ -1,9 +1,10 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { GState, jsPDF } from 'jspdf';
+import autoTable, { type RowInput } from 'jspdf-autotable';
 import {
   calculateDigitalGeometricUnsharpness,
   calculateFilmGeometricUnsharpness,
 } from '@/lib/rtGeometry';
+import { normalizeRtSetupDiagram, type RtSetupDiagramInput } from '@/lib/rtPtSetupDiagram';
 import {
   calculateExposureMas,
   calculateHoneycombRadiographicThickness,
@@ -22,6 +23,7 @@ import {
   validateRtPtDocument,
   type RtPtValidationSummary,
 } from '@/lib/rtPtValidation';
+import { hasValidRtPtApprovalFingerprint } from '@/lib/rtPtDocumentCodec';
 import {
   RT_PT_METHOD_LABEL,
   type RtPtApprovalRole,
@@ -37,8 +39,8 @@ export interface RtPtPdfSection {
 
 export interface RtPtPdfReleaseState {
   controlledRelease: boolean;
-  watermark: 'DRAFT - UNCONTROLLED' | null;
-  filenamePrefix: 'DRAFT-UNCONTROLLED-' | '';
+  watermark: 'DRAFT - UNCONTROLLED' | 'SUPERSEDED - UNCONTROLLED' | null;
+  filenamePrefix: 'DRAFT-UNCONTROLLED-' | 'SUPERSEDED-UNCONTROLLED-' | '';
 }
 
 const METHOD_TITLE = {
@@ -54,8 +56,12 @@ const APPROVAL_ROLE_LABEL: Record<RtPtApprovalRole, string> = {
   'ndt-level-3': 'NDT Level III',
 };
 
+const hasValue = (value: string | number | boolean | null | undefined): boolean => (
+  value !== '' && value !== null && value !== undefined
+);
+
 const formatValue = (value: string | number | boolean | null | undefined, unit?: string): string => {
-  if (value === '' || value === null || value === undefined) return '-';
+  if (!hasValue(value)) return 'Not specified';
   const formatted = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value);
   return unit ? `${formatted} ${unit}` : formatted;
 };
@@ -64,7 +70,12 @@ const formatRange = (
   minimum: string | number,
   maximum: string | number,
   unit: string,
-): string => `${formatValue(minimum, unit)} to ${formatValue(maximum, unit)}`;
+): string => {
+  if (!hasValue(minimum) && !hasValue(maximum)) return 'Not specified';
+  if (!hasValue(minimum)) return `Up to ${formatValue(maximum, unit)}`;
+  if (!hasValue(maximum)) return `From ${formatValue(minimum, unit)}`;
+  return `${formatValue(minimum, unit)} to ${formatValue(maximum, unit)}`;
+};
 
 const commonGeneralRows = (
   general: Extract<RtPtDocumentV3, { method: 'RT-Film' }>['technique']['general'],
@@ -310,7 +321,10 @@ const filmSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>):
           ['Film Viewing Mode', formatValue(filmSystem.viewingMode)],
           ['PS811000E Density Lookup', densityRequirement
             ? `${densityRequirement.combinedMinimum}-${densityRequirement.maximum} H&D${densityRequirement.individualFilmMinimum === null ? '' : `; each film minimum ${densityRequirement.individualFilmMinimum} H&D`}`
-            : '-'],
+            : 'Not specified'],
+          ...(filmSystem.viewingMode === 'superimposed'
+            ? [['Planned Individual Film Density Minimum', formatValue(filmSystem.individualFilmDensityMinimum, 'H&D')] as PdfRow]
+            : []),
           ['Viewer Output', formatValue(filmSystem.viewerOutputCandelaPerSquareMeter, 'cd/m2')],
           ['Figure 1 Approximate Readable Density', formatValue(viewerLimit?.value, 'H&D')],
           ['Figure 6 Approximate Minimum Contrast', formatValue(minimumContrast?.value, 'H&D')],
@@ -714,11 +728,18 @@ export function getRtPtPdfReleaseState(
 ): RtPtPdfReleaseState {
   void callerValidation;
   const validation = validateRtPtDocument(document);
-  const controlledRelease = document.status === 'approved' && validation.approvalReadiness.isReady;
+  const controlledRelease = document.status === 'approved'
+    && validation.approvalReadiness.isReady
+    && hasValidRtPtApprovalFingerprint(document);
+  const superseded = document.status === 'superseded';
   return {
     controlledRelease,
-    watermark: controlledRelease ? null : 'DRAFT - UNCONTROLLED',
-    filenamePrefix: controlledRelease ? '' : 'DRAFT-UNCONTROLLED-',
+    watermark: controlledRelease
+      ? null
+      : superseded ? 'SUPERSEDED - UNCONTROLLED' : 'DRAFT - UNCONTROLLED',
+    filenamePrefix: controlledRelease
+      ? ''
+      : superseded ? 'SUPERSEDED-UNCONTROLLED-' : 'DRAFT-UNCONTROLLED-',
   };
 }
 
@@ -744,15 +765,1165 @@ export function getRtPtTechniquePdfFilename(
   return `${release.filenamePrefix}RTPT-${safeFileToken(document.method)}-${safeFileToken(identity)}${revision}.pdf`;
 }
 
-const estimateSectionHeight = (pdf: jsPDF, section: RtPtPdfSection): number => {
-  const rowsHeight = section.rows.reduce((total, [label, value]) => {
-    const lineCount = Math.max(
-      pdf.splitTextToSize(label, 66).length,
-      pdf.splitTextToSize(value, 104).length,
+type PdfColor = [number, number, number];
+type AutoTableOptions = Parameters<typeof autoTable>[1];
+
+const PDF_THEME = {
+  navy: [17, 39, 58] as PdfColor,
+  navySoft: [31, 58, 78] as PdfColor,
+  steel: [43, 91, 118] as PdfColor,
+  steelSoft: [92, 126, 145] as PdfColor,
+  ink: [27, 43, 54] as PdfColor,
+  muted: [91, 105, 114] as PdfColor,
+  line: [199, 210, 217] as PdfColor,
+  panel: [238, 243, 246] as PdfColor,
+  panelAlt: [248, 250, 251] as PdfColor,
+  white: [255, 255, 255] as PdfColor,
+  amber: [161, 99, 34] as PdfColor,
+  amberSoft: [249, 240, 226] as PdfColor,
+  green: [48, 105, 88] as PdfColor,
+  greenSoft: [229, 241, 236] as PdfColor,
+  red: [148, 66, 57] as PdfColor,
+  redSoft: [248, 235, 232] as PdfColor,
+  watermark: [229, 233, 236] as PdfColor,
+};
+
+const PDF_MARGIN = 14;
+const PDF_CONTENT_TOP = 31;
+const PDF_CONTENT_BOTTOM = 278;
+const SETUP_DIAGRAM_MICRO_FONT_SIZE = 6.2;
+
+const getLastTableY = (pdf: jsPDF): number => (
+  (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY
+);
+
+const formatIdentity = (
+  ...values: Array<string | number | boolean | null | undefined>
+): string => {
+  const present = values.filter(hasValue).map(String);
+  return present.length > 0 ? present.join(' / ') : 'Not specified';
+};
+
+const formatDocumentId = (value: string): string => {
+  const uuid = /^([^-]+-[^-]+-[^-]+)-([^-]+-[^-]+)$/.exec(value);
+  return uuid ? `${uuid[1]}\n${uuid[2]}` : formatValue(value);
+};
+
+const methodCode = (document: RtPtDocumentV3): string => {
+  if (document.method === 'RT-Film') return 'FILM RT';
+  if (document.method === 'RT-Digital') return 'DDA RT';
+  return 'PT';
+};
+
+const releaseLabel = (document: RtPtDocumentV3, release: RtPtPdfReleaseState): string => {
+  if (release.controlledRelease) return 'CONTROLLED RELEASE';
+  if (document.status === 'superseded') return 'SUPERSEDED / UNCONTROLLED';
+  return 'DRAFT / UNCONTROLLED';
+};
+
+const truncateToWidth = (pdf: jsPDF, value: string, width: number): string => {
+  if (pdf.getTextWidth(value) <= width) return value;
+  let result = value;
+  while (result.length > 1 && pdf.getTextWidth(`${result}...`) > width) {
+    result = result.slice(0, -1);
+  }
+  return `${result}...`;
+};
+
+const splitWithEllipsis = (
+  pdf: jsPDF,
+  value: string,
+  width: number,
+  maximumLines: number,
+): string[] => {
+  const lines = pdf.splitTextToSize(value, width) as string[];
+  if (lines.length <= maximumLines) return lines;
+  const visible = lines.slice(0, maximumLines);
+  visible[maximumLines - 1] = truncateToWidth(
+    pdf,
+    lines.slice(maximumLines - 1).join(' '),
+    width,
+  );
+  return visible;
+};
+
+const ensureContentSpace = (pdf: jsPDF, y: number, requiredHeight: number): number => {
+  if (y + requiredHeight <= PDF_CONTENT_BOTTOM) return y;
+  pdf.addPage();
+  return PDF_CONTENT_TOP;
+};
+
+const pairedTableRows = (rows: PdfRow[]): RowInput[] => {
+  const body: RowInput[] = [];
+  for (let index = 0; index < rows.length; index += 2) {
+    const left = rows[index];
+    const right = rows[index + 1];
+    body.push(right
+      ? [left[0].toUpperCase(), left[1], right[0].toUpperCase(), right[1]]
+      : [left[0].toUpperCase(), left[1], { content: '', colSpan: 2 }]);
+  }
+  return body;
+};
+
+const renderPairedSection = (
+  pdf: jsPDF,
+  sectionNumber: number,
+  title: string,
+  rows: PdfRow[],
+  startY: number,
+): number => {
+  const y = ensureContentSpace(pdf, startY, 24);
+  autoTable(pdf, {
+    startY: y,
+    head: [[{ content: `${String(sectionNumber).padStart(2, '0')}  ${title.toUpperCase()}`, colSpan: 4 }]],
+    body: pairedTableRows(rows),
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN, top: PDF_CONTENT_TOP, bottom: 20 },
+    theme: 'grid',
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 8.2,
+      textColor: PDF_THEME.ink,
+      lineColor: PDF_THEME.line,
+      lineWidth: 0.18,
+      cellPadding: { top: 2.2, right: 2.2, bottom: 2.2, left: 2.2 },
+      overflow: 'linebreak',
+      valign: 'middle',
+    },
+    headStyles: {
+      fillColor: PDF_THEME.steel,
+      textColor: PDF_THEME.white,
+      fontStyle: 'bold',
+      fontSize: 9,
+      cellPadding: { top: 2.2, right: 2.5, bottom: 2.2, left: 2.5 },
+    },
+    columnStyles: {
+      0: { cellWidth: 33, fillColor: PDF_THEME.panel, textColor: PDF_THEME.muted, fontStyle: 'bold', fontSize: 6.8 },
+      1: { cellWidth: 58 },
+      2: { cellWidth: 33, fillColor: PDF_THEME.panel, textColor: PDF_THEME.muted, fontStyle: 'bold', fontSize: 6.8 },
+      3: { cellWidth: 58 },
+    },
+  });
+  return getLastTableY(pdf) + 6;
+};
+
+const renderDataTableSection = (
+  pdf: jsPDF,
+  sectionNumber: number,
+  title: string,
+  columns: RowInput,
+  rows: RowInput[],
+  startY: number,
+  columnStyles?: AutoTableOptions['columnStyles'],
+): number => {
+  let y = ensureContentSpace(pdf, startY, 20);
+  pdf.setFillColor(...PDF_THEME.steel);
+  pdf.roundedRect(PDF_MARGIN, y, pdf.internal.pageSize.getWidth() - PDF_MARGIN * 2, 8, 1.2, 1.2, 'F');
+  pdf.setTextColor(...PDF_THEME.white);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+  pdf.text(`${String(sectionNumber).padStart(2, '0')}  ${title.toUpperCase()}`, PDF_MARGIN + 3, y + 5.3);
+  y += 9.5;
+  autoTable(pdf, {
+    startY: y,
+    head: [columns],
+    body: rows,
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN, top: PDF_CONTENT_TOP, bottom: 20 },
+    theme: 'grid',
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.7,
+      textColor: PDF_THEME.ink,
+      lineColor: PDF_THEME.line,
+      lineWidth: 0.18,
+      cellPadding: { top: 2, right: 1.7, bottom: 2, left: 1.7 },
+      overflow: 'linebreak',
+      valign: 'top',
+    },
+    headStyles: {
+      fillColor: PDF_THEME.panel,
+      textColor: PDF_THEME.ink,
+      fontStyle: 'bold',
+      fontSize: 7,
+      valign: 'middle',
+    },
+    alternateRowStyles: { fillColor: PDF_THEME.panelAlt },
+    columnStyles,
+  });
+  return getLastTableY(pdf) + 6;
+};
+
+const renderCoverGrid = (pdf: jsPDF, rows: PdfRow[], startY: number): number => {
+  autoTable(pdf, {
+    startY,
+    body: pairedTableRows(rows),
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    theme: 'grid',
+    pageBreak: 'avoid',
+    rowPageBreak: 'avoid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.8,
+      textColor: PDF_THEME.ink,
+      lineColor: PDF_THEME.line,
+      lineWidth: 0.18,
+      cellPadding: { top: 1.7, right: 2, bottom: 1.7, left: 2 },
+      overflow: 'ellipsize',
+      valign: 'middle',
+    },
+    columnStyles: {
+      0: { cellWidth: 32, fillColor: PDF_THEME.panel, textColor: PDF_THEME.muted, fontStyle: 'bold', fontSize: 6.4 },
+      1: { cellWidth: 59 },
+      2: { cellWidth: 32, fillColor: PDF_THEME.panel, textColor: PDF_THEME.muted, fontStyle: 'bold', fontSize: 6.4 },
+      3: { cellWidth: 59 },
+    },
+  });
+  return getLastTableY(pdf);
+};
+
+const renderCoverHeading = (pdf: jsPDF, label: string, y: number): void => {
+  pdf.setDrawColor(...PDF_THEME.steelSoft);
+  pdf.setLineWidth(0.7);
+  pdf.line(PDF_MARGIN, y + 1.8, PDF_MARGIN + 5, y + 1.8);
+  pdf.setTextColor(...PDF_THEME.steel);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7.2);
+  pdf.text(label.toUpperCase(), PDF_MARGIN + 8, y + 2.7);
+};
+
+const renderReadinessCards = (
+  pdf: jsPDF,
+  validation: RtPtValidationSummary,
+  release: RtPtPdfReleaseState,
+  y: number,
+): number => {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const gap = 3;
+  const width = (pageWidth - PDF_MARGIN * 2 - gap * 2) / 3;
+  const cards = [
+    {
+      label: 'TECHNIQUE COMPLETENESS',
+      value: `${validation.draftCompleteness.completionPercent}%`,
+      detail: `${validation.draftCompleteness.completedFieldsCount} of ${validation.draftCompleteness.totalRequiredFields} required fields`,
+      color: PDF_THEME.steel,
+      fill: PDF_THEME.panel,
+    },
+    {
+      label: 'APPROVAL READINESS',
+      value: validation.approvalReadiness.isReady ? 'READY' : 'NOT READY',
+      detail: `${validation.approvalReadiness.completedRequirements} of ${validation.approvalReadiness.totalRequirements} controls satisfied`,
+      color: validation.approvalReadiness.isReady ? PDF_THEME.green : PDF_THEME.amber,
+      fill: validation.approvalReadiness.isReady ? PDF_THEME.greenSoft : PDF_THEME.amberSoft,
+    },
+    {
+      label: 'DOCUMENT RELEASE',
+      value: release.controlledRelease ? 'CONTROLLED' : 'UNCONTROLLED',
+      detail: release.controlledRelease
+        ? 'Approved controlled issue'
+        : release.watermark === 'SUPERSEDED - UNCONTROLLED'
+          ? 'Historical copy - not current'
+          : 'Working copy - review required',
+      color: release.controlledRelease
+        ? PDF_THEME.green
+        : release.watermark === 'SUPERSEDED - UNCONTROLLED' ? PDF_THEME.red : PDF_THEME.amber,
+      fill: release.controlledRelease
+        ? PDF_THEME.greenSoft
+        : release.watermark === 'SUPERSEDED - UNCONTROLLED' ? PDF_THEME.redSoft : PDF_THEME.amberSoft,
+    },
+  ];
+
+  cards.forEach((card, index) => {
+    const x = PDF_MARGIN + index * (width + gap);
+    pdf.setFillColor(...card.fill);
+    pdf.roundedRect(x, y, width, 21, 1.5, 1.5, 'F');
+    pdf.setFillColor(...card.color);
+    pdf.roundedRect(x, y, 1.8, 21, 1, 1, 'F');
+    pdf.setTextColor(...PDF_THEME.muted);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(6.2);
+    pdf.text(card.label, x + 5, y + 5.2);
+    pdf.setTextColor(...card.color);
+    pdf.setFontSize(11.5);
+    pdf.text(card.value, x + 5, y + 11.5);
+    pdf.setTextColor(...PDF_THEME.muted);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(6.2);
+    pdf.text(pdf.splitTextToSize(card.detail, width - 8).slice(0, 2), x + 5, y + 16.2);
+  });
+  return y + 21;
+};
+
+const renderCover = (
+  pdf: jsPDF,
+  document: RtPtDocumentV3,
+  validation: RtPtValidationSummary,
+  release: RtPtPdfReleaseState,
+): void => {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const general = document.technique.general;
+  const title = document.documentControl.title || `${METHOD_TITLE[document.method]} Technique`;
+  const status = releaseLabel(document, release);
+
+  pdf.setFillColor(...PDF_THEME.navy);
+  pdf.rect(0, 0, pageWidth, 27, 'F');
+  pdf.setFillColor(...PDF_THEME.steel);
+  pdf.rect(0, 27, pageWidth, 1.6, 'F');
+  pdf.setTextColor(...PDF_THEME.white);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(14);
+  pdf.text('RT-PT', PDF_MARGIN, 11.5);
+  pdf.setFontSize(7);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('INSPECTOR / CONTROLLED NDT WORKFLOW', PDF_MARGIN, 18);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(10.5);
+  pdf.text(methodCode(document), pageWidth - PDF_MARGIN, 12, { align: 'right' });
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.text(METHOD_TITLE[document.method], pageWidth - PDF_MARGIN, 18, { align: 'right' });
+
+  pdf.setTextColor(...PDF_THEME.steel);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7.2);
+  pdf.text('NDT TECHNIQUE SHEET', PDF_MARGIN, 37);
+  pdf.setTextColor(...PDF_THEME.ink);
+  pdf.setFontSize(16.5);
+  const titleLines = splitWithEllipsis(pdf, title, 132, 2);
+  pdf.text(titleLines, PDF_MARGIN, 45);
+
+  const badgeColor = release.controlledRelease
+    ? PDF_THEME.green
+    : release.watermark === 'SUPERSEDED - UNCONTROLLED' ? PDF_THEME.red : PDF_THEME.amber;
+  const badgeFill = release.controlledRelease
+    ? PDF_THEME.greenSoft
+    : release.watermark === 'SUPERSEDED - UNCONTROLLED' ? PDF_THEME.redSoft : PDF_THEME.amberSoft;
+  pdf.setFillColor(...badgeFill);
+  pdf.roundedRect(pageWidth - PDF_MARGIN - 48, 36.5, 48, 12, 1.8, 1.8, 'F');
+  pdf.setTextColor(...badgeColor);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.8);
+  pdf.text(status, pageWidth - PDF_MARGIN - 24, 43.8, { align: 'center' });
+
+  const titleBottom = 45 + titleLines.length * 6.5;
+  pdf.setTextColor(...PDF_THEME.muted);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7.2);
+  pdf.text(
+    `${RT_PT_METHOD_LABEL[document.method]} / ${document.status.toUpperCase()}`,
+    PDF_MARGIN,
+    titleBottom + 3,
+  );
+
+  let y = Math.max(titleBottom + 10, 64);
+  renderCoverHeading(pdf, 'Document control and effectivity', y);
+  y = renderCoverGrid(pdf, [
+    ['Document Number', formatValue(document.documentControl.number)],
+    ['Revision', formatValue(document.documentControl.revision)],
+    ['Revision Date', formatValue(document.documentControl.revisionDate)],
+    ['Effective Date', formatValue(document.documentControl.effectiveDate)],
+    ['Organization', formatValue(document.organization.name)],
+    ['Site', formatValue(document.organization.site)],
+    ['Customer', formatValue(document.job.customer)],
+    ['Work Order', formatValue(document.job.workOrder)],
+    ['Contract', formatValue(document.job.contract)],
+    ['Purchase Order', formatValue(document.job.purchaseOrder)],
+    ['Change Summary', formatValue(document.documentControl.changeSummary)],
+    ['Unit System', formatValue(document.unitSystem)],
+  ], y + 6);
+
+  y += 7;
+  renderCoverHeading(pdf, 'Part applicability and technique basis', y);
+  y = renderCoverGrid(pdf, [
+    ['Part Number', formatValue(general.partNumber)],
+    ['Part Name', formatValue(general.partName)],
+    ['Revision / Configuration', formatValue(general.partRevisionOrConfiguration)],
+    ['Material', formatValue(general.material)],
+    ['Nominal Thickness', formatValue(general.thickness, general.thicknessUnit)],
+    ['Inspection Area', formatValue(general.inspectionArea)],
+    ['Drawing Reference', formatValue(general.drawingReference)],
+    ['Procedure', formatValue(general.procedureNumber)],
+  ], y + 6);
+
+  y += 7;
+  renderCoverHeading(pdf, 'Release readiness', y);
+  y = renderReadinessCards(pdf, validation, release, y + 6);
+
+  y += 7;
+  renderCoverHeading(pdf, 'Controlled references preview', y);
+  const referenceRows: RowInput[] = document.controlledReferences.length > 0
+    ? document.controlledReferences.slice(0, 1).map((reference) => [
+      formatValue(reference.type),
+      formatIdentity(reference.number, reference.title),
+      formatValue(reference.revision),
+      formatValue(reference.clauseOrNote),
+    ])
+    : [[{ content: 'No controlled references entered.', colSpan: 4 }]];
+  if (document.controlledReferences.length > 1) {
+    referenceRows.push([{
+      content: `+${document.controlledReferences.length - 1} additional controlled reference(s) - see document governance.`,
+      colSpan: 4,
+    }]);
+  }
+  autoTable(pdf, {
+    startY: y + 6,
+    head: [['TYPE', 'DOCUMENT / TITLE', 'REVISION', 'CLAUSE / NOTE']],
+    body: referenceRows,
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    theme: 'grid',
+    pageBreak: 'avoid',
+    rowPageBreak: 'avoid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.1,
+      textColor: PDF_THEME.ink,
+      lineColor: PDF_THEME.line,
+      lineWidth: 0.18,
+      cellPadding: { top: 1.6, right: 1.8, bottom: 1.6, left: 1.8 },
+      overflow: 'ellipsize',
+      valign: 'middle',
+    },
+    headStyles: { fillColor: PDF_THEME.navySoft, textColor: PDF_THEME.white, fontStyle: 'bold', fontSize: 6.4 },
+    columnStyles: {
+      0: { cellWidth: 31 },
+      1: { cellWidth: 72 },
+      2: { cellWidth: 24 },
+      3: { cellWidth: 55 },
+    },
+  });
+
+  y = getLastTableY(pdf) + 6;
+  pdf.setFillColor(...PDF_THEME.panel);
+  pdf.roundedRect(PDF_MARGIN, y, pageWidth - PDF_MARGIN * 2, 20, 1.5, 1.5, 'F');
+  pdf.setFillColor(...PDF_THEME.steel);
+  pdf.roundedRect(PDF_MARGIN, y, 2, 20, 1, 1, 'F');
+  pdf.setTextColor(...PDF_THEME.steel);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.5);
+  pdf.text('CONTROLLED USE', PDF_MARGIN + 6, y + 5.2);
+  pdf.setTextColor(...PDF_THEME.ink);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7.1);
+  pdf.text(
+    pdf.splitTextToSize(
+      'This sheet defines planned and required technique values only. Record performed inspection results, indications, and disposition in the applicable inspection report. Verify the revision and controlled references before use.',
+      pageWidth - PDF_MARGIN * 2 - 12,
+    ).slice(0, 3),
+    PDF_MARGIN + 6,
+    y + 10.2,
+  );
+
+  y = Math.max(y + 27, 225);
+  renderCoverHeading(pdf, 'Approval record preview', y);
+  const approvalRows: RowInput[] = document.approvals.length > 0
+    ? document.approvals.slice(0, 1).map((approval) => [
+      APPROVAL_ROLE_LABEL[approval.role],
+      formatIdentity(approval.name, approval.personnelId),
+      formatIdentity(approval.certificationBasis, approval.certificationRevision),
+      formatValue(approval.date),
+    ])
+    : [[{ content: 'No approval records entered.', colSpan: 4 }]];
+  if (document.approvals.length > 1) {
+    approvalRows.push([{
+      content: `+${document.approvals.length - 1} additional approval record(s) - see document governance.`,
+      colSpan: 4,
+    }]);
+  }
+  autoTable(pdf, {
+    startY: y + 6,
+    head: [['ROLE', 'NAME / PERSONNEL ID', 'CERTIFICATION BASIS / REVISION', 'DATE']],
+    body: approvalRows,
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    theme: 'grid',
+    pageBreak: 'avoid',
+    rowPageBreak: 'avoid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.2,
+      textColor: PDF_THEME.ink,
+      lineColor: PDF_THEME.line,
+      lineWidth: 0.18,
+      cellPadding: { top: 1.7, right: 1.8, bottom: 1.7, left: 1.8 },
+      overflow: 'ellipsize',
+      valign: 'middle',
+    },
+    headStyles: { fillColor: PDF_THEME.navySoft, textColor: PDF_THEME.white, fontStyle: 'bold', fontSize: 6.5 },
+    columnStyles: {
+      0: { cellWidth: 31 },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 72 },
+      3: { cellWidth: 29 },
+    },
+  });
+};
+
+const techniqueOverviewRows = (document: RtPtDocumentV3): PdfRow[] => {
+  if (document.method === 'RT-Film') {
+    const { source, filmSystem, iqi, exposureViews } = document.technique;
+    let sourceDetail = formatIdentity(source.manufacturer, source.model);
+    if (source.sourceType === 'X-ray') {
+      sourceDetail = formatIdentity(
+        source.manufacturer,
+        source.model,
+        `${formatValue(source.xRay.focalSpotSize, source.xRay.focalSpotSizeUnit)} focal spot`,
+      );
+    } else if (source.sourceType === 'Gamma') {
+      sourceDetail = formatIdentity(source.manufacturer, source.model, source.gamma.isotope, source.gamma.sourceId);
+    }
+    return [
+      ['Method', RT_PT_METHOD_LABEL[document.method]],
+      ['Exposure Views', String(exposureViews.length)],
+      ['Radiation Source', formatIdentity(source.sourceType, sourceDetail)],
+      ['Film System', formatIdentity(filmSystem.manufacturer, filmSystem.filmDesignation, filmSystem.filmClass)],
+      ['Required Density', formatRange(filmSystem.requiredDensityMin, filmSystem.requiredDensityMax, 'H&D')],
+      ['IQI Plan', formatIdentity(iqi.type, iqi.designation, iqi.placement)],
+      ['Required Image Quality', formatIdentity(iqi.requiredSensitivity, iqi.imageQualityLevel)],
+      ['Required Inspector Level', formatValue(document.technique.general.inspectorLevel)],
+    ];
+  }
+  if (document.method === 'RT-Digital') {
+    const { source, system, detectorPerformance, iqi, acquisitions } = document.technique;
+    return [
+      ['Method', RT_PT_METHOD_LABEL[document.method]],
+      ['Static Acquisitions', String(acquisitions.length)],
+      ['X-ray Source', formatIdentity(source.manufacturer, source.model, source.serialNumber)],
+      ['Detector', formatIdentity(system.manufacturer, system.model, system.serialNumber)],
+      ['Detector Matrix', formatIdentity(`${formatValue(system.matrixColumns)} x ${formatValue(system.matrixRows)}`, `${formatValue(system.pixelSize, system.pixelSizeUnit)} pixel`)],
+      ['Detector / Image SRb', formatIdentity(formatValue(detectorPerformance.detectorSrb, detectorPerformance.detectorSrbUnit), formatValue(detectorPerformance.imageSrb, detectorPerformance.imageSrbUnit))],
+      ['IQI Plan', formatIdentity(iqi.type, iqi.designation, iqi.placement)],
+      ['Workflow', formatValue(document.technique.workflow)],
+    ];
+  }
+  const { materials, application, development, conditions } = document.technique;
+  let viewing = 'Not specified';
+  if (materials.penetrantType === 'Type I') {
+    viewing = `${formatValue(conditions.requiredUvAMin, conditions.uvAUnit)} minimum UV-A`;
+  } else if (materials.penetrantType === 'Type II') {
+    viewing = `${formatValue(conditions.whiteLightMin, conditions.visibleLightUnit)} minimum white light`;
+  }
+  return [
+    ['Method', RT_PT_METHOD_LABEL[document.method]],
+    ['Penetrant Classification', formatIdentity(materials.penetrantType, `Method ${formatValue(materials.method)}`)],
+    ['Sensitivity / Developer', formatIdentity(materials.sensitivityLevel, materials.developerForm)],
+    ['Qualified System', formatIdentity(materials.systemFamily, materials.qualificationReference)],
+    ['Penetrant Product', formatIdentity(materials.penetrant.manufacturer, materials.penetrant.designation)],
+    ['Planned Dwell', formatValue(application.dwellTime, application.dwellTimeUnit)],
+    ['Planned Development', formatValue(development.developmentTime, development.developmentTimeUnit)],
+    ['Viewing Requirement', viewing],
+  ];
+};
+
+const filmExposureSchedule = (
+  document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>,
+): RowInput[] => document.technique.exposureViews.map((view, index) => {
+  const source = document.technique.source;
+  let exposure = 'Not specified';
+  if (source.sourceType === 'X-ray') {
+    exposure = `${formatValue(view.tubeVoltage, view.tubeVoltageUnit)} / ${formatValue(view.tubeCurrent, view.tubeCurrentUnit)}\n${formatValue(view.exposureTime, view.exposureTimeUnit)}`;
+  } else if (source.sourceType === 'Gamma') {
+    exposure = `${formatValue(source.gamma.isotope)}\n${formatValue(view.exposureTime, view.exposureTimeUnit)}`;
+  }
+  return [
+    formatValue(view.viewId || index + 1),
+    formatIdentity(view.inspectionZone, view.orientation),
+    formatValue(view.wallTechnique),
+    formatRange(view.thicknessMin, view.thicknessMax, view.thicknessUnit),
+    `SFD ${formatValue(view.sfd, view.sfdUnit)}\nSOD ${formatValue(view.sod, view.sodUnit)}\nOFD ${formatValue(view.ofd, view.ofdUnit)}`,
+    exposure,
+    formatIdentity(view.iqiOverride, view.referenceAttachmentId),
+  ];
+});
+
+const digitalAcquisitionSchedule = (
+  document: Extract<RtPtDocumentV3, { method: 'RT-Digital' }>,
+): RowInput[] => document.technique.acquisitions.map((acquisition, index) => [
+  formatValue(acquisition.viewId || index + 1),
+  formatIdentity(acquisition.inspectionZone, acquisition.orientation),
+  formatValue(acquisition.wallTechnique),
+  formatRange(acquisition.thicknessMin, acquisition.thicknessMax, acquisition.thicknessUnit),
+  `SDD ${formatValue(acquisition.sdd, acquisition.sddUnit)}\nSOD ${formatValue(acquisition.sod, acquisition.sodUnit)}\nODD ${formatValue(acquisition.odd, acquisition.oddUnit)}`,
+  `${formatValue(acquisition.tubeVoltage, acquisition.tubeVoltageUnit)} / ${formatValue(acquisition.tubeCurrent, acquisition.tubeCurrentUnit)}\n${formatValue(acquisition.exposureTime, acquisition.exposureTimeUnit)}`,
+  `${formatValue(acquisition.integrationTime, acquisition.integrationTimeUnit)} x ${formatValue(acquisition.framesAveraged)}\n${formatIdentity(acquisition.iqiOverride, acquisition.referenceAttachmentId)}`,
+]);
+
+const ptRemovalSummary = (document: Extract<RtPtDocumentV3, { method: 'PT' }>): string => {
+  const { materials, removal } = document.technique;
+  if (materials.method === 'A') {
+    return formatIdentity(
+      removal.methodA.instructions,
+      `${formatRange(removal.methodA.pressureMin, removal.methodA.pressureMax, removal.methodA.pressureUnit)} rinse pressure`,
+      `${formatRange(removal.methodA.temperatureMin, removal.methodA.temperatureMax, removal.methodA.temperatureUnit)} rinse temperature`,
     );
-    return total + Math.max(7, lineCount * 3.4 + 4);
-  }, 0);
-  return 16 + rowsHeight;
+  }
+  if (materials.method === 'B' || materials.method === 'D') {
+    return formatIdentity(
+      `${formatValue(removal.methodBD.type)} emulsifier`,
+      materials.method === 'D'
+        ? `${formatValue(removal.methodBD.concentration, removal.methodBD.concentrationUnit)} concentration`
+        : '',
+      `${formatValue(removal.methodBD.contactTime, removal.methodBD.contactTimeUnit)} contact`,
+      `${formatValue(removal.methodBD.applicationMethod)} application`,
+      materials.method === 'D' ? removal.methodD.preRinseInstructions : '',
+      removal.methodBD.postEmulsifierRinseInstructions,
+      materials.method === 'D' ? removal.methodD.finalRinseInstructions : '',
+    );
+  }
+  if (materials.method === 'C') return formatValue(removal.methodC.removerInstructions);
+  return 'Not specified';
+};
+
+const ptProcessSchedule = (
+  document: Extract<RtPtDocumentV3, { method: 'PT' }>,
+): RowInput[] => {
+  const { materials, surfacePrep, application, development, conditions, postCleaning } = document.technique;
+  let viewing = 'Not specified';
+  if (materials.penetrantType === 'Type I') {
+    viewing = formatIdentity(
+      `${formatValue(conditions.requiredUvAMin, conditions.uvAUnit)} minimum UV-A`,
+      `${formatValue(conditions.ambientVisibleLightMax, conditions.visibleLightUnit)} maximum ambient light`,
+      `${formatValue(conditions.darkAdaptationTime, conditions.darkAdaptationTimeUnit)} dark adaptation`,
+    );
+  } else if (materials.penetrantType === 'Type II') {
+    viewing = `${formatValue(conditions.whiteLightMin, conditions.visibleLightUnit)} minimum white light`;
+  }
+  return [
+    ['01', 'SURFACE PREPARATION', formatIdentity(surfacePrep.cleaningMethod, surfacePrep.cleaningDetails, surfacePrep.surfaceCondition)],
+    ['02', 'DRYING / CONDITION', formatIdentity(surfacePrep.dryingMethod, formatValue(surfacePrep.dryingTime, surfacePrep.dryingTimeUnit), formatValue(surfacePrep.dryingTemperature, surfacePrep.dryingTemperatureUnit))],
+    ['03', 'PENETRANT APPLICATION', formatIdentity(application.applicationMethod, `${formatValue(application.dwellTime, application.dwellTimeUnit)} dwell`, formatRange(application.partTemperatureMin, application.partTemperatureMax, application.partTemperatureUnit))],
+    ['04', `METHOD ${formatValue(materials.method)} REMOVAL`, ptRemovalSummary(document)],
+    ['05', 'DEVELOPMENT', formatIdentity(materials.developerForm, development.developerApplication, `${formatValue(development.developmentTime, development.developmentTimeUnit)} development`, development.instructions)],
+    ['06', 'EXAMINATION', formatIdentity(viewing, conditions.equipmentRequirements)],
+    ['07', 'POST-CLEAN / PROTECTION', formatIdentity(postCleaning.instructions, postCleaning.corrosionProtection)],
+  ];
+};
+
+const renderTechniqueSchedule = (
+  pdf: jsPDF,
+  document: RtPtDocumentV3,
+  sectionNumber: number,
+  startY: number,
+): number => {
+  if (document.method === 'RT-Film') {
+    return renderDataTableSection(
+      pdf,
+      sectionNumber,
+      'Exposure plan overview',
+      ['VIEW', 'ZONE / ORIENTATION', 'WALL', 'THICKNESS', 'GEOMETRY', 'PLANNED EXPOSURE', 'IQI / SETUP REF'],
+      filmExposureSchedule(document),
+      startY,
+      {
+        0: { cellWidth: 13, fontStyle: 'bold', halign: 'center' },
+        1: { cellWidth: 29 },
+        2: { cellWidth: 16 },
+        3: { cellWidth: 26 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 28 },
+        6: { cellWidth: 40 },
+      },
+    );
+  }
+  if (document.method === 'RT-Digital') {
+    return renderDataTableSection(
+      pdf,
+      sectionNumber,
+      'Static acquisition plan overview',
+      ['VIEW', 'ZONE / ORIENTATION', 'WALL', 'THICKNESS', 'GEOMETRY', 'PLANNED EXPOSURE', 'CAPTURE / IQI REF'],
+      digitalAcquisitionSchedule(document),
+      startY,
+      {
+        0: { cellWidth: 13, fontStyle: 'bold', halign: 'center' },
+        1: { cellWidth: 29 },
+        2: { cellWidth: 16 },
+        3: { cellWidth: 26 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 28 },
+        6: { cellWidth: 40 },
+      },
+    );
+  }
+  return renderDataTableSection(
+    pdf,
+    sectionNumber,
+    'Planned penetrant process sequence',
+    ['STEP', 'CONTROL POINT', 'PLANNED / REQUIRED INSTRUCTION'],
+    ptProcessSchedule(document),
+    startY,
+    {
+      0: { cellWidth: 15, fontStyle: 'bold', halign: 'center', textColor: PDF_THEME.steel },
+      1: { cellWidth: 45, fontStyle: 'bold' },
+      2: { cellWidth: 122 },
+    },
+  );
+};
+
+const drawDimensionLine = (
+  pdf: jsPDF,
+  x1: number,
+  x2: number,
+  y: number,
+  label: string,
+  emphasized = false,
+): void => {
+  pdf.setDrawColor(...(emphasized ? PDF_THEME.steel : PDF_THEME.muted));
+  pdf.setLineWidth(emphasized ? 0.55 : 0.35);
+  pdf.line(x1, y, x2, y);
+  pdf.line(x1, y - 1.8, x1, y + 1.8);
+  pdf.line(x2, y - 1.8, x2, y + 1.8);
+  pdf.setFillColor(...PDF_THEME.white);
+  const labelWidth = Math.min(52, Math.max(24, pdf.getTextWidth(label) + 6));
+  const center = (x1 + x2) / 2;
+  pdf.roundedRect(center - labelWidth / 2, y - 3.1, labelWidth, 6.2, 1, 1, 'F');
+  pdf.setTextColor(...(emphasized ? PDF_THEME.steel : PDF_THEME.muted));
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.3);
+  pdf.text(truncateToWidth(pdf, label, labelWidth - 3), center, y + 1.25, { align: 'center' });
+};
+
+const drawSetupDiagram = (
+  pdf: jsPDF,
+  input: RtSetupDiagramInput,
+  startY: number,
+): number => {
+  const setup = normalizeRtSetupDiagram(input);
+  const x = PDF_MARGIN;
+  const width = pdf.internal.pageSize.getWidth() - PDF_MARGIN * 2;
+  const height = 94;
+  const centerY = startY + 38;
+  const sourceX = x + 16;
+  const partX = x + 88;
+  const receptorX = x + 164;
+
+  pdf.setFillColor(...PDF_THEME.panelAlt);
+  pdf.setDrawColor(...PDF_THEME.line);
+  pdf.setLineWidth(0.35);
+  pdf.roundedRect(x, startY, width, height, 1.8, 1.8, 'FD');
+
+  pdf.setFillColor(...PDF_THEME.steel);
+  pdf.roundedRect(x + 4, startY + 4, 50, 7, 3.2, 3.2, 'F');
+  pdf.setTextColor(...PDF_THEME.white);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.7);
+  pdf.text(setup.mode === 'film' ? 'FILM EXPOSURE SETUP' : 'DDA ACQUISITION SETUP', x + 29, startY + 8.7, { align: 'center' });
+  pdf.setTextColor(...PDF_THEME.muted);
+  pdf.setFontSize(6.1);
+  pdf.text('SCHEMATIC / NOT TO SCALE', x + width - 4, startY + 8.6, { align: 'right' });
+
+  pdf.setFillColor(...PDF_THEME.panel);
+  pdf.setDrawColor(...PDF_THEME.steelSoft);
+  pdf.circle(sourceX, centerY, 7, 'FD');
+  pdf.setDrawColor(...PDF_THEME.steel);
+  pdf.line(sourceX - 4, centerY, sourceX + 4, centerY);
+  pdf.line(sourceX, centerY - 4, sourceX, centerY + 4);
+
+  pdf.setFillColor(...PDF_THEME.steelSoft);
+  pdf.setGState(new GState({ opacity: 0.12 }));
+  pdf.triangle(sourceX + 7, centerY, receptorX - 3, centerY - 25, receptorX - 3, centerY + 25, 'F');
+  pdf.setGState(new GState({ opacity: 1 }));
+  pdf.setDrawColor(...PDF_THEME.steelSoft);
+  pdf.setLineWidth(0.35);
+  pdf.line(sourceX + 7, centerY, receptorX - 3, centerY - 25);
+  pdf.line(sourceX + 7, centerY, receptorX - 3, centerY + 25);
+  pdf.setLineDashPattern([2.2, 1.6], 0);
+  pdf.line(sourceX + 7, centerY, receptorX - 3, centerY);
+  pdf.setLineDashPattern([], 0);
+
+  pdf.setFillColor(...PDF_THEME.panel);
+  pdf.setDrawColor(...PDF_THEME.ink);
+  pdf.roundedRect(partX - 10, centerY - 21, 20, 42, 1.2, 1.2, 'FD');
+  pdf.setFillColor(...PDF_THEME.amberSoft);
+  pdf.setDrawColor(...PDF_THEME.amber);
+  pdf.rect(partX - 10, centerY - 6, 20, 12, 'FD');
+  pdf.setTextColor(...PDF_THEME.ink);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(SETUP_DIAGRAM_MICRO_FONT_SIZE);
+  pdf.text('INSPECTION', partX, centerY - 0.5, { align: 'center' });
+  pdf.text('ZONE', partX, centerY + 3.3, { align: 'center' });
+
+  pdf.setFillColor(...(setup.mode === 'film' ? PDF_THEME.panel : PDF_THEME.greenSoft));
+  pdf.setDrawColor(...PDF_THEME.ink);
+  pdf.roundedRect(receptorX - 3, centerY - 25, 7, 50, 1, 1, 'FD');
+  if (setup.mode === 'dda') {
+    pdf.setDrawColor(...PDF_THEME.green);
+    for (let offset = -20; offset <= 20; offset += 8) {
+      pdf.line(receptorX - 2, centerY + offset, receptorX + 3, centerY + offset);
+    }
+  } else {
+    pdf.setDrawColor(...PDF_THEME.muted);
+    pdf.line(receptorX, centerY - 22, receptorX, centerY + 22);
+  }
+
+  pdf.setFillColor(...PDF_THEME.amberSoft);
+  pdf.setDrawColor(...PDF_THEME.amber);
+  pdf.roundedRect(partX - 14, centerY - 18, 3.5, 10, 0.5, 0.5, 'FD');
+  pdf.setTextColor(...PDF_THEME.amber);
+  pdf.setFontSize(SETUP_DIAGRAM_MICRO_FONT_SIZE);
+  pdf.text('IQI', partX - 12.2, centerY - 20.5, { align: 'center' });
+
+  pdf.setFillColor(...PDF_THEME.greenSoft);
+  pdf.setDrawColor(...PDF_THEME.green);
+  pdf.roundedRect(receptorX - 8, centerY + 12, 3.8, 8, 0.5, 0.5, 'FD');
+  pdf.setTextColor(...PDF_THEME.green);
+  pdf.setFontSize(SETUP_DIAGRAM_MICRO_FONT_SIZE);
+  pdf.text('ID', receptorX - 6.1, centerY + 17.1, { align: 'center' });
+
+  pdf.setTextColor(...PDF_THEME.ink);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.2);
+  pdf.text(setup.sourceHeading.toUpperCase(), sourceX, centerY + 12, { align: 'center' });
+  pdf.text('TEST PART', partX, centerY + 28, { align: 'center' });
+  pdf.text(setup.receptorHeading.toUpperCase(), receptorX, centerY + 31, { align: 'center' });
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(...PDF_THEME.muted);
+  pdf.setFontSize(SETUP_DIAGRAM_MICRO_FONT_SIZE);
+  pdf.text(truncateToWidth(pdf, setup.sourceLabel, 38), sourceX, centerY + 16, { align: 'center' });
+  pdf.text(truncateToWidth(pdf, setup.partLabel, 38), partX, centerY + 32, { align: 'center' });
+  pdf.text(truncateToWidth(pdf, setup.receptorLabel, 38), receptorX, centerY + 35, { align: 'center' });
+
+  drawDimensionLine(pdf, sourceX, receptorX, startY + 71, `${setup.dimensions.sourceToReceptor.code} - ${setup.dimensions.sourceToReceptor.value}`, true);
+  drawDimensionLine(pdf, sourceX, partX, startY + 79, `${setup.dimensions.sourceToObject.code} - ${setup.dimensions.sourceToObject.value}`);
+  drawDimensionLine(pdf, partX, receptorX, startY + 87, `${setup.dimensions.objectToReceptor.code} - ${setup.dimensions.objectToReceptor.value}`);
+  return startY + height;
+};
+
+const renderSetupMapContent = (
+  pdf: jsPDF,
+  sectionNumber: number,
+  heading: string,
+  rows: PdfRow[],
+  setupInput: RtSetupDiagramInput,
+  calloutRows: RowInput[],
+): void => {
+  pdf.addPage();
+  let y = renderPairedSection(pdf, sectionNumber, heading, rows, PDF_CONTENT_TOP);
+  y = drawSetupDiagram(pdf, setupInput, y);
+  autoTable(pdf, {
+    startY: y + 4,
+    body: calloutRows,
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN, bottom: 20 },
+    theme: 'grid',
+    pageBreak: 'avoid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.2,
+      textColor: PDF_THEME.ink,
+      lineColor: PDF_THEME.line,
+      lineWidth: 0.18,
+      cellPadding: 2,
+      overflow: 'linebreak',
+    },
+    columnStyles: {
+      0: { cellWidth: 42, fillColor: PDF_THEME.panel, textColor: PDF_THEME.muted, fontStyle: 'bold', fontSize: 6.4 },
+      1: { cellWidth: 140 },
+    },
+  });
+  const noteY = getLastTableY(pdf) + 5;
+  pdf.setTextColor(...PDF_THEME.muted);
+  pdf.setFont('helvetica', 'italic');
+  pdf.setFontSize(6.5);
+  pdf.text(
+    'SETUP IDENTIFICATION GRAPHIC. NUMERIC CONTROLLED VIEW VALUES GOVERN. VERIFY THE REFERENCED ATTACHMENT BEFORE USE.',
+    PDF_MARGIN,
+    noteY,
+  );
+};
+
+const renderSetupMapPage = (
+  pdf: jsPDF,
+  document: Extract<RtPtDocumentV3, { method: 'RT-Film' | 'RT-Digital' }>,
+  itemIndex: number,
+  sectionNumber: number,
+): void => {
+  if (document.method === 'RT-Film') {
+    const item = document.technique.exposureViews[itemIndex];
+    if (!item) return;
+    const sourceLabel = document.technique.source.sourceType === 'Gamma'
+      ? formatIdentity(document.technique.source.gamma.isotope, document.technique.source.gamma.sourceId)
+      : formatIdentity(document.technique.source.manufacturer, document.technique.source.model);
+    const receptorLabel = item.filmDesignation || document.technique.filmSystem.filmDesignation;
+    const heading = `Exposure setup map - ${item.viewId || itemIndex + 1}`;
+    renderSetupMapContent(
+      pdf,
+      sectionNumber,
+      heading,
+      [
+        ['View / Callout', formatIdentity(item.viewId, item.referenceAttachmentId)],
+        ['Zone / Orientation', formatIdentity(item.inspectionZone, item.orientation)],
+        ['Source', sourceLabel],
+        ['Film / Cassette', receptorLabel],
+        ['Wall Technique', formatValue(item.wallTechnique)],
+        ['Drawing Basis', 'Schematic / NTS - numeric controlled values govern'],
+      ],
+      {
+        mode: 'film',
+        title: heading,
+        sourceLabel,
+        partLabel: item.description,
+        receptorLabel,
+        viewId: item.viewId,
+        callout: item.referenceAttachmentId,
+        orientation: item.orientation,
+        inspectionZone: item.inspectionZone,
+        iqiPlacement: item.iqiOverride || document.technique.iqi.placement,
+        markerPlacement: item.identification,
+        distances: {
+          sourceToReceptor: { value: item.sfd, unit: item.sfdUnit },
+          sourceToObject: { value: item.sod, unit: item.sodUnit },
+          objectToReceptor: { value: item.ofd, unit: item.ofdUnit },
+        },
+      },
+      [
+        ['BEAM / COLLIMATION', formatIdentity(item.beamAngle ? `${item.beamAngle} ${item.beamAngleUnit}` : '', item.collimation)],
+        ['IQI / IDENTIFICATION', formatIdentity(item.iqiOverride || document.technique.iqi.placement, item.identification)],
+        ['FILM / COVERAGE', formatIdentity(item.filmSize, item.overlap, item.maxCassettes ? `${item.maxCassettes} cassette maximum` : '')],
+        ['SETUP REFERENCE', formatValue(item.referenceAttachmentId)],
+      ],
+    );
+    return;
+  }
+
+  const item = document.technique.acquisitions[itemIndex];
+  if (!item) return;
+  const sourceLabel = formatIdentity(document.technique.source.manufacturer, document.technique.source.model);
+  const receptorLabel = formatIdentity(document.technique.system.manufacturer, document.technique.system.model);
+  const heading = `Acquisition setup map - ${item.viewId || itemIndex + 1}`;
+  renderSetupMapContent(
+    pdf,
+    sectionNumber,
+    heading,
+    [
+      ['View / Callout', formatIdentity(item.viewId, item.referenceAttachmentId)],
+      ['Zone / Orientation', formatIdentity(item.inspectionZone, item.orientation)],
+      ['Source', sourceLabel],
+      ['DDA Detector', receptorLabel],
+      ['Wall Technique', formatValue(item.wallTechnique)],
+      ['Drawing Basis', 'Schematic / NTS - numeric controlled values govern'],
+    ],
+    {
+      mode: 'dda',
+      title: heading,
+      sourceLabel,
+      partLabel: item.description,
+      receptorLabel,
+      viewId: item.viewId,
+      callout: item.referenceAttachmentId,
+      orientation: item.orientation,
+      inspectionZone: item.inspectionZone,
+      iqiPlacement: item.iqiOverride || document.technique.iqi.placement,
+      markerPlacement: item.markingInstructions,
+      distances: {
+        sourceToReceptor: { value: item.sdd, unit: item.sddUnit },
+        sourceToObject: { value: item.sod, unit: item.sodUnit },
+        objectToReceptor: { value: item.odd, unit: item.oddUnit },
+      },
+    },
+    [
+      ['BEAM / COLLIMATION', formatValue(item.collimation)],
+      ['IQI / MARKING', formatIdentity(item.iqiOverride || document.technique.iqi.placement, item.markingInstructions)],
+      ['COVERAGE / IMAGE ID', formatIdentity(item.coverage, item.imageNaming)],
+      ['SETUP REFERENCE', formatValue(item.referenceAttachmentId)],
+    ],
+  );
+};
+
+const renderSetupMaps = (
+  pdf: jsPDF,
+  document: RtPtDocumentV3,
+  startSectionNumber: number,
+): { nextSectionNumber: number; y: number } => {
+  if (document.method === 'PT') return { nextSectionNumber: startSectionNumber, y: getLastTableY(pdf) + 6 };
+  const itemCount = document.method === 'RT-Film'
+    ? document.technique.exposureViews.length
+    : document.technique.acquisitions.length;
+  for (let index = 0; index < itemCount; index += 1) {
+    renderSetupMapPage(pdf, document, index, startSectionNumber + index);
+  }
+  if (itemCount > 0) pdf.addPage();
+  return {
+    nextSectionNumber: startSectionNumber + itemCount,
+    y: itemCount > 0 ? PDF_CONTENT_TOP : getLastTableY(pdf) + 6,
+  };
+};
+
+const renderControlledBasis = (
+  pdf: jsPDF,
+  document: RtPtDocumentV3,
+  startSectionNumber: number,
+  startY: number,
+): { nextSectionNumber: number; y: number } => {
+  const rows: PdfRow[] = [];
+  rows.push(
+    ['Document Identity', formatIdentity(
+      document.documentControl.number,
+      document.documentControl.title,
+      `Rev ${formatValue(document.documentControl.revision)}`,
+    )],
+    ['Document Effectivity', formatIdentity(
+      `Revision date ${formatValue(document.documentControl.revisionDate)}`,
+      `Effective date ${formatValue(document.documentControl.effectiveDate)}`,
+      document.documentControl.changeSummary,
+    )],
+    ['Organization / Site', formatIdentity(document.organization.name, document.organization.site)],
+    ['Customer / Job', formatIdentity(
+      document.job.customer,
+      document.job.contract,
+      document.job.purchaseOrder,
+      document.job.workOrder,
+    )],
+    ['Internal Document ID', formatDocumentId(document.documentId)],
+    ['Document Status / Unit System', formatIdentity(document.status.toUpperCase(), document.unitSystem)],
+  );
+  if (document.controlledReferences.length > 0) {
+    document.controlledReferences.forEach((reference, index) => {
+      rows.push([
+        `Controlled Reference ${index + 1}`,
+        formatIdentity(
+          reference.type,
+          reference.number,
+          reference.title,
+          `Rev ${formatValue(reference.revision)}`,
+          reference.clauseOrNote,
+        ),
+      ]);
+    });
+  } else {
+    rows.push(['Controlled References', 'None entered']);
+  }
+
+  if (document.revisionHistory.length > 0) {
+    document.revisionHistory.forEach((entry, index) => {
+      rows.push([
+        `Revision Record ${index + 1}`,
+        formatIdentity(
+          `Rev ${formatValue(entry.revision)}`,
+          entry.date,
+          entry.description,
+          `Author ${formatValue(entry.author)}`,
+        ),
+      ]);
+    });
+  } else {
+    rows.push(['Revision History', 'None entered']);
+  }
+
+  if (document.approvals.length > 0) {
+    document.approvals.forEach((approval, index) => {
+      rows.push([
+        `Approval ${index + 1} - ${APPROVAL_ROLE_LABEL[approval.role]}`,
+        formatIdentity(
+          approval.name,
+          approval.personnelId,
+          approval.certificationBasis,
+          `Rev ${formatValue(approval.certificationRevision)}`,
+          approval.date,
+        ),
+      ]);
+    });
+  } else {
+    rows.push(['Approval Records', 'None entered']);
+  }
+
+  const y = renderPairedSection(
+    pdf,
+    startSectionNumber,
+    'Document governance and approval records',
+    rows,
+    startY,
+  );
+  return { nextSectionNumber: startSectionNumber + 1, y };
+};
+
+const renderValidationReview = (
+  pdf: jsPDF,
+  validation: RtPtValidationSummary,
+  sectionNumber: number,
+  startY: number,
+): number => {
+  if (validation.issues.length === 0) {
+    return startY;
+  }
+
+  const y = ensureContentSpace(pdf, startY, 42);
+  return renderDataTableSection(
+    pdf,
+    sectionNumber,
+    'Review exceptions - unresolved',
+    ['LEVEL', 'AREA', 'REQUIREMENT', 'FINDING'],
+    validation.issues.map((issue) => [
+      issue.severity.toUpperCase(),
+      formatValue(issue.tab),
+      formatValue(issue.label),
+      formatValue(issue.message),
+    ]),
+    y,
+    {
+      0: { cellWidth: 18, fontStyle: 'bold', textColor: PDF_THEME.red },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 49 },
+      3: { cellWidth: 87 },
+    },
+  );
+};
+
+const drawPageFurniture = (
+  pdf: jsPDF,
+  document: RtPtDocumentV3,
+  release: RtPtPdfReleaseState,
+): void => {
+  const pages = pdf.getNumberOfPages();
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const docNumber = document.documentControl.number || 'UNNUMBERED';
+  const revision = document.documentControl.revision || '-';
+
+  for (let page = 1; page <= pages; page += 1) {
+    pdf.setPage(page);
+    if (page > 1) {
+      pdf.setFillColor(...PDF_THEME.navy);
+      pdf.rect(0, 0, pageWidth, 23, 'F');
+      pdf.setFillColor(...PDF_THEME.steel);
+      pdf.rect(0, 23, pageWidth, 1.2, 'F');
+      pdf.setTextColor(...PDF_THEME.white);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(9.2);
+      pdf.text(`RT-PT / ${methodCode(document)}`, PDF_MARGIN, 10.2);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(6.8);
+      pdf.text(truncateToWidth(pdf, METHOD_TITLE[document.method], 92), PDF_MARGIN, 16.2);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7.2);
+      pdf.text(`DOC ${docNumber}  /  REV ${revision}`, pageWidth - PDF_MARGIN, 9.8, { align: 'right' });
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(6.5);
+      pdf.text(releaseLabel(document, release), pageWidth - PDF_MARGIN, 16.2, { align: 'right' });
+    }
+
+    if (release.watermark) {
+      pdf.saveGraphicsState();
+      pdf.setGState(new GState({ opacity: 0.1 }));
+      pdf.setTextColor(...PDF_THEME.steelSoft);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(27);
+      pdf.text(release.watermark, pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+      pdf.restoreGraphicsState();
+    }
+
+    pdf.setDrawColor(...PDF_THEME.line);
+    pdf.setLineWidth(0.25);
+    pdf.line(PDF_MARGIN, pageHeight - 15, pageWidth - PDF_MARGIN, pageHeight - 15);
+    pdf.setTextColor(...PDF_THEME.muted);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(6.4);
+    pdf.text(
+      truncateToWidth(pdf, `${document.organization.name || 'RT-PT Inspector'} / ${docNumber} / Rev ${revision}`, 68),
+      PDF_MARGIN,
+      pageHeight - 9.5,
+    );
+    pdf.text('PLANNED / REQUIRED TECHNIQUE VALUES', pageWidth / 2, pageHeight - 9.5, { align: 'center' });
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`PAGE ${page} OF ${pages}`, pageWidth - PDF_MARGIN, pageHeight - 9.5, { align: 'right' });
+  }
 };
 
 export function buildRtPtTechniquePdf(
@@ -762,125 +1933,51 @@ export function buildRtPtTechniquePdf(
   void callerValidation;
   const validation = validateRtPtDocument(document);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 14;
-  const contentWidth = pageWidth - margin * 2;
   const release = getRtPtPdfReleaseState(document);
-  const general = document.technique.general;
 
   pdf.setProperties({
     title: document.documentControl.title || `${METHOD_TITLE[document.method]} Technique`,
-    subject: `${METHOD_TITLE[document.method]} - ${release.controlledRelease ? 'Controlled' : 'Draft / Uncontrolled'}`,
+    subject: `${METHOD_TITLE[document.method]} - ${release.controlledRelease
+      ? 'Controlled'
+      : document.status === 'superseded' ? 'Superseded / Uncontrolled' : 'Draft / Uncontrolled'}`,
     author: document.organization.name || 'RT-PT Inspector',
     creator: 'RT-PT Inspector',
     keywords: release.watermark || 'CONTROLLED TECHNIQUE',
   });
 
-  pdf.setFillColor(12, 33, 53);
-  pdf.rect(0, 0, pageWidth, 36, 'F');
-  pdf.setTextColor(255, 255, 255);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(17);
-  pdf.text('RT-PT INSPECTOR', margin, 13);
-  pdf.setFontSize(12);
-  pdf.text('CONTROLLED TECHNIQUE DOCUMENT', margin, 22);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8.5);
-  pdf.text(METHOD_TITLE[document.method], margin, 29);
-  pdf.text(release.controlledRelease ? 'CONTROLLED RELEASE' : 'DRAFT / UNCONTROLLED', pageWidth - margin, 13, { align: 'right' });
+  renderCover(pdf, document, validation, release);
 
-  pdf.setFillColor(225, 239, 247);
-  pdf.roundedRect(margin, 42, contentWidth, 32, 2, 2, 'F');
-  pdf.setTextColor(25, 50, 68);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(9);
-  pdf.text(`${RT_PT_METHOD_LABEL[document.method]} | Doc ${document.documentControl.number || '-'} | Rev ${document.documentControl.revision || '-'}`, margin + 4, 49);
-  pdf.setFont('helvetica', 'normal');
-  pdf.text(`Part: ${general.partNumber || '-'} | Name: ${general.partName || '-'} | Material: ${general.material || '-'}`, margin + 4, 56);
-  pdf.text(`Draft completeness: ${validation.draftCompleteness.completionPercent}% (${validation.draftCompleteness.completedFieldsCount}/${validation.draftCompleteness.totalRequiredFields})`, margin + 4, 63);
-  pdf.text(`Approval readiness: ${validation.approvalReadiness.isReady ? 'READY' : 'NOT READY'} | Status: ${document.status.toUpperCase()}`, margin + 4, 70);
+  pdf.addPage();
+  let sectionNumber = 1;
+  let y = renderPairedSection(pdf, sectionNumber, 'Technique overview', techniqueOverviewRows(document), PDF_CONTENT_TOP);
+  sectionNumber += 1;
+  y = renderTechniqueSchedule(pdf, document, sectionNumber, y);
+  sectionNumber += 1;
 
-  let y = 80;
-  const controlledFindings = validation.issues;
-  if (controlledFindings.length) {
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10);
-    pdf.setTextColor(145, 65, 20);
-    pdf.text('Validation and review findings', margin, y);
-    y += 2;
-    autoTable(pdf, {
-      startY: y,
-      head: [['Level', 'Field', 'Finding']],
-      body: controlledFindings.map((issue) => [issue.severity.toUpperCase(), issue.label, issue.message]),
-      margin: { left: margin, right: margin, top: 30, bottom: 20 },
-      theme: 'grid',
-      showHead: 'everyPage',
-      styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 1.8, overflow: 'linebreak', valign: 'top' },
-      headStyles: { fillColor: [172, 83, 35], textColor: [255, 255, 255], fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 18 }, 1: { cellWidth: 43 }, 2: { cellWidth: 'auto' } },
-    });
-    y = Math.max((pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7, 30);
+  const setupMaps = renderSetupMaps(pdf, document, sectionNumber);
+  sectionNumber = setupMaps.nextSectionNumber;
+  y = setupMaps.y;
+
+  const techniqueSections = document.method === 'RT-Film'
+    ? filmSections(document)
+    : document.method === 'RT-Digital'
+      ? digitalSections(document)
+      : ptSections(document);
+  for (const section of techniqueSections) {
+    const rows = section.title.includes('Planning Aid Only')
+      ? section.rows.filter(([, value]) => value !== 'Not specified')
+      : section.rows;
+    if (rows.length === 0) continue;
+    y = renderPairedSection(pdf, sectionNumber, section.title, rows, y);
+    sectionNumber += 1;
   }
 
-  for (const section of getRtPtExportSections(document)) {
-    if (y + Math.min(estimateSectionHeight(pdf, section), pageHeight - 50) > pageHeight - 20) {
-      pdf.addPage();
-      y = 30;
-    }
-    pdf.setFillColor(30, 93, 126);
-    pdf.roundedRect(margin, y, contentWidth, 7, 1, 1, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(9);
-    pdf.text(section.title, margin + 3, y + 4.7);
-    y += 8.5;
-    autoTable(pdf, {
-      startY: y,
-      head: [['Controlled Field', 'Planned / Required Value']],
-      body: section.rows,
-      margin: { left: margin, right: margin, top: 30, bottom: 20 },
-      theme: 'grid',
-      showHead: 'everyPage',
-      rowPageBreak: 'avoid',
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 2, overflow: 'linebreak', valign: 'middle' },
-      headStyles: { fillColor: [215, 231, 240], textColor: [20, 45, 60], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [247, 250, 252] },
-      columnStyles: { 0: { cellWidth: 70, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
-    });
-    y = Math.max((pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7, 30);
-  }
+  const controlledBasis = renderControlledBasis(pdf, document, sectionNumber, y);
+  sectionNumber = controlledBasis.nextSectionNumber;
+  y = controlledBasis.y;
+  renderValidationReview(pdf, validation, sectionNumber, y);
 
-  const pages = pdf.getNumberOfPages();
-  for (let page = 1; page <= pages; page += 1) {
-    pdf.setPage(page);
-    if (page > 1) {
-      pdf.setFillColor(12, 33, 53);
-      pdf.rect(0, 0, pageWidth, 22, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
-      pdf.text(`RT-PT INSPECTOR - ${METHOD_TITLE[document.method]}`, margin, 13);
-      pdf.text(document.status.toUpperCase(), pageWidth - margin, 13, { align: 'right' });
-    }
-    if (release.watermark) {
-      pdf.setTextColor(220, 224, 228);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(30);
-      pdf.text(release.watermark, pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
-    }
-    pdf.setDrawColor(190, 205, 214);
-    pdf.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14);
-    pdf.setTextColor(85, 95, 102);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(7);
-    pdf.text(
-      `Doc ${document.documentControl.number || '-'} | Rev ${document.documentControl.revision || '-'} | Status ${document.status.toUpperCase()}`,
-      margin,
-      pageHeight - 9,
-    );
-    pdf.text(`Page ${page} of ${pages}`, pageWidth - margin, pageHeight - 9, { align: 'right' });
-  }
+  drawPageFurniture(pdf, document, release);
   return pdf;
 }
 

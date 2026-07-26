@@ -9,6 +9,7 @@ import {
   type RtPtRouteDependencies,
 } from "./rtptRoutes";
 import { createRtPtDocument } from "../src/lib/rtPtDocumentCodec";
+import { createCompletePtDocument } from "../src/lib/__tests__/rtPtV3Fixtures";
 import { emptyPtSheet } from "../src/types/penetrant";
 
 const USER_ID = "00000000-0000-4000-8000-000000000001";
@@ -319,6 +320,60 @@ test("technique-sheet PATCH requires the resulting document to be native V3", as
   await runHandlers(route.handlers, v3Request, v3Response);
   assert.equal(v3Response.statusCode, 200);
   assert.equal(updateCalls, 1);
+});
+
+test("technique-sheet PATCH rejects a non-canonical stale approval but accepts no-op and explicit draft revisions", async () => {
+  const sheetId = "77777777-7777-4777-8777-777777777777";
+  let existingData: unknown = createCompletePtDocument("D", "Type I", "approved");
+  let updateCalls = 0;
+  const { app, routes } = createFakeApp();
+  registerRtPtRoutes(app, {
+    storage: createStorage({
+      getTechniqueSheetById: async () => techniqueSheetRecord(existingData, USER_ID, sheetId),
+      updateTechniqueSheet: async (_id, updates) => {
+        updateCalls += 1;
+        existingData = updates.data ?? existingData;
+        return techniqueSheetRecord(existingData, USER_ID, sheetId);
+      },
+    }),
+    listOrganizations: async () => [],
+  });
+  const route = routes.find(({ method, path }) => method === "PATCH" && path === "/api/technique-sheets/:id");
+  assert.ok(route);
+
+  const patch = async (body: Record<string, unknown>) => {
+    const request = {
+      headers: { "x-user-id": USER_ID, "x-org-id": ORG_ID },
+      body,
+      params: { id: sheetId },
+    } as unknown as Request;
+    const response = createResponse();
+    await runHandlers(route.handlers, request, response);
+    return response;
+  };
+
+  const metadataOnly = await patch({ sheetName: "Renamed approved technique" });
+  assert.equal(metadataOnly.statusCode, 200);
+
+  const exactApproved = structuredClone(existingData);
+  const exact = await patch({ data: exactApproved });
+  assert.equal(exact.statusCode, 200);
+
+  const changedApproved = structuredClone(existingData) as ReturnType<typeof createCompletePtDocument>;
+  changedApproved.technique.techniqueNotes = "Changed planned instruction that remains complete";
+  const staleApproval = await patch({ data: changedApproved });
+  assert.equal(staleApproval.statusCode, 400);
+  assert.match(
+    String((staleApproval.body as { error?: string }).error),
+    /unknown or non-canonical fields/i,
+  );
+
+  const explicitDraft = structuredClone(changedApproved);
+  explicitDraft.status = "draft";
+  explicitDraft.approvals = [];
+  const draftRevision = await patch({ data: explicitDraft });
+  assert.equal(draftRevision.statusCode, 200);
+  assert.equal(updateCalls, 3);
 });
 
 test("an invalid technique-sheet POST is rejected before storage", async () => {

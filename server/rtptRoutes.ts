@@ -14,7 +14,10 @@ import type {
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 import logger from "./utils/logger";
-import { decodeRtPtDocument } from "../src/lib/rtPtDocumentCodec";
+import {
+  decodeRtPtDocument,
+  fingerprintRtPtApprovedContent,
+} from "../src/lib/rtPtDocumentCodec";
 
 const RT_PT_DOCUMENT_KIND = "rtpt-document";
 const LOCAL_OWNER_ROLE = "owner";
@@ -857,6 +860,25 @@ export function registerRtPtRoutes(app: Express, dependencies: RtPtRouteDependen
       );
       if (!documentValidation.success) {
         sendDocumentError(res, documentValidation, 400);
+        return;
+      }
+
+      const previousDocument = decodeRtPtDocument(existing.data);
+      const nextDocument = decodeRtPtDocument(documentValidation.data);
+      if (
+        isRecord(existing.data)
+        && existing.data.schemaVersion === 3
+        && previousDocument.status === "success"
+        && nextDocument.status === "success"
+        && previousDocument.document.status === "approved"
+        && nextDocument.document.status === "approved"
+        && fingerprintRtPtApprovedContent(previousDocument.document)
+          !== fingerprintRtPtApprovedContent(nextDocument.document)
+      ) {
+        res.status(409).json({
+          error: "Approved RT/PT content changed. Save it as Draft with approvals cleared before re-approval.",
+          code: "approved-content-changed",
+        });
         return;
       }
 

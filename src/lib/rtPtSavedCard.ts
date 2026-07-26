@@ -136,7 +136,10 @@ function decodeEnvelope(
 
   try {
     const envelope = isDirectDocument ? {} : value;
-    const method = decoded.document.method;
+    const document = options.mode === 'import' && decoded.document.status === 'approved'
+      ? { ...decoded.document, status: 'draft' as const, approvals: [] }
+      : decoded.document;
+    const method = document.method;
     const suppliedName = readOptionalString(envelope, 'name')
       ?? readOptionalString(envelope, 'sheetName');
     const suppliedStandard = readOptionalString(envelope, 'standard');
@@ -179,7 +182,7 @@ function decodeEnvelope(
         tags: readTags(envelope),
         isFavorite: readBoolean(envelope, 'isFavorite', false),
         isArchived: readBoolean(envelope, 'isArchived', false),
-        data: decoded.document,
+        data: document,
       },
     };
   } catch (error) {

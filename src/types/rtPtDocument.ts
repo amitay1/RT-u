@@ -96,6 +96,11 @@ interface RtPtDocumentV3Base {
   documentType: typeof RT_PT_DOCUMENT_TYPE;
   documentId: string;
   status: RtPtDocumentStatus;
+  /**
+   * Persisted SHA-256 binding for the exact controlled content approved at
+   * release. Older Draft V3 documents may legitimately omit this field.
+   */
+  approvalFingerprint?: string;
   documentControl: RtPtDocumentControl;
   revisionHistory: RtPtRevisionHistoryEntry[];
   organization: RtPtOrganization;

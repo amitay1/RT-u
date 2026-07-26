@@ -1,85 +1,55 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createRtPtDocument } from '../src/lib/rtPtDocumentCodec';
+import {
+  createCompleteDigitalDocument,
+  createCompleteFilmDocument,
+  createCompletePs811000FilmDocument,
+  createCompletePtDocument,
+} from '../src/lib/__tests__/rtPtV3Fixtures';
 import { validateRtPtDocument } from '../src/lib/rtPtValidation';
-import { emptyRtFilmSheet } from '../src/types/rtFilm';
+import type { RtPtDocumentStatus, RtPtDocumentV3, RtPtMethod } from '../src/types/rtPtDocument';
 import { buildRtPtTechniquePdf } from '../src/utils/export/RtPtTechniquePDF';
 
-const document = createRtPtDocument({
-  documentId: 'rtpt-render-fixture',
-  method: 'RT-Film',
-  status: 'in-review',
-  documentControl: {
-    number: 'RT-ASB-014',
-    title: 'Aerospace Support Bracket Film RT Technique',
-    revision: 'B',
-    revisionDate: '2026-07-20',
-    effectiveDate: '',
-    changeSummary: 'Added four-view exposure plan.',
-  },
-  organization: { name: 'Example Aerospace', site: 'Plant 2' },
-  job: { customer: 'Example Customer', contract: 'C-100', purchaseOrder: 'PO-200', workOrder: 'WO-300' },
-  controlledReferences: [{
-    type: 'Drawing',
-    title: 'Aerospace Support Bracket',
-    number: 'DRW-ASB-014',
-    revision: 'C',
-    clauseOrNote: 'NDT Note 12',
-  }],
-  approvals: [{
-    role: 'prepared',
-    name: 'Example Inspector',
-    personnelId: 'NDT-200',
-    certificationBasis: 'Employer written practice',
-    certificationRevision: '7',
-    date: '2026-07-20',
-  }],
-  technique: {
-      ...emptyRtFilmSheet,
-      general: {
-        ...emptyRtFilmSheet.general,
-        partName: 'Aerospace Support Bracket',
-        partNumber: 'ASB-2026-014',
-        material: '17-4PH Stainless Steel',
-        thickness: 18,
-        drawingReference: 'DRW-ASB-014 Rev C',
-        procedureNumber: 'RT-PROC-004 Rev B',
-        inspectorLevel: 'II',
-        date: '2026-07-20',
-      },
-      exposure: {
-        ...emptyRtFilmSheet.exposure,
-        techniqueType: 'SWSI',
-        radiationType: 'X-ray',
-        sfd: 900,
-        sod: 850,
-        ofd: 50,
-        geometricMagnification: 1.0588,
-        focalSpotSize: 1,
-        beamAngle: 0,
-        numberOfExposures: 4,
-        exposurePattern: 'Multiple',
-        coverage: 100,
-      },
-      equipment: {
-        ...emptyRtFilmSheet.equipment,
-        radiationSourceType: 'X-ray',
-        manufacturer: 'Example Manufacturer',
-        model: 'XG-300',
-        serialNumber: 'XG300-7712',
-        calibrationStatus: 'Valid',
-        viewingEquipment: 'High-intensity film viewer',
-      },
-      acceptance: {
-        ...emptyRtFilmSheet.acceptance,
-        acceptanceStandard: 'DRW-ASB-014 Rev C, Note 12',
-        qualityLevel: 'Per engineering drawing',
-      },
-  },
-});
+const method = (process.argv[3] || 'RT-Film') as RtPtMethod;
+const status = (process.argv[4] || 'draft') as RtPtDocumentStatus;
+const variant = process.argv[5] || '';
 
-const outputPath = process.argv[2] || path.join(os.tmpdir(), 'rtpt-technique-fixture.pdf');
+const createFixture = (): RtPtDocumentV3 => {
+  if (method === 'RT-Digital') return createCompleteDigitalDocument(status);
+  if (method === 'PT') return createCompletePtDocument('D', 'Type I', status);
+  if (variant === 'ps811000') {
+    const document = createCompletePs811000FilmDocument(status);
+    document.technique.filmSystem.viewingMode = 'superimposed';
+    document.technique.filmSystem.requiredDensityMin = 2;
+    document.technique.filmSystem.individualFilmDensityMinimum = 1;
+    return document;
+  }
+  const document = createCompleteFilmDocument(status);
+  if (variant === 'long-cover') {
+    const longText = 'LONG CONTROLLED CONTENT FOR COVER LAYOUT VERIFICATION '.repeat(10).trim();
+    document.documentControl.title = longText;
+    document.documentControl.changeSummary = longText;
+    document.organization.name = longText;
+    document.job.customer = longText;
+    document.controlledReferences = [0, 1, 2].map((index) => ({
+      type: `Reference ${index + 1}`,
+      title: longText,
+      number: `LONG-REF-${index + 1}`,
+      revision: 'A',
+      clauseOrNote: longText,
+    }));
+    document.approvals = [
+      { ...document.approvals[0], name: longText, certificationBasis: longText },
+      { ...document.approvals[0], role: 'reviewed', name: longText, certificationBasis: longText },
+      { ...document.approvals[0], role: 'prepared', name: longText, certificationBasis: longText },
+    ];
+  }
+  return document;
+};
+
+const document = createFixture();
+const outputPath = process.argv[2] || path.join(os.tmpdir(), `rtpt-${method}-${status}-fixture.pdf`);
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 const pdf = buildRtPtTechniquePdf(document, validateRtPtDocument(document));
 fs.writeFileSync(outputPath, Buffer.from(pdf.output('arraybuffer')));

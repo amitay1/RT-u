@@ -6,7 +6,15 @@ import {
   createRtFilmExposureView,
   createRtPtDocument,
 } from '@/lib/rtPtDocumentCodec';
+import { bindRtPtApprovedContent } from '@/lib/rtPtApprovalLifecycle';
 import type { RtPtDocumentStatus, RtPtDocumentV3 } from '@/types/rtPtDocument';
+
+const bindFixtureApproval = <T extends RtPtDocumentV3>(
+  document: T,
+  status: RtPtDocumentStatus,
+): T => (
+  status === 'approved' ? bindRtPtApprovedContent(document) as T : document
+);
 
 export const completeGeneral = {
   partName: 'Test casting',
@@ -110,7 +118,7 @@ const filmView = (index: number) => createRtFilmExposureView({
 });
 
 export function createCompleteFilmDocument(status: RtPtDocumentStatus = 'draft'): Extract<RtPtDocumentV3, { method: 'RT-Film' }> {
-  return createRtPtDocument({
+  const document = createRtPtDocument({
     ...controlledBase,
     status,
     method: 'RT-Film',
@@ -172,12 +180,13 @@ export function createCompleteFilmDocument(status: RtPtDocumentStatus = 'draft')
       techniqueNotes: 'All entries are planned or required values.',
     },
   }) as Extract<RtPtDocumentV3, { method: 'RT-Film' }>;
+  return bindFixtureApproval(document, status);
 }
 
 export function createCompletePs811000FilmDocument(
   status: RtPtDocumentStatus = 'draft',
 ): Extract<RtPtDocumentV3, { method: 'RT-Film' }> {
-  const document = createCompleteFilmDocument(status);
+  const document = createCompleteFilmDocument(status === 'approved' ? 'draft' : status);
   document.technique.ps811000Applicable = true;
   document.controlledReferences.push({
     type: 'Process specification',
@@ -217,7 +226,7 @@ export function createCompletePs811000FilmDocument(
     tubeVoltage: 70,
     requiredUg: '',
   }));
-  return document;
+  return bindFixtureApproval(document, status);
 }
 
 const digitalAcquisition = (index: number) => createRtDigitalAcquisition({
@@ -256,7 +265,7 @@ const digitalAcquisition = (index: number) => createRtDigitalAcquisition({
 });
 
 export function createCompleteDigitalDocument(status: RtPtDocumentStatus = 'draft'): Extract<RtPtDocumentV3, { method: 'RT-Digital' }> {
-  return createRtPtDocument({
+  const document = createRtPtDocument({
     ...controlledBase,
     status,
     method: 'RT-Digital',
@@ -348,6 +357,7 @@ export function createCompleteDigitalDocument(status: RtPtDocumentStatus = 'draf
       techniqueNotes: 'Static DDA workflow only.',
     },
   }) as Extract<RtPtDocumentV3, { method: 'RT-Digital' }>;
+  return bindFixtureApproval(document, status);
 }
 
 export function createCompletePtDocument(
@@ -355,7 +365,7 @@ export function createCompletePtDocument(
   penetrantType: PenetrantType = 'Type I',
   status: RtPtDocumentStatus = 'draft',
 ): Extract<RtPtDocumentV3, { method: 'PT' }> {
-  return createRtPtDocument({
+  const document = createRtPtDocument({
     ...controlledBase,
     status,
     method: 'PT',
@@ -447,4 +457,5 @@ export function createCompletePtDocument(
       techniqueNotes: 'No performed indications or disposition are stored here.',
     },
   }) as Extract<RtPtDocumentV3, { method: 'PT' }>;
+  return bindFixtureApproval(document, status);
 }

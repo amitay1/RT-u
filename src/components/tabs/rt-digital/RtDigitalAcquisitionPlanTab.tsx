@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RtDigitalAcquisitionFields } from '@/components/tabs/rt-digital/RtDigitalAcquisitionFields';
+import { RtRadiographySetupDiagram } from '@/components/rtpt/RtRadiographySetupDiagram';
 import { TextField } from '@/components/tabs/shared/FieldRow';
 import { calculateDigitalGeometricUnsharpness } from '@/lib/rtGeometry';
 import type { RtDigitalAcquisition, RtDigitalSource } from '@/types/rtDigital';
@@ -169,6 +170,33 @@ export function RtDigitalAcquisitionPlanTab({
                         placeholder="Controlled drawing, sketch, or attachment"
                       />
                     </div>
+                  </section>
+
+                  <section className="space-y-3 border-t border-border/70 pt-5">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Planned setup map</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Vector preview generated from the controlled acquisition geometry. Numeric fields below remain governing.
+                      </p>
+                    </div>
+                    <RtRadiographySetupDiagram
+                      mode="dda"
+                      title={`${acquisition.viewId || `Acquisition ${index + 1}`} DDA setup`}
+                      sourceLabel={[source.manufacturer, source.model].filter(Boolean).join(' / ')}
+                      partLabel={acquisition.description}
+                      receptorLabel="DDA detector"
+                      viewId={acquisition.viewId}
+                      callout={acquisition.referenceAttachmentId}
+                      orientation={acquisition.orientation}
+                      inspectionZone={acquisition.inspectionZone}
+                      iqiPlacement={acquisition.iqiOverride}
+                      markerPlacement={acquisition.markingInstructions}
+                      distances={{
+                        sourceToReceptor: { value: acquisition.sdd, unit: acquisition.sddUnit },
+                        sourceToObject: { value: acquisition.sod, unit: acquisition.sodUnit },
+                        objectToReceptor: { value: acquisition.odd, unit: acquisition.oddUnit },
+                      }}
+                    />
                   </section>
 
                   <div className="border-t border-border/70 pt-5">

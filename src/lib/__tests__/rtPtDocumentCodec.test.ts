@@ -187,6 +187,18 @@ const v2DigitalDocument = {
 };
 
 describe('RT/PT V3 codec', () => {
+  it('keeps pre-binding Draft V3 documents backward compatible', () => {
+    const olderDraft = JSON.parse(JSON.stringify(createCompleteFilmDocument())) as Record<string, unknown>;
+    delete olderDraft.approvalFingerprint;
+
+    const result = decodeRtPtDocument(olderDraft);
+
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') return;
+    expect(result.document.status).toBe('draft');
+    expect(result.document).not.toHaveProperty('approvalFingerprint');
+  });
+
   it('round-trips native V3 while stripping every unknown field', () => {
     const input = JSON.parse(JSON.stringify(createCompleteFilmDocument())) as Record<string, unknown>;
     input.unknownTop = 'strip me';

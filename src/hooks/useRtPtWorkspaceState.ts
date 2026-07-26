@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePenetrantState } from '@/hooks/usePenetrantState';
 import { useRtDigitalState } from '@/hooks/useRtDigitalState';
 import { useRtFilmState } from '@/hooks/useRtFilmState';
@@ -13,6 +13,10 @@ import {
   hydrateRtDigitalSheet,
   hydrateRtFilmSheet,
 } from '@/lib/rtPtDocumentCodec';
+import {
+  bindRtPtApprovedContent,
+  reconcileRtPtApprovedContent,
+} from '@/lib/rtPtApprovalLifecycle';
 import {
   DEFAULT_RT_PT_ACTIVE_TABS,
   EMPTY_RT_PT_DOCUMENT_CONTROL,
@@ -60,7 +64,8 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
   const [method, setMethod] = useState<RtPtMethod>(initialMethod);
   const [activeTabs, setActiveTabs] = useState<RtPtActiveTabs>({ ...DEFAULT_RT_PT_ACTIVE_TABS });
   const [documentId, setDocumentId] = useState(createRtPtDocumentId);
-  const [status, setStatus] = useState<RtPtDocumentStatus>('draft');
+  const [status, setStatusState] = useState<RtPtDocumentStatus>('draft');
+  const [approvalFingerprint, setApprovalFingerprint] = useState<string>();
   const [documentControl, setDocumentControl] = useState<RtPtDocumentControl>(freshDocumentControl);
   const [revisionHistory, setRevisionHistory] = useState<RtPtRevisionHistoryEntry[]>(freshRevisionHistory);
   const [organization, setOrganization] = useState<RtPtOrganization>(freshOrganization);
@@ -85,9 +90,10 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     });
   }, []);
 
-  const document = useMemo(() => createRtPtDocument({
+  const rawDocument = useMemo(() => createRtPtDocument({
     documentId,
     status,
+    approvalFingerprint,
     documentControl,
     revisionHistory,
     organization,
@@ -103,6 +109,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
         : extractPtTechnique(penetrantSheet),
     migration,
   }), [
+    approvalFingerprint,
     approvals,
     controlledReferences,
     documentControl,
@@ -119,11 +126,55 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     unitSystem,
   ]);
 
+  const approvalReconciliation = useMemo(
+    () => reconcileRtPtApprovedContent(rawDocument),
+    [rawDocument],
+  );
+  const document = approvalReconciliation.document;
+
+  useEffect(() => {
+    if (!approvalReconciliation.invalidated) return;
+    setApprovalFingerprint(undefined);
+    setApprovals([]);
+    setStatusState('draft');
+  }, [approvalReconciliation.invalidated]);
+
+  const setStatus = useCallback((nextStatus: RtPtDocumentStatus) => {
+    if (nextStatus === 'approved') {
+      if (rawDocument.status === 'superseded' || approvalReconciliation.invalidated) {
+        setApprovalFingerprint(undefined);
+        setApprovals([]);
+        setStatusState('draft');
+        return;
+      }
+      const approvedDocument = bindRtPtApprovedContent(rawDocument);
+      setApprovalFingerprint(approvedDocument.approvalFingerprint);
+      setStatusState(approvedDocument.status);
+      return;
+    }
+
+    if (rawDocument.status === 'approved' && nextStatus === 'superseded') {
+      setStatusState('superseded');
+      return;
+    }
+
+    setApprovalFingerprint(undefined);
+    if (
+      (nextStatus === 'draft' && rawDocument.status !== 'draft')
+      || (rawDocument.status === 'approved' && nextStatus === 'in-review')
+      || rawDocument.status === 'superseded'
+    ) {
+      setApprovals([]);
+    }
+    setStatusState(nextStatus);
+  }, [approvalReconciliation.invalidated, rawDocument]);
+
   const hydrateDocument = useCallback((value: unknown): RtPtDecodeResult => {
     const decoded = decodeRtPtDocument(value);
     if (decoded.status !== 'success') return decoded;
 
     const next = decoded.document;
+    setApprovalFingerprint(next.approvalFingerprint);
     resetRtFilmSheet();
     resetRtDigitalSheet();
     resetPenetrantSheet();
@@ -133,7 +184,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
 
     setActiveTabs({ ...DEFAULT_RT_PT_ACTIVE_TABS });
     setDocumentId(next.documentId);
-    setStatus(next.status);
+    setStatusState(next.status);
     setDocumentControl({ ...next.documentControl });
     setRevisionHistory(next.revisionHistory.map((entry) => ({ ...entry })));
     setOrganization({ ...next.organization });
@@ -154,12 +205,13 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
   ]);
 
   const resetWorkspace = useCallback((nextMethod: RtPtMethod = initialMethod) => {
+    setApprovalFingerprint(undefined);
     resetRtFilmSheet();
     resetRtDigitalSheet();
     resetPenetrantSheet();
     setActiveTabs({ ...DEFAULT_RT_PT_ACTIVE_TABS });
     setDocumentId(createRtPtDocumentId());
-    setStatus('draft');
+    setStatusState('draft');
     setDocumentControl(freshDocumentControl());
     setRevisionHistory(freshRevisionHistory());
     setOrganization(freshOrganization());
@@ -177,6 +229,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     if (!migration || !reviewerName || !personnelId) return false;
 
     const reviewDate = new Date().toISOString().slice(0, 10);
+    setApprovalFingerprint(undefined);
     setRevisionHistory((current) => [
       ...current,
       {
@@ -188,7 +241,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
       },
     ]);
     setApprovals([]);
-    setStatus('draft');
+    setStatusState('draft');
     setMigration(undefined);
     return true;
   }, [migration]);
@@ -202,7 +255,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     penetrant,
     document,
     documentId,
-    status,
+    status: document.status,
     setStatus,
     documentControl,
     setDocumentControl,
@@ -216,7 +269,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     setUnitSystem,
     controlledReferences,
     setControlledReferences,
-    approvals,
+    approvals: document.approvals,
     setApprovals,
     migration,
     acknowledgeMigration,

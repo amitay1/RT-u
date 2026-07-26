@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RtFilmExposureFields } from '@/components/tabs/rt-film/RtFilmExposureFields';
+import { RtRadiographySetupDiagram } from '@/components/rtpt/RtRadiographySetupDiagram';
 import { TextField } from '@/components/tabs/shared/FieldRow';
 import { calculateFilmGeometricUnsharpness } from '@/lib/rtGeometry';
 import type { RtFilmExposureView, RtFilmSource } from '@/types/rtFilm';
@@ -151,6 +152,35 @@ export function RtFilmExposureViewsTab({
                         placeholder="Controlled drawing, sketch, or attachment"
                       />
                     </div>
+                  </section>
+
+                  <section className="space-y-3 border-t border-border/70 pt-5">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Planned setup map</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Vector preview generated from the controlled view geometry. Numeric fields below remain governing.
+                      </p>
+                    </div>
+                    <RtRadiographySetupDiagram
+                      mode="film"
+                      title={`${view.viewId || `View ${index + 1}`} radiographic setup`}
+                      sourceLabel={source.sourceType === 'X-ray'
+                        ? [source.manufacturer, source.model].filter(Boolean).join(' / ')
+                        : [source.gamma.isotope, source.gamma.sourceId].filter(Boolean).join(' / ')}
+                      partLabel={view.description}
+                      receptorLabel={view.filmDesignation || 'Film / cassette'}
+                      viewId={view.viewId}
+                      callout={view.referenceAttachmentId}
+                      orientation={view.orientation}
+                      inspectionZone={view.inspectionZone}
+                      iqiPlacement={view.iqiOverride}
+                      markerPlacement={view.identification}
+                      distances={{
+                        sourceToReceptor: { value: view.sfd, unit: view.sfdUnit },
+                        sourceToObject: { value: view.sod, unit: view.sodUnit },
+                        objectToReceptor: { value: view.ofd, unit: view.ofdUnit },
+                      }}
+                    />
                   </section>
 
                   <div className="border-t border-border/70 pt-5">

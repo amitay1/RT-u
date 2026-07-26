@@ -19,6 +19,10 @@ import {
   type RtFilmTechnique,
 } from '@/types/rtFilm';
 import {
+  createRtPtSha256Fingerprint,
+  isRtPtSha256Fingerprint,
+} from '@/lib/rtPtFingerprint';
+import {
   EMPTY_RT_PT_DOCUMENT_CONTROL,
   EMPTY_RT_PT_JOB,
   EMPTY_RT_PT_ORGANIZATION,
@@ -103,6 +107,13 @@ function valueAt(source: UnknownRecord, key: string, path: string, partial: bool
 function stringField(source: UnknownRecord, key: string, path: string, partial = false, fallback = ''): string {
   const value = valueAt(source, key, path, partial);
   if (value === MISSING) return fallback;
+  if (typeof value !== 'string') throw new CodecError(`${path}.${key} must be a string.`);
+  return value;
+}
+
+function optionalStringField(source: UnknownRecord, key: string, path: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(source, key)) return undefined;
+  const value = source[key];
   if (typeof value !== 'string') throw new CodecError(`${path}.${key} must be a string.`);
   return value;
 }
@@ -894,6 +905,7 @@ export interface CreateRtPtDocumentInput {
   method: RtPtMethod;
   documentId?: string;
   status?: RtPtDocumentStatus;
+  approvalFingerprint?: string;
   documentControl?: Partial<RtPtDocumentControl>;
   revisionHistory?: RtPtRevisionHistoryEntry[];
   organization?: Partial<RtPtOrganization>;
@@ -921,6 +933,9 @@ export function createRtPtDocument(input: CreateRtPtDocumentInput): RtPtDocument
   }
   const status = input.status ?? 'draft';
   if (!DOCUMENT_STATUSES.includes(status)) throw new CodecError('status is invalid.');
+  if (input.approvalFingerprint !== undefined && typeof input.approvalFingerprint !== 'string') {
+    throw new CodecError('approvalFingerprint must be a string.');
+  }
   const unitSystem = input.unitSystem ?? 'SI';
   if (!UNIT_SYSTEMS.includes(unitSystem)) throw new CodecError('unitSystem is invalid.');
 
@@ -938,6 +953,9 @@ export function createRtPtDocument(input: CreateRtPtDocumentInput): RtPtDocument
     documentType: RT_PT_DOCUMENT_TYPE,
     documentId,
     status,
+    ...(input.approvalFingerprint === undefined
+      ? {}
+      : { approvalFingerprint: input.approvalFingerprint }),
     documentControl: parseDocumentControl(
       input.documentControl ?? EMPTY_RT_PT_DOCUMENT_CONTROL,
       'documentControl',
@@ -962,6 +980,7 @@ function decodeV3(source: UnknownRecord): RtPtDocumentV3 {
   const method = parseMethod(source.method, 'method');
   const documentId = nonEmptyStringField(source, 'documentId', 'document');
   const status = enumField(source, 'status', 'document', DOCUMENT_STATUSES) as RtPtDocumentStatus;
+  const approvalFingerprint = optionalStringField(source, 'approvalFingerprint', 'document');
   const unitSystem = enumField(source, 'unitSystem', 'document', UNIT_SYSTEMS) as RtPtUnitSystem;
   const technique = parseTechnique(source.technique, method, 'technique');
   const base = {
@@ -970,6 +989,7 @@ function decodeV3(source: UnknownRecord): RtPtDocumentV3 {
     documentType: RT_PT_DOCUMENT_TYPE,
     documentId,
     status,
+    ...(approvalFingerprint === undefined ? {} : { approvalFingerprint }),
     documentControl: parseDocumentControl(source.documentControl, 'documentControl'),
     revisionHistory: parseRevisionHistory(source.revisionHistory, 'revisionHistory'),
     organization: parseOrganization(source.organization, 'organization'),
@@ -980,9 +1000,12 @@ function decodeV3(source: UnknownRecord): RtPtDocumentV3 {
     ...(source.migration === undefined ? {} : { migration: parseMigration(source.migration, 'migration') }),
   };
 
-  if (method === 'RT-Film') return { ...base, method, technique: technique as RtFilmTechnique };
-  if (method === 'RT-Digital') return { ...base, method, technique: technique as RtDigitalTechnique };
-  return { ...base, method, technique: technique as PtTechnique };
+  const document: RtPtDocumentV3 = method === 'RT-Film'
+    ? { ...base, method, technique: technique as RtFilmTechnique }
+    : method === 'RT-Digital'
+      ? { ...base, method, technique: technique as RtDigitalTechnique }
+      : { ...base, method, technique: technique as PtTechnique };
+  return reconcileDecodedRtPtApproval(document);
 }
 
 const legacyRecord = (value: unknown): UnknownRecord => (isRecord(value) ? value : {});
@@ -1566,6 +1589,7 @@ export function fingerprintRtPtContent(document: RtPtDocumentV3): string {
   return JSON.stringify({
     documentType: document.documentType,
     status: document.status,
+    approvalFingerprint: document.approvalFingerprint ?? '',
     documentControl: parseDocumentControl(document.documentControl, 'documentControl'),
     revisionHistory: parseRevisionHistory(document.revisionHistory, 'revisionHistory'),
     organization: parseOrganization(document.organization, 'organization'),
@@ -1576,4 +1600,50 @@ export function fingerprintRtPtContent(document: RtPtDocumentV3): string {
     method: document.method,
     technique: parseTechnique(document.technique, document.method, 'technique'),
   });
+}
+
+/**
+ * Canonical approval basis for the active V3 document. Lifecycle state and
+ * quarantined migration data are excluded; every value printed in a
+ * controlled technique, including approval records and the stable document
+ * identity, is included.
+ */
+export function fingerprintRtPtApprovedContent(document: RtPtDocumentV3): string {
+  const canonicalContent = JSON.stringify({
+    documentKind: document.documentKind,
+    schemaVersion: document.schemaVersion,
+    documentType: document.documentType,
+    documentId: document.documentId,
+    documentControl: parseDocumentControl(document.documentControl, 'documentControl'),
+    revisionHistory: parseRevisionHistory(document.revisionHistory, 'revisionHistory'),
+    organization: parseOrganization(document.organization, 'organization'),
+    job: parseJob(document.job, 'job'),
+    unitSystem: document.unitSystem,
+    controlledReferences: parseControlledReferences(document.controlledReferences, 'controlledReferences'),
+    approvals: parseApprovals(document.approvals, 'approvals'),
+    method: document.method,
+    technique: parseTechnique(document.technique, document.method, 'technique'),
+  });
+  return createRtPtSha256Fingerprint(canonicalContent);
+}
+
+/** Returns true only when the persisted binding matches the current canonical content. */
+export function hasValidRtPtApprovalFingerprint(document: RtPtDocumentV3): boolean {
+  const persisted = document.approvalFingerprint;
+  if (!persisted || !isRtPtSha256Fingerprint(persisted)) return false;
+  try {
+    return persisted === fingerprintRtPtApprovedContent(document);
+  } catch {
+    return false;
+  }
+}
+
+function reconcileDecodedRtPtApproval(document: RtPtDocumentV3): RtPtDocumentV3 {
+  if (document.status !== 'approved' || hasValidRtPtApprovalFingerprint(document)) return document;
+  const { approvalFingerprint: _staleFingerprint, ...unbound } = document;
+  return {
+    ...unbound,
+    status: 'draft',
+    approvals: [],
+  } as RtPtDocumentV3;
 }

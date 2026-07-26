@@ -5,6 +5,8 @@
     "src/vite-env.d.ts",
     "server/index.ts",
     "server/express.d.ts",
+    "scripts/render-rtpt-pdf-fixture.ts",
+    "scripts/render-rtpt-inspection-report-fixture.ts",
     "vite.config.ts",
     "vitest.config.ts"
   ],

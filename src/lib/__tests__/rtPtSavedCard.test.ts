@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRtPtDocument } from '@/lib/rtPtDocumentCodec';
+import { createCompleteFilmDocument } from '@/lib/__tests__/rtPtV3Fixtures';
 import {
   decodeStoredRtPtCards,
   importRtPtCardsFromJson,
@@ -110,6 +111,18 @@ describe('RT/PT saved-card boundary', () => {
     expect(report.errors.join(' ')).toContain('unsupported legacy inspection data model');
     expect(report.errors.join(' ')).toContain('newer than this application supports');
     expect(report.errors.join(' ')).toContain('not an object');
+  });
+
+  it('imports externally supplied approved cards as drafts without stale approvals', () => {
+    const approved = createCompleteFilmDocument('approved');
+    const report = importRtPtCardsFromJson(JSON.stringify(approved), {
+      profileId: 'profile',
+      idFactory: () => 'fresh-approved-import',
+      now: '2026-07-20T10:00:00.000Z',
+    });
+
+    expect(report).toMatchObject({ imported: 1, rejected: 0 });
+    expect(report.cards[0].data).toMatchObject({ status: 'draft', approvals: [] });
   });
 
   it('rejects malformed allowlisted metadata instead of copying it into a card', () => {
