@@ -16,6 +16,7 @@
         "start": "node scripts/run-with-env.mjs production tsx server/index.ts",
         "db:push": "drizzle-kit push",
         "license:issue": "node scripts/issue-rtpt-license.cjs",
+        "license:studio": "node scripts/rtpt-license-studio.cjs",
         "license:key:verify": "node scripts/verify-rtpt-license-key.cjs",
         "update:key:verify": "node scripts/verify-rtpt-update-key.cjs",
         "test": "vitest run && tsx --test server/rtptRoutes.test.ts",
