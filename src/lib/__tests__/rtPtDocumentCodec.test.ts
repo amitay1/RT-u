@@ -244,6 +244,44 @@ describe('RT/PT V3 codec', () => {
     }
   });
 
+  it('round-trips machine exposure-chart anchors and loads V3 files saved before they existed', () => {
+    const withAnchors = JSON.parse(JSON.stringify(createCompletePs811000FilmDocument())) as Record<string, unknown>;
+    const technique = withAnchors.technique as Record<string, unknown>;
+    (technique.source as Record<string, unknown>).exposureChartAnchors = [{
+      id: 'anchor-1',
+      description: 'Qualified step wedge',
+      thickness: 10,
+      thicknessUnit: 'mm',
+      tubeVoltage: 120,
+      tubeCurrent: 5,
+      exposureTime: 60,
+      exposureTimeUnit: 's',
+      sfd: 1000,
+      sfdUnit: 'mm',
+      measuredDensity: 2.5,
+    }];
+    const decoded = decodeRtPtDocument(withAnchors);
+    expect(decoded.status).toBe('success');
+    if (decoded.status === 'success' && decoded.document.method === 'RT-Film') {
+      expect(decoded.document.technique.source.exposureChartAnchors).toHaveLength(1);
+      expect(decoded.document.technique.source.exposureChartAnchors[0]).toMatchObject({
+        id: 'anchor-1',
+        tubeVoltage: 120,
+        tubeCurrent: 5,
+      });
+    }
+
+    // Files saved before the field existed must still open, with an empty chart.
+    const olderV3 = JSON.parse(JSON.stringify(createCompletePs811000FilmDocument())) as Record<string, unknown>;
+    const olderSource = (olderV3.technique as Record<string, unknown>).source as Record<string, unknown>;
+    delete olderSource.exposureChartAnchors;
+    const decodedOlder = decodeRtPtDocument(olderV3);
+    expect(decodedOlder.status).toBe('success');
+    if (decodedOlder.status === 'success' && decodedOlder.document.method === 'RT-Film') {
+      expect(decodedOlder.document.technique.source.exposureChartAnchors).toEqual([]);
+    }
+  });
+
   it('migrates V1 to a draft without cloning four global exposures and quarantines performed/ambiguous fields', () => {
     const result = decodeRtPtDocument(v1FilmDocument);
     expect(result.status).toBe('success');

@@ -67,6 +67,25 @@ export interface RtFilmGammaSourcePlan {
   effectiveSourceSizeUnit: LengthUnit;
 }
 
+/**
+ * One qualified exposure measured on this machine. PS811000E supplies no mA
+ * values (para. 9.12.8.m(2) only requires that they be recorded), so the
+ * exposure chart is built from the operator's own anchor points.
+ */
+export interface RtFilmExposureAnchor {
+  id: string;
+  description: string;
+  thickness: NumberOrEmpty;
+  thicknessUnit: LengthUnit;
+  tubeVoltage: NumberOrEmpty;
+  tubeCurrent: NumberOrEmpty;
+  exposureTime: NumberOrEmpty;
+  exposureTimeUnit: TimeUnit;
+  sfd: NumberOrEmpty;
+  sfdUnit: LengthUnit;
+  measuredDensity: NumberOrEmpty;
+}
+
 /** Both branches remain visible in draft state; validation selects the active branch. */
 export interface RtFilmSource {
   sourceType: RadiationType;
@@ -76,6 +95,8 @@ export interface RtFilmSource {
   calibrationRequirement: string;
   xRay: RtFilmXRaySourcePlan;
   gamma: RtFilmGammaSourcePlan;
+  /** Qualified machine exposures the exposure chart is fitted from. */
+  exposureChartAnchors: RtFilmExposureAnchor[];
 }
 
 export interface RtFilmScreenPlan {
@@ -223,6 +244,20 @@ export const emptyRtPtAcceptancePlan: RtPtAcceptancePlan = {
   specialRequirements: '',
 };
 
+export const createEmptyRtFilmExposureAnchor = (id: string): RtFilmExposureAnchor => ({
+  id,
+  description: '',
+  thickness: '',
+  thicknessUnit: 'mm',
+  tubeVoltage: '',
+  tubeCurrent: '',
+  exposureTime: '',
+  exposureTimeUnit: 's',
+  sfd: '',
+  sfdUnit: 'mm',
+  measuredDensity: '',
+});
+
 export const emptyRtFilmExposureDefaults: RtFilmExposureDefaults = {
   wallTechnique: '',
   sfd: '',
@@ -293,6 +328,7 @@ export const emptyRtFilmSheet: RtFilmSheet = {
       effectiveSourceSize: '',
       effectiveSourceSizeUnit: 'mm',
     },
+    exposureChartAnchors: [],
   },
   filmSystem: {
     manufacturer: '',

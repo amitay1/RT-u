@@ -28,6 +28,8 @@ import {
   PS811000_EQUIVALENCE_FACTORS,
   PS811000_EQUIVALENCE_VOLTAGES,
 } from '@/lib/ps811000';
+import { calculatePs811000EquivalentThickness } from '@/lib/ps811000ExposureChart';
+import { RtFilmExposureChart } from '@/components/tabs/rt-film/RtFilmExposureChart';
 
 interface RtFilmExposureFieldsProps {
   data: RtFilmExposureDefaults;
@@ -101,6 +103,12 @@ export function RtFilmExposureFields({
   const appliedUgLimit = ugLimit
     ? (data.requiredUgUnit === 'inch' ? ugLimit.maximumInch : ugLimit.maximumMm)
     : null;
+  // Table 1 gives a factor; the sheet has to do the multiplication, not the operator.
+  const equivalentThickness = calculatePs811000EquivalentThickness(
+    effectiveThickness,
+    data.ps811000EquivalenceMaterial,
+    data.tubeVoltage,
+  );
 
   const lengthPair = (
     label: string,
@@ -268,8 +276,23 @@ export function RtFilmExposureFields({
                   );
                 })}
               </div>
+              <div className="mt-3 border-t border-border/60 pt-2 text-sm">
+                <span className="font-semibold">Equivalent thickness: </span>
+                <span className="text-muted-foreground">
+                  {equivalentThickness
+                    ? `${equivalentThickness.equivalentThickness} ${data.thicknessUnit} of ${equivalentThickness.referenceMaterial} `
+                      + `(x${equivalentThickness.factor} at ${equivalentThickness.voltageKv} kV)`
+                    : 'Enter a thickness and one of the Table 1 voltages as the tube voltage.'}
+                </span>
+              </div>
             </div>
           ) : null}
+
+          <RtFilmExposureChart
+            data={data}
+            source={source}
+            effectiveThickness={effectiveThickness}
+          />
         </section>
       ) : null}
 

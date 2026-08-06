@@ -284,6 +284,23 @@ function parseFilmView(value: unknown, path: string) : RtFilmExposureView {
   };
 }
 
+function parseFilmExposureAnchor(value: unknown, path: string) {
+  const source = record(value, path, true);
+  return {
+    id: stringField(source, 'id', path, true),
+    description: stringField(source, 'description', path, true),
+    thickness: numberOrEmptyField(source, 'thickness', path, true),
+    thicknessUnit: enumField(source, 'thicknessUnit', path, LENGTH_UNITS, true, 'mm'),
+    tubeVoltage: numberOrEmptyField(source, 'tubeVoltage', path, true),
+    tubeCurrent: numberOrEmptyField(source, 'tubeCurrent', path, true),
+    exposureTime: numberOrEmptyField(source, 'exposureTime', path, true),
+    exposureTimeUnit: enumField(source, 'exposureTimeUnit', path, TIME_UNITS, true, 's'),
+    sfd: numberOrEmptyField(source, 'sfd', path, true),
+    sfdUnit: enumField(source, 'sfdUnit', path, LENGTH_UNITS, true, 'mm'),
+    measuredDensity: numberOrEmptyField(source, 'measuredDensity', path, true),
+  };
+}
+
 function parseFilmSource(value: unknown, path: string, partial = false) {
   const source = record(value, path, partial);
   const xRayPath = `${path}.xRay`;
@@ -309,6 +326,13 @@ function parseFilmSource(value: unknown, path: string, partial = false) {
       effectiveSourceSize: numberOrEmptyField(gamma, 'effectiveSourceSize', gammaPath, partial),
       effectiveSourceSizeUnit: enumField(gamma, 'effectiveSourceSizeUnit', gammaPath, LENGTH_UNITS, partial, 'mm'),
     },
+    // Added after the v3 schema shipped; always optional so earlier documents load.
+    exposureChartAnchors: arrayField(
+      source.exposureChartAnchors,
+      `${path}.exposureChartAnchors`,
+      parseFilmExposureAnchor,
+      true,
+    ),
   };
 }
 

@@ -20,6 +20,10 @@ import {
   PS811000_DENSITOMETER_RESOLUTION_HD,
 } from '@/lib/ps811000';
 import {
+  buildPs811000ExposureChart,
+  calculatePs811000EquivalentThickness,
+} from '@/lib/ps811000ExposureChart';
+import {
   validateRtPtDocument,
   type RtPtValidationSummary,
 } from '@/lib/rtPtValidation';
@@ -222,6 +226,11 @@ const ps811000ExposureRows = (
     ? isThinAdhesiveTenKvpCase(exposure.ps811000EnergyCurve, effectiveThickness, exposure.thicknessUnit)
     : false;
   const minimumSfd = calculateMinimumFocalSpotToImageDistance(exposure.coverageDiameter, exposure.coverageDiameterUnit);
+  const equivalentThickness = calculatePs811000EquivalentThickness(
+    effectiveThickness,
+    exposure.ps811000EquivalenceMaterial,
+    exposure.tubeVoltage,
+  );
   const mas = source.sourceType === 'X-ray'
     ? calculateExposureMas(exposure.tubeCurrent, exposure.exposureTime, exposure.exposureTimeUnit)
     : '';
@@ -235,6 +244,10 @@ const ps811000ExposureRows = (
         ? `${energySuggestion.approximateKvp} kVp; approximate band ${energySuggestion.lowerKvp}-${energySuggestion.upperKvp} kVp`
         : '-'],
     [`${prefix}Table 1 Equivalence Material`, formatValue(exposure.ps811000EquivalenceMaterial)],
+    [`${prefix}Table 1 Equivalent Thickness`, equivalentThickness
+      ? `${equivalentThickness.equivalentThickness} ${exposure.thicknessUnit} of ${equivalentThickness.referenceMaterial}`
+        + ` (x${equivalentThickness.factor} at ${equivalentThickness.voltageKv} kV)`
+      : '-'],
     [`${prefix}Table 8 Maximum Ug`, ugLimit
       ? formatValue(exposure.requiredUgUnit === 'inch' ? ugLimit.maximumInch : ugLimit.maximumMm, exposure.requiredUgUnit)
       : '-'],
@@ -1399,6 +1412,89 @@ const ptProcessSchedule = (
   ];
 };
 
+const filmExposureChart = (
+  document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>,
+): { rows: RowInput[]; hasMachineColumns: boolean; notice: string | null } => {
+  const { exposureDefaults, source, ps811000Applicable } = document.technique;
+  if (!ps811000Applicable) return { rows: [], hasMachineColumns: false, notice: null };
+
+  const chart = buildPs811000ExposureChart({
+    curve: exposureDefaults.ps811000EnergyCurve,
+    thicknessFrom: exposureDefaults.thicknessMin,
+    thicknessTo: exposureDefaults.thicknessMax,
+    thicknessUnit: exposureDefaults.thicknessUnit,
+    equivalenceMaterial: exposureDefaults.ps811000EquivalenceMaterial,
+    equivalenceVoltageKv: exposureDefaults.tubeVoltage,
+    anchors: source.exposureChartAnchors ?? [],
+    machineVoltageKv: exposureDefaults.tubeVoltage,
+    targetSfd: exposureDefaults.sfd,
+    targetSfdUnit: exposureDefaults.sfdUnit,
+    plannedCurrentMa: exposureDefaults.tubeCurrent,
+    exposureTimeUnit: exposureDefaults.exposureTimeUnit || 's',
+  });
+  const hasMachineColumns = chart.fit !== null;
+  const timeUnit = exposureDefaults.exposureTimeUnit === 'min' ? 'min' : 's';
+
+  const rows = chart.rows.map((row): RowInput => {
+    const screen = row.leadScreens[0];
+    const base = [
+      formatValue(row.thickness, exposureDefaults.thicknessUnit),
+      row.equivalentThickness === null
+        ? '-'
+        : `${row.equivalentThickness} (x${row.equivalenceFactor})`,
+      row.approximateKvp === null
+        ? '-'
+        : `${row.approximateKvp}\n${row.lowerKvp}-${row.upperKvp}`,
+      row.ugLimit === null
+        ? '-'
+        : formatValue(
+          exposureDefaults.requiredUgUnit === 'inch' ? row.ugLimit.maximumInch : row.ugLimit.maximumMm,
+          exposureDefaults.requiredUgUnit,
+        ),
+      screen ? `F ${screen.frontMaximumInch}\nB ${screen.backMinimumInch} in` : '-',
+    ];
+    if (!hasMachineColumns) return base;
+    return [
+      ...base,
+      row.mas === null ? '-' : `${row.mas}${row.masExtrapolated ? ' *' : ''}`,
+      row.currentMa === null ? '-' : String(row.currentMa),
+      row.exposureTime === null ? '-' : `${row.exposureTime} ${timeUnit}`,
+    ];
+  });
+
+  return { rows, hasMachineColumns, notice: chart.machineChartNotice };
+};
+
+const renderFilmExposureChart = (
+  pdf: jsPDF,
+  document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>,
+  sectionNumber: number,
+  startY: number,
+): { y: number; rendered: boolean } => {
+  const { rows, hasMachineColumns } = filmExposureChart(document);
+  if (rows.length === 0) return { y: startY, rendered: false };
+
+  const columns = ['THICKNESS', 'EQUIV. (TBL 1)', 'kVp / BAND', 'MAX Ug (TBL 8)', 'SCREENS (TBL 2)'];
+  const columnStyles: Record<number, { cellWidth: number }> = hasMachineColumns
+    ? { 0: { cellWidth: 24 }, 1: { cellWidth: 27 }, 2: { cellWidth: 24 }, 3: { cellWidth: 24 }, 4: { cellWidth: 25 }, 5: { cellWidth: 24 }, 6: { cellWidth: 16 }, 7: { cellWidth: 18 } }
+    : { 0: { cellWidth: 36 }, 1: { cellWidth: 40 }, 2: { cellWidth: 36 }, 3: { cellWidth: 36 }, 4: { cellWidth: 34 } };
+
+  return {
+    y: renderDataTableSection(
+      pdf,
+      sectionNumber,
+      hasMachineColumns
+        ? 'PS811000E exposure chart (mA derived from this machine, not from the specification)'
+        : 'PS811000E exposure chart (kV per Figure 2; the specification supplies no mA)',
+      hasMachineColumns ? [...columns, 'mAs', 'mA', 'TIME'] : columns,
+      rows,
+      startY,
+      columnStyles,
+    ),
+    rendered: true,
+  };
+};
+
 const renderTechniqueSchedule = (
   pdf: jsPDF,
   document: RtPtDocumentV3,
@@ -1953,6 +2049,12 @@ export function buildRtPtTechniquePdf(
   sectionNumber += 1;
   y = renderTechniqueSchedule(pdf, document, sectionNumber, y);
   sectionNumber += 1;
+
+  if (document.method === 'RT-Film') {
+    const chart = renderFilmExposureChart(pdf, document, sectionNumber, y);
+    y = chart.y;
+    if (chart.rendered) sectionNumber += 1;
+  }
 
   const setupMaps = renderSetupMaps(pdf, document, sectionNumber);
   sectionNumber = setupMaps.nextSectionNumber;

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LengthUnit, RtFilmSource } from '@/types/rtFilm';
 import { DateField, NumberField, SelectField, TextField } from '@/components/tabs/shared/FieldRow';
+import { RtFilmExposureAnchorEditor } from '@/components/tabs/rt-film/RtFilmExposureChart';
 
 interface Props {
   data: RtFilmSource;
@@ -93,6 +94,17 @@ export const RtFilmEquipmentTab = ({ data, onChange }: Props) => {
                 options={LENGTH_UNITS}
               />
             </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {data.sourceType === 'X-ray' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Exposure Chart Anchors</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RtFilmExposureAnchorEditor source={data} onChange={onChange} />
           </CardContent>
         </Card>
       ) : null}
