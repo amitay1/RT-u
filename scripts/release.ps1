@@ -344,9 +344,11 @@ try {
         throw 'Set RTPT_WINDOWS_SIGNER_SHA1 to the independently approved Authenticode signer certificate thumbprint before a production or upload-only release.'
     }
     if ($AllowUnsignedProductionRelease) {
-        if ($UploadOnly) {
-            throw '-AllowUnsignedProductionRelease cannot be combined with -UploadOnly; an unsigned build must never be uploaded as a verified one.'
-        }
+        # -UploadOnly is permitted here on purpose. Forbidding it looked safer but
+        # created a dead end: an unsigned release that dies after pushing its tag
+        # could not be resumed at all, since a fresh run then trips "tag already
+        # exists". The signing decision is the operator's either way, and it must
+        # be restated on the resuming command, so nothing is smuggled through.
         Write-Host 'UNSIGNED PRODUCTION RELEASE: shipping without Authenticode, matching v1.0.0-v1.0.3.' -ForegroundColor Yellow
         Write-Host '  SmartScreen will warn on first install until a certificate is obtained.' -ForegroundColor Yellow
     }
@@ -466,8 +468,18 @@ try {
         Run git @('-C', $RepoRoot, 'push', 'origin', $tag)
     }
 
-    & gh release view $tag --repo $ExpectedRepo 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    # "Does this release exist?" is a question, not an error. gh prints
+    # "release not found" on stderr when it does not, and with
+    # $ErrorActionPreference = 'Stop' PowerShell turns any native stderr output
+    # into a terminating NativeCommandError — killing the run at the exact point
+    # it was about to create the release. Ask with stderr demoted, then branch on
+    # the exit code alone.
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    & gh release view $tag --repo $ExpectedRepo 2>&1 | Out-Null
+    $releaseExists = ($LASTEXITCODE -eq 0)
+    $ErrorActionPreference = $previousErrorAction
+    if (-not $releaseExists) {
         Run gh @('release', 'create', $tag, '--repo', $ExpectedRepo, '--title', "$ExpectedProductName $tag", '--notes', $notes)
     }
     Run gh (@('release', 'upload', $tag, '--repo', $ExpectedRepo) + $files)
