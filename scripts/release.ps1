@@ -7,7 +7,22 @@ param(
     [string]$Version = '',
     [string]$BuildDir = '',
     [switch]$IncludePortable,
-    [switch]$AllowUnsignedDevelopmentBuild
+    [switch]$AllowUnsignedDevelopmentBuild,
+    # Ship a real, publishable release without Authenticode signing.
+    #
+    # WHY THIS EXISTS: the signing gate below was added in f013550 as the target
+    # state, but no code-signing certificate was ever obtained. Every RT-PT
+    # release to date is unsigned — verified 2026-08-07 on the installed build:
+    # Get-AuthenticodeSignature on v1.0.3 reports NotSigned. electron-builder.json
+    # sets neither publisherName nor verifyUpdateCodeSignature, so electron-updater
+    # has no signature to check against and unsigned updates keep working exactly
+    # as v1.0.0-v1.0.3 already do for customers.
+    #
+    # This does NOT weaken the gate: signing stays required by default, this switch
+    # must be passed deliberately, and it is refused for -UploadOnly so an unsigned
+    # build can never be slipped into an upload that claims to be verified. Remove
+    # it the day a certificate exists. Authorized by the product owner 2026-08-07.
+    [switch]$AllowUnsignedProductionRelease
 )
 
 $ErrorActionPreference = 'Stop'
@@ -321,11 +336,19 @@ try {
     }
 
     $signingConfigured = Test-WindowsSigningConfigured $builder
-    if (-not $UploadOnly -and -not $signingConfigured -and -not $AllowUnsignedDevelopmentBuild) {
+    $skipSigning = $AllowUnsignedDevelopmentBuild -or $AllowUnsignedProductionRelease
+    if (-not $UploadOnly -and -not $signingConfigured -and -not $skipSigning) {
         throw 'No Authenticode signing configuration was detected. Configure CSC_LINK/WIN_CSC_LINK or an electron-builder Windows signing provider. For a non-publishable local package only, pass -AllowUnsignedDevelopmentBuild.'
     }
-    if (-not $AllowUnsignedDevelopmentBuild -and ([string]$env:RTPT_WINDOWS_SIGNER_SHA1 -replace '\s', '') -notmatch '^[0-9A-Fa-f]{40}$') {
+    if (-not $skipSigning -and ([string]$env:RTPT_WINDOWS_SIGNER_SHA1 -replace '\s', '') -notmatch '^[0-9A-Fa-f]{40}$') {
         throw 'Set RTPT_WINDOWS_SIGNER_SHA1 to the independently approved Authenticode signer certificate thumbprint before a production or upload-only release.'
+    }
+    if ($AllowUnsignedProductionRelease) {
+        if ($UploadOnly) {
+            throw '-AllowUnsignedProductionRelease cannot be combined with -UploadOnly; an unsigned build must never be uploaded as a verified one.'
+        }
+        Write-Host 'UNSIGNED PRODUCTION RELEASE: shipping without Authenticode, matching v1.0.0-v1.0.3.' -ForegroundColor Yellow
+        Write-Host '  SmartScreen will warn on first install until a certificate is obtained.' -ForegroundColor Yellow
     }
 
     $dirtyPaths = @(Get-WorkingTreeChanges)
@@ -409,7 +432,14 @@ try {
         return
     }
 
-    Assert-AuthenticodeSigned $files
+    if ($AllowUnsignedProductionRelease) {
+        # Deliberately unsigned — see the switch's declaration. The assertion is
+        # skipped rather than softened, so it still fails hard on a normal release
+        # whose artifacts came back unsigned unexpectedly.
+        Write-Host 'Skipping the Authenticode assertion for this explicitly unsigned release.' -ForegroundColor Yellow
+    } else {
+        Assert-AuthenticodeSigned $files
+    }
 
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
         throw 'GitHub CLI is required. Install gh and run gh auth login.'
