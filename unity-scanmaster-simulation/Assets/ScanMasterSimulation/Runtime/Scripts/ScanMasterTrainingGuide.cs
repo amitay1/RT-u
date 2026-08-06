@@ -73,7 +73,7 @@ namespace ScanMaster.UnitySimulation
             new TrainingStep(
                 "Reference Calibration",
                 "Normalize on the reference reflector and establish a controlled response.",
-                "Set water path to 8 inches, optimize incidence near 18.6 degrees for a 45-degree shear wave and bring FBH #1 to 80 percent FSH.",
+                "Set water path to 8 inches, optimize incidence near 18.9 degrees for a 45-degree shear wave and bring FBH #1 to 80 percent FSH.",
                 "Apply curvature and calibration-block gain offsets from the approved data.",
                 "Calibration close-up: the beam, entry spot and probe stand-off are emphasized.",
                 1, 0.27f, true, false, -44f, 17f, 1.48f, new Vector3(0.10f, 0.39f, 0.02f), SoftwareImage.SetupHighlighted, "Set acoustic values in the highlighted calibration area before accepting the reference response.", "Delay / range / water path", new Rect(0.03f, 0.13f, 0.42f, 0.54f)),

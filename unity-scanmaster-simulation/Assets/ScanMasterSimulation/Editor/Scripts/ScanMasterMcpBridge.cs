@@ -24,11 +24,42 @@ namespace ScanMaster.UnitySimulation.Editor
         private static TcpListener listener;
         private static Thread listenerThread;
         private static volatile bool running;
+        private static volatile bool delayCallChainArmed;
 
         static ScanMasterMcpBridge()
         {
+            // Multi-channel pump so requests don't stall when EditorApplication.update is throttled
             EditorApplication.update += PumpRequests;
+            Application.runInBackground = true;
+            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeReload;
+            EditorApplication.quitting += OnEditorQuitting;
+            ScheduleDelayCallPump();
             StartServer();
+        }
+
+        private static void OnBeforeReload()
+        {
+            Debug.Log("MCP bridge: assembly reload — stopping listener");
+            StopServer();
+        }
+
+        private static void OnEditorQuitting() => StopServer();
+
+        private static void ScheduleDelayCallPump()
+        {
+            if (delayCallChainArmed) return;
+            delayCallChainArmed = true;
+            EditorApplication.delayCall += DelayCallPump;
+        }
+
+        private static void DelayCallPump()
+        {
+            delayCallChainArmed = false;
+            try { PumpRequests(); }
+            finally
+            {
+                if (running) ScheduleDelayCallPump();
+            }
         }
 
         [MenuItem("Scan Master/MCP/Start Bridge")]
@@ -39,42 +70,61 @@ namespace ScanMaster.UnitySimulation.Editor
                 Debug.Log("Scan Master MCP bridge is already running on 127.0.0.1:" + Port);
                 return;
             }
-
-            try
+            const int maxAttempts = 5;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                listener = new TcpListener(IPAddress.Loopback, Port);
-                listener.Start();
-                running = true;
-                listenerThread = new Thread(ListenLoop)
+                try
                 {
-                    IsBackground = true,
-                    Name = "ScanMasterMcpBridge"
-                };
-                listenerThread.Start();
-                Debug.Log("Scan Master MCP bridge listening on http://127.0.0.1:" + Port);
+                    listener = new TcpListener(IPAddress.Loopback, Port);
+                    listener.Server.SetSocketOption(SocketOptionLevel.Socket,
+                        SocketOptionName.ReuseAddress, true);
+                    listener.Start();
+                    running = true;
+                    listenerThread = new Thread(ListenLoop)
+                    {
+                        IsBackground = true,
+                        Name = "ScanMasterMcpBridge"
+                    };
+                    listenerThread.Start();
+                    Debug.Log($"Scan Master MCP bridge listening on http://127.0.0.1:{Port} (attempt {attempt})");
+                    return;
+                }
+                catch (SocketException ex)
+                {
+                    Debug.LogWarning($"MCP bridge bind attempt {attempt} failed: {ex.Message}");
+                    if (attempt < maxAttempts) Thread.Sleep(250);
+                }
+                catch (Exception ex)
+                {
+                    running = false;
+                    Debug.LogWarning("Scan Master MCP bridge failed: " + ex.Message);
+                    return;
+                }
             }
-            catch (Exception ex)
-            {
-                running = false;
-                Debug.LogWarning("Scan Master MCP bridge failed to start: " + ex.Message);
-            }
+            running = false;
+            Debug.LogError($"Scan Master MCP bridge: failed to bind port {Port} after {maxAttempts} attempts");
         }
 
         [MenuItem("Scan Master/MCP/Stop Bridge")]
         public static void StopServer()
         {
             running = false;
+            try { listener?.Stop(); } catch (Exception) { }
+            listener = null;
             try
             {
-                listener?.Stop();
+                if (listenerThread != null && listenerThread.IsAlive)
+                    listenerThread.Join(500);
             }
-            catch (Exception)
-            {
-                // Ignore shutdown races.
-            }
-
-            listener = null;
+            catch (Exception) { }
             listenerThread = null;
+            // Drain pending queue so callers don't hang
+            while (PendingRequests.TryDequeue(out var p))
+            {
+                p.ResponseJson = BuildResponse(false, "Bridge stopped", "{}");
+                p.HttpStatus = 503;
+                p.Done.Set();
+            }
             Debug.Log("Scan Master MCP bridge stopped.");
         }
 

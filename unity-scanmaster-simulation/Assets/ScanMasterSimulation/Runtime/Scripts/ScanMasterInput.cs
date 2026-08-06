@@ -173,10 +173,31 @@ namespace ScanMaster.UnitySimulation
                     return "digit1Key";
                 case KeyCode.Alpha2:
                     return "digit2Key";
+                case KeyCode.B:
+                    return "bKey";
+                case KeyCode.End:
+                    return "endKey";
+                case KeyCode.H:
+                    return "hKey";
+                case KeyCode.Home:
+                    return "homeKey";
+                case KeyCode.LeftArrow:
+                    return "leftArrowKey";
+                case KeyCode.N:
+                    return "nKey";
+                case KeyCode.P:
+                    return "pKey";
+                case KeyCode.RightArrow:
+                    return "rightArrowKey";
+                case KeyCode.Tab:
+                    return "tabKey";
+                case KeyCode.T:
+                    return "tKey";
+                case KeyCode.V:
+                    return "vKey";
                 default:
                     return null;
             }
         }
     }
 }
-

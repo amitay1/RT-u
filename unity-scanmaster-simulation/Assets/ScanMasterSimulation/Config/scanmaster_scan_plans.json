@@ -16,7 +16,7 @@
     "blockPartNumber": "IAE2P16675",
     "referenceReflector": "FBH #1",
     "targetAmplitudePercentFsh": 80,
-    "nominalIncidentAngleDegrees": 18.6,
+    "nominalIncidentAngleDegrees": 18.9,
     "requiresDac": true,
     "requiresCurvatureCorrection": true,
     "requiresPostCalibration": true

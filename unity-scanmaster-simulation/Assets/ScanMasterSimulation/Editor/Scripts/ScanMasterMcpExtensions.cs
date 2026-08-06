@@ -54,11 +54,55 @@ namespace ScanMaster.UnitySimulation.Editor
         private static TcpListener listener;
         private static Thread listenerThread;
         private static volatile bool running;
+        private static volatile bool delayCallChainArmed;
 
         static ScanMasterMcpExtensions()
         {
+            // Subscribe to MULTIPLE editor callbacks so the Pump keeps running
+            // even when EditorApplication.update gets throttled (e.g. when the
+            // Unity window loses focus). Each callback drains the queue.
             EditorApplication.update += Pump;
+            // Run in background — keeps Update() firing in play mode even
+            // without window focus.
+            Application.runInBackground = true;
+            // Cleanly stop on domain-reload (avoids zombie listener threads)
+            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeReload;
+            EditorApplication.quitting += OnEditorQuitting;
+            // Kick off the delayCall chain — this is the redundant pump that
+            // re-arms itself every editor tick. Even if EditorApplication.update
+            // is throttled, delayCall fires whenever the editor processes any
+            // event (mouse move, network packet, etc.).
+            ScheduleDelayCallPump();
             StartServer();
+        }
+
+        private static void OnBeforeReload()
+        {
+            Debug.Log("MCP Extensions: assembly reload — stopping listener");
+            StopServer();
+        }
+
+        private static void OnEditorQuitting()
+        {
+            StopServer();
+        }
+
+        private static void ScheduleDelayCallPump()
+        {
+            if (delayCallChainArmed) return;
+            delayCallChainArmed = true;
+            EditorApplication.delayCall += DelayCallPump;
+        }
+
+        private static void DelayCallPump()
+        {
+            delayCallChainArmed = false;
+            try { Pump(); }
+            finally
+            {
+                // Re-arm — keep the chain alive
+                if (running) ScheduleDelayCallPump();
+            }
         }
 
         [MenuItem("Scan Master/MCP/Start Extensions")]
@@ -69,24 +113,43 @@ namespace ScanMaster.UnitySimulation.Editor
                 Debug.Log("Scan Master MCP Extensions already running on :" + Port);
                 return;
             }
-            try
+            // Retry binding with backoff — port may briefly be in TIME_WAIT
+            // after a domain reload.
+            const int maxAttempts = 5;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                listener = new TcpListener(IPAddress.Loopback, Port);
-                listener.Start();
-                running = true;
-                listenerThread = new Thread(ListenLoop)
+                try
                 {
-                    IsBackground = true,
-                    Name = "ScanMasterMcpExtensions"
-                };
-                listenerThread.Start();
-                Debug.Log("Scan Master MCP Extensions listening on http://127.0.0.1:" + Port);
+                    listener = new TcpListener(IPAddress.Loopback, Port);
+                    // SO_REUSEADDR — allow re-binding even if previous socket
+                    // is still in TIME_WAIT.
+                    listener.Server.SetSocketOption(SocketOptionLevel.Socket,
+                        SocketOptionName.ReuseAddress, true);
+                    listener.Start();
+                    running = true;
+                    listenerThread = new Thread(ListenLoop)
+                    {
+                        IsBackground = true,
+                        Name = "ScanMasterMcpExtensions"
+                    };
+                    listenerThread.Start();
+                    Debug.Log($"Scan Master MCP Extensions listening on http://127.0.0.1:{Port} (attempt {attempt})");
+                    return;
+                }
+                catch (SocketException ex)
+                {
+                    Debug.LogWarning($"MCP Extensions bind attempt {attempt} failed: {ex.Message}");
+                    if (attempt < maxAttempts) Thread.Sleep(250);
+                }
+                catch (Exception ex)
+                {
+                    running = false;
+                    Debug.LogWarning("Scan Master MCP Extensions failed: " + ex.Message);
+                    return;
+                }
             }
-            catch (Exception ex)
-            {
-                running = false;
-                Debug.LogWarning("Scan Master MCP Extensions failed: " + ex.Message);
-            }
+            running = false;
+            Debug.LogError($"Scan Master MCP Extensions: failed to bind port {Port} after {maxAttempts} attempts");
         }
 
         [MenuItem("Scan Master/MCP/Stop Extensions")]
@@ -95,7 +158,21 @@ namespace ScanMaster.UnitySimulation.Editor
             running = false;
             try { listener?.Stop(); } catch (Exception) { }
             listener = null;
+            // Wait briefly for listener thread to actually exit (releases port)
+            try
+            {
+                if (listenerThread != null && listenerThread.IsAlive)
+                    listenerThread.Join(500);
+            }
+            catch (Exception) { }
             listenerThread = null;
+            // Drain pending queue so callers don't hang forever
+            while (Pending.TryDequeue(out var p))
+            {
+                p.ResponseJson = Resp(false, "Bridge stopped", "{}");
+                p.HttpStatus = 503;
+                p.Done.Set();
+            }
             Debug.Log("Scan Master MCP Extensions stopped.");
         }
 
@@ -254,6 +331,13 @@ namespace ScanMaster.UnitySimulation.Editor
                 case "set_orbit_enabled": return DoSetOrbitEnabled(cmd);
                 case "render_offline": return DoRenderOffline(cmd);
                 case "set_lighting": return DoSetLighting(cmd);
+                case "add_component": return DoAddComponent(cmd);
+                case "invoke_method": return DoInvokeMethod(cmd);
+                case "take_snapshot": return DoTakeSnapshot(cmd);
+                case "get_telemetry": return DoGetTelemetry();
+                case "start_recording": return DoStartRecording(cmd);
+                case "stop_recording": return DoStopRecording();
+                case "get_recording_state": return DoGetRecordingState();
                 default:
                     httpStatus = 400;
                     return Resp(false, "Unknown command: " + cmd.command, "{}");
@@ -272,7 +356,7 @@ namespace ScanMaster.UnitySimulation.Editor
             var dir = Path.GetDirectoryName(dst);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-            var cam = Camera.main ?? UnityEngine.Object.FindFirstObjectByType<Camera>();
+            var cam = Camera.main ?? UnityEngine.Object.FindAnyObjectByType<Camera>();
             if (cam == null) return Resp(false, "No camera found", "{}");
 
             var rt = new RenderTexture(w * ss, h * ss, 24, RenderTextureFormat.ARGB32);
@@ -470,7 +554,7 @@ namespace ScanMaster.UnitySimulation.Editor
         // -- Direct camera transform (bypasses CameraOrbit clamping & drift) --
         private static string DoSetCameraTransform(ExtCommand cmd)
         {
-            var cam = Camera.main ?? UnityEngine.Object.FindFirstObjectByType<Camera>();
+            var cam = Camera.main ?? UnityEngine.Object.FindAnyObjectByType<Camera>();
             if (cam == null) return Resp(false, "No camera found", "{}");
             cam.transform.SetPositionAndRotation(
                 new Vector3(cmd.x, cmd.y, cmd.z),
@@ -496,7 +580,7 @@ namespace ScanMaster.UnitySimulation.Editor
             // Optional state setup before render
             if (cmd.setCamera)
             {
-                var cam = Camera.main ?? UnityEngine.Object.FindFirstObjectByType<Camera>();
+                var cam = Camera.main ?? UnityEngine.Object.FindAnyObjectByType<Camera>();
                 if (cam != null)
                 {
                     cam.transform.SetPositionAndRotation(
@@ -518,6 +602,257 @@ namespace ScanMaster.UnitySimulation.Editor
                     ?.Invoke(sel, new object[] { cmd.stage });
             }
             return DoScreenshot(cmd);
+        }
+
+        // -- Add a component (by full type name) to a GameObject in the scene
+        private static string DoAddComponent(ExtCommand cmd)
+        {
+            var go = string.IsNullOrWhiteSpace(cmd.path)
+                ? null
+                : GameObject.Find(cmd.path);
+            if (go == null) return Resp(false, "GameObject not found: " + cmd.path, "{}");
+            var typeName = cmd.objectName;
+            if (string.IsNullOrWhiteSpace(typeName))
+                return Resp(false, "Missing type name (objectName)", "{}");
+            Type t = null;
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                t = asm.GetType(typeName, false);
+                if (t != null) break;
+                t = asm.GetType("ScanMaster.UnitySimulation." + typeName, false);
+                if (t != null) break;
+            }
+            if (t == null) return Resp(false, "Type not found: " + typeName, "{}");
+            // Don't double-add
+            var existing = go.GetComponent(t);
+            if (existing != null) return Resp(true, "Component already present",
+                "{\"existing\":true,\"type\":\"" + Escape(t.FullName) + "\"}");
+            var comp = go.AddComponent(t);
+            UnityEditor.EditorUtility.SetDirty(go);
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(go.scene);
+            return Resp(true, "Component added",
+                "{\"type\":\"" + Escape(comp.GetType().FullName) + "\",\"sceneDirty\":true}");
+        }
+
+        // -- Invoke a public method on a component (no args, or 1 float)
+        private static string DoInvokeMethod(ExtCommand cmd)
+        {
+            var go = string.IsNullOrWhiteSpace(cmd.path)
+                ? null
+                : GameObject.Find(cmd.path);
+            if (go == null) return Resp(false, "GameObject not found: " + cmd.path, "{}");
+            var typeName = cmd.objectName;
+            Type t = null;
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                t = asm.GetType(typeName, false);
+                if (t != null) break;
+                t = asm.GetType("ScanMaster.UnitySimulation." + typeName, false);
+                if (t != null) break;
+            }
+            if (t == null) return Resp(false, "Type not found: " + typeName, "{}");
+            var comp = go.GetComponent(t);
+            if (comp == null) return Resp(false, "Component not on object", "{}");
+            var method = t.GetMethod(cmd.name, BindingFlags.Public | BindingFlags.Instance);
+            if (method == null) return Resp(false, "Method not found: " + cmd.name, "{}");
+            method.Invoke(comp, null);
+            return Resp(true, "Method invoked", "{}");
+        }
+
+        // -- Recording (PNG sequence)
+        private static string DoStartRecording(ExtCommand cmd)
+        {
+            // Ensure recorder GO + component
+            var seqObj = GameObject.Find("Scan Master Immersion Simulation");
+            if (seqObj == null) return Resp(false, "Sequencer root not found", "{}");
+
+            var recType = FindRuntimeType("ScanMasterSequenceRecorder");
+            if (recType == null) return Resp(false, "Recorder type not loaded yet", "{}");
+
+            var rec = seqObj.GetComponent(recType);
+            if (rec == null) rec = seqObj.AddComponent(recType);
+
+            var fps = cmd.width > 0 ? cmd.width : 30;       // reuse width slot as fps
+            var w = cmd.height > 0 ? cmd.height : 1920;     // reuse height slot as image w
+            var h = cmd.supersampling > 0 ? cmd.supersampling : 1080;
+            var dur = cmd.value > 0 ? cmd.value : ScanMasterEducationalSequencer.StoryDurationSeconds;
+            var dir = string.IsNullOrWhiteSpace(cmd.path) ? "Recording" : cmd.path;
+
+            var m = recType.GetMethod("StartRecording",
+                new[] { typeof(string), typeof(int), typeof(int), typeof(int), typeof(float) });
+            if (m == null) return Resp(false, "StartRecording(...) method missing", "{}");
+            m.Invoke(rec, new object[] { dir, fps, w, h, dur });
+
+            return Resp(true, "Recording started",
+                "{\"fps\":" + fps + ",\"width\":" + w + ",\"height\":" + h +
+                ",\"duration\":" + dur + ",\"dir\":\"" + Escape(dir) + "\"}");
+        }
+
+        private static string DoStopRecording()
+        {
+            var recType = FindRuntimeType("ScanMasterSequenceRecorder");
+            if (recType == null) return Resp(false, "Recorder type not loaded", "{}");
+            var rec = UnityEngine.Object.FindAnyObjectByType(recType);
+            if (rec == null) return Resp(false, "Recorder not in scene", "{}");
+            recType.GetMethod("StopRecording")?.Invoke(rec, null);
+            return Resp(true, "Recording stopped", "{}");
+        }
+
+        private static string DoGetRecordingState()
+        {
+            var recType = FindRuntimeType("ScanMasterSequenceRecorder");
+            if (recType == null) return Resp(true, "No recorder loaded",
+                "{\"recording\":false,\"frame\":0,\"elapsed\":0,\"total\":0}");
+            var rec = UnityEngine.Object.FindAnyObjectByType(recType);
+            if (rec == null) return Resp(true, "No recorder in scene",
+                "{\"recording\":false,\"frame\":0,\"elapsed\":0,\"total\":0}");
+            bool isRec = (bool)(recType.GetProperty("IsRecording")?.GetValue(rec) ?? false);
+            int frame = (int)(recType.GetProperty("FrameNumber")?.GetValue(rec) ?? 0);
+            float elapsed = (float)(recType.GetProperty("ElapsedSeconds")?.GetValue(rec) ?? 0f);
+            float total = (float)(recType.GetProperty("TotalDurationSeconds")?.GetValue(rec) ?? 0f);
+            string outDir = (recType.GetProperty("OutputDir")?.GetValue(rec) as string) ?? "";
+            return Resp(true, "Recording state",
+                "{\"recording\":" + (isRec ? "true" : "false") +
+                ",\"frame\":" + frame +
+                ",\"elapsed\":" + elapsed.ToString("0.##", CultureInfo.InvariantCulture) +
+                ",\"total\":" + total.ToString("0.##", CultureInfo.InvariantCulture) +
+                ",\"dir\":\"" + Escape(outDir) + "\"}");
+        }
+
+        private static Type FindRuntimeType(string typeName)
+        {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var t = asm.GetType("ScanMaster.UnitySimulation." + typeName, false);
+                if (t != null) return t;
+                t = asm.GetType(typeName, false);
+                if (t != null) return t;
+            }
+            return null;
+        }
+
+        // -- Take a screenshot AND return full diagnostic state in one atomic call
+        // This lets the caller correlate a single PNG with exactly what the
+        // sequencer / camera / props looked like at that instant.
+        private static string DoTakeSnapshot(ExtCommand cmd)
+        {
+            // First grab the screenshot (sets DoScreenshot's output path)
+            var ssRespJson = DoScreenshot(cmd);
+            var telemetry = BuildTelemetryJson();
+            // Merge: parse out the screenshot data part and embed telemetry
+            // (simple string surgery — keep response shape compatible)
+            return Resp(true, "Snapshot captured",
+                "{\"screenshot\":" + ssRespJson + ",\"telemetry\":" + telemetry + "}");
+        }
+
+        // -- Get full diagnostic snapshot of the running simulation
+        private static string DoGetTelemetry()
+        {
+            return Resp(true, "Telemetry", BuildTelemetryJson());
+        }
+
+        // Build a fat JSON blob covering everything useful for debugging
+        private static string BuildTelemetryJson()
+        {
+            var sb = new StringBuilder();
+            sb.Append('{');
+            // Editor state
+            sb.Append("\"isPlaying\":").Append(EditorApplication.isPlaying ? "true" : "false").Append(',');
+            sb.Append("\"isPaused\":").Append(EditorApplication.isPaused ? "true" : "false").Append(',');
+            sb.Append("\"timeScale\":").Append(Time.timeScale.ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
+            sb.Append("\"unscaledTime\":").Append(Time.unscaledTime.ToString("0.##", CultureInfo.InvariantCulture)).Append(',');
+
+            // Camera
+            var cam = Camera.main ?? UnityEngine.Object.FindAnyObjectByType<Camera>();
+            if (cam != null)
+            {
+                var p = cam.transform.position;
+                var r = cam.transform.eulerAngles;
+                sb.Append("\"camera\":{");
+                sb.Append("\"posX\":").Append(p.x.ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"posY\":").Append(p.y.ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"posZ\":").Append(p.z.ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"rotX\":").Append(r.x.ToString("0.#", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"rotY\":").Append(r.y.ToString("0.#", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"rotZ\":").Append(r.z.ToString("0.#", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"fov\":").Append(cam.fieldOfView.ToString("0.#", CultureInfo.InvariantCulture));
+                sb.Append("},");
+            }
+
+            // Sequencer state
+            var seq = FindRuntimeComponent("ScanMasterEducationalSequencer");
+            if (seq != null)
+            {
+                var t = seq.GetType();
+                int sceneIdx = (int)(t.GetProperty("CurrentSceneIndex")?.GetValue(seq) ?? -1);
+                float elapsed = (float)(t.GetProperty("SceneElapsed")?.GetValue(seq) ?? 0f);
+                bool isRun = (bool)(t.GetProperty("IsRunning")?.GetValue(seq) ?? false);
+                bool autoAdv = (bool)(t.GetProperty("AutoAdvance")?.GetValue(seq) ?? false);
+                float speed = (float)(t.GetProperty("GlobalSpeed")?.GetValue(seq) ?? 0f);
+                int subIdx = (int)(t.GetProperty("CurrentSubShotIndex")?.GetValue(seq) ?? -1);
+                int subCnt = (int)(t.GetProperty("CurrentSubShotCount")?.GetValue(seq) ?? 0);
+
+                // Get scene id + duration from the Story[] array
+                string sceneId = "?";
+                string sceneTitle = "?";
+                float sceneDur = 0f;
+                var storyField = t.GetField("Story", BindingFlags.NonPublic | BindingFlags.Static);
+                if (storyField != null)
+                {
+                    var arr = (Array)storyField.GetValue(null);
+                    if (sceneIdx >= 0 && sceneIdx < arr.Length)
+                    {
+                        var entry = arr.GetValue(sceneIdx);
+                        var et = entry.GetType();
+                        sceneId = (et.GetField("id")?.GetValue(entry) as string) ?? "?";
+                        sceneTitle = (et.GetField("title")?.GetValue(entry) as string) ?? "?";
+                        sceneDur = (float)(et.GetField("duration")?.GetValue(entry) ?? 0f);
+                    }
+                }
+
+                sb.Append("\"sequencer\":{");
+                sb.Append("\"running\":").Append(isRun ? "true" : "false").Append(',');
+                sb.Append("\"autoAdvance\":").Append(autoAdv ? "true" : "false").Append(',');
+                sb.Append("\"globalSpeed\":").Append(speed.ToString("0.##", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"sceneIndex\":").Append(sceneIdx).Append(',');
+                sb.Append("\"sceneId\":\"").Append(Escape(sceneId)).Append("\",");
+                sb.Append("\"sceneTitle\":\"").Append(Escape(sceneTitle)).Append("\",");
+                sb.Append("\"sceneDuration\":").Append(sceneDur.ToString("0.##", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"sceneElapsed\":").Append(elapsed.ToString("0.##", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"sceneProgress\":").Append((sceneDur > 0 ? (elapsed / sceneDur) : 0f).ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"subShotIndex\":").Append(subIdx).Append(',');
+                sb.Append("\"subShotCount\":").Append(subCnt);
+                sb.Append("},");
+            }
+
+            // Active "Edu_" props
+            sb.Append("\"activeProps\":[");
+            bool firstProp = true;
+            foreach (var go in GameObject.FindObjectsByType<GameObject>())
+            {
+                if (go == null || !go.name.StartsWith("Edu_")) continue;
+                if (!go.activeInHierarchy) continue;
+                if (!firstProp) sb.Append(',');
+                firstProp = false;
+                sb.Append('"').Append(Escape(go.name)).Append('"');
+            }
+            sb.Append("],");
+
+            // Probe + scan center positions
+            var probeMount = GameObject.Find("Probe Mount");
+            if (probeMount != null)
+            {
+                var pp = probeMount.transform.position;
+                sb.Append("\"probeMount\":{")
+                  .Append("\"x\":").Append(pp.x.ToString("0.###", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"y\":").Append(pp.y.ToString("0.###", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"z\":").Append(pp.z.ToString("0.###", CultureInfo.InvariantCulture))
+                  .Append("},");
+            }
+
+            sb.Append("\"sceneName\":\"").Append(Escape(SceneManager.GetActiveScene().name)).Append("\"");
+            sb.Append('}');
+            return sb.ToString();
         }
 
         // -- Tweak scene lighting (Key Light intensity + ambient)
@@ -562,6 +897,21 @@ namespace ScanMaster.UnitySimulation.Editor
                 sb.Append("\"currentStep\":").Append(idx).Append(',');
                 sb.Append("\"stepCount\":").Append(count).Append(',');
             }
+            var seq = FindRuntimeComponent("ScanMasterEducationalSequencer");
+            if (seq != null)
+            {
+                var t = seq.GetType();
+                int sceneIdx = (int)(t.GetProperty("CurrentSceneIndex")?.GetValue(seq) ?? -1);
+                float elapsed = (float)(t.GetProperty("SceneElapsed")?.GetValue(seq) ?? 0f);
+                bool isRun = (bool)(t.GetProperty("IsRunning")?.GetValue(seq) ?? false);
+                bool autoAdv = (bool)(t.GetProperty("AutoAdvance")?.GetValue(seq) ?? false);
+                float speed = (float)(t.GetProperty("GlobalSpeed")?.GetValue(seq) ?? 0f);
+                sb.Append("\"seqScene\":").Append(sceneIdx).Append(',');
+                sb.Append("\"seqElapsed\":").Append(elapsed.ToString("0.##", CultureInfo.InvariantCulture)).Append(',');
+                sb.Append("\"seqRunning\":").Append(isRun ? "true" : "false").Append(',');
+                sb.Append("\"seqAuto\":").Append(autoAdv ? "true" : "false").Append(',');
+                sb.Append("\"seqSpeed\":").Append(speed).Append(',');
+            }
             sb.Append("\"sceneName\":\"").Append(Escape(SceneManager.GetActiveScene().name)).Append("\"");
             sb.Append('}');
             return Resp(true, "State", sb.ToString());
@@ -574,7 +924,7 @@ namespace ScanMaster.UnitySimulation.Editor
             {
                 var t = asm.GetType("ScanMaster.UnitySimulation." + typeName, false);
                 if (t == null) continue;
-                return UnityEngine.Object.FindFirstObjectByType(t);
+                return UnityEngine.Object.FindAnyObjectByType(t);
             }
             return null;
         }
@@ -658,6 +1008,8 @@ namespace ScanMaster.UnitySimulation.Editor
             public bool setCamera;
             public bool setProgress;
             public bool setStage;
+            public string objectName;   // type name for add_component / invoke_method
+            public string name;         // method name for invoke_method
         }
 
         private sealed class PendingExtCmd

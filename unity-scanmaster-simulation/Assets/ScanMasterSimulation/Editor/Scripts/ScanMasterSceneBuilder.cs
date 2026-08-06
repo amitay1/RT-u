@@ -16,6 +16,8 @@ namespace ScanMaster.UnitySimulation.Editor
         private const string SourceModelDir = Root + "/Models/PW/Source";
         private const string GeneratedModelDir = Root + "/Models/Generated";
         private const string MaterialDir = Root + "/Materials";
+        private const string AudioDir = Root + "/Audio";
+        private const string EnglishNarrationPath = AudioDir + "/V2500_HPT_Disk_UnityNarration_EN.wav";
         private const string ScenePath = Root + "/Scenes/ScanMasterImmersionDemo.unity";
 
         private static readonly PartImportSpec[] Parts =
@@ -84,6 +86,7 @@ namespace ScanMaster.UnitySimulation.Editor
             EnsureFolder(Root, "Materials");
             EnsureFolder(Root, "Scenes");
             EnsureFolder(Root, "TrainingImages");
+            EnsureFolder(Root, "Audio");
         }
 
         private static void EnsureFolder(string parent, string child)
@@ -227,6 +230,7 @@ namespace ScanMaster.UnitySimulation.Editor
                 stage1 = CreateMeshObject("P&W V2500-A5 0765 / Stage 1", stage1Mesh, materials.Steel, partRoot);
                 FitRendererToMaxSize(stage1.GetComponent<Renderer>(), Parts[0].FitDiameterMeters);
                 PlaceRendererBottomAt(stage1.GetComponent<Renderer>(), 0.18f);
+                stage1.AddComponent<ScanMasterZoneSurfaceOverlay>();
             }
 
             if (meshes.TryGetValue(Parts[1].SourceFile, out var stage2Mesh))
@@ -309,6 +313,8 @@ namespace ScanMaster.UnitySimulation.Editor
 
             var cameraFocus = CreateCameraFocus(root.transform, turntable.transform, probeMount);
             var cameraOrbit = CreateCamera(root.transform, cameraFocus.transform);
+            CreateNarrationAudio(root.transform);
+            root.AddComponent<ScanMasterCinematicEnhancer>();
             SetPrivate(trainingGuide, "cameraOrbit", cameraOrbit);
             SetPrivate(trainingGuide, "cameraFocus", cameraFocus);
             Selection.activeObject = root;
@@ -737,10 +743,32 @@ namespace ScanMaster.UnitySimulation.Editor
             camera.nearClipPlane = 0.02f;
             camera.farClipPlane = 100f;
             camera.fieldOfView = 42f;
+            cameraObject.AddComponent<AudioListener>();
 
             var orbit = cameraObject.AddComponent<ScanMasterCameraOrbit>();
             SetPrivate(orbit, "target", target);
             return orbit;
+        }
+
+        private static void CreateNarrationAudio(Transform parent)
+        {
+            AssetDatabase.ImportAsset(EnglishNarrationPath, ImportAssetOptions.ForceUpdate);
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(EnglishNarrationPath);
+            if (clip == null)
+            {
+                Debug.LogWarning("Scan Master: English narration AudioClip was not found at " + EnglishNarrationPath);
+                return;
+            }
+
+            var narrationObject = new GameObject("English Training Narration");
+            narrationObject.transform.SetParent(parent, false);
+            var source = narrationObject.AddComponent<AudioSource>();
+            source.clip = clip;
+            source.playOnAwake = true;
+            source.loop = false;
+            source.volume = 1f;
+            source.spatialBlend = 0f;
+            source.priority = 16;
         }
 
         private static ScanMasterCameraFocus CreateCameraFocus(Transform parent, Transform partCenter, Transform probeMount)
@@ -820,62 +848,93 @@ namespace ScanMaster.UnitySimulation.Editor
 
             reader.ReadBytes(80);
             var triangleCount = reader.ReadUInt32();
-            var vertexCount = checked((int)triangleCount * 3);
-            var vertices = new Vector3[vertexCount];
-            var normals = new Vector3[vertexCount];
-            var indices = new int[vertexCount];
+            var vertices = new List<Vector3>(checked((int)triangleCount));
+            var indices = new List<int>(checked((int)triangleCount * 3));
+            var welded = new Dictionary<QuantizedVertexKey, int>(checked((int)triangleCount));
 
             for (uint i = 0; i < triangleCount; i++)
             {
-                var normal = ReadVector(reader);
-                var baseIndex = checked((int)i * 3);
-                vertices[baseIndex] = ReadVector(reader);
-                vertices[baseIndex + 1] = ReadVector(reader);
-                vertices[baseIndex + 2] = ReadVector(reader);
-
-                normals[baseIndex] = normal;
-                normals[baseIndex + 1] = normal;
-                normals[baseIndex + 2] = normal;
-                indices[baseIndex] = baseIndex;
-                indices[baseIndex + 1] = baseIndex + 1;
-                indices[baseIndex + 2] = baseIndex + 2;
+                ReadVector(reader); // STL face normal. We recalculate smooth normals after welding.
+                var a = ReadVector(reader);
+                var b = ReadVector(reader);
+                var c = ReadVector(reader);
+                indices.Add(GetOrAddVertex(a, vertices, welded));
+                indices.Add(GetOrAddVertex(b, vertices, welded));
+                indices.Add(GetOrAddVertex(c, vertices, welded));
                 reader.ReadUInt16();
             }
 
             var mesh = new Mesh
             {
                 name = meshName,
-                indexFormat = vertexCount > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16
+                indexFormat = vertices.Count > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16
             };
-            mesh.vertices = vertices;
-            mesh.triangles = indices;
-            mesh.normals = normals;
+            mesh.vertices = vertices.ToArray();
+            mesh.triangles = indices.ToArray();
             mesh.RecalculateBounds();
-
-            if (HasWeakNormals(normals))
-            {
-                mesh.RecalculateNormals();
-            }
+            mesh.RecalculateNormals();
+            mesh.RecalculateTangents();
+            mesh.Optimize();
 
             return mesh;
         }
 
-        private static bool HasWeakNormals(IReadOnlyList<Vector3> normals)
+        private static int GetOrAddVertex(
+            Vector3 value,
+            List<Vector3> vertices,
+            Dictionary<QuantizedVertexKey, int> welded)
         {
-            for (var i = 0; i < normals.Count; i += 97)
+            var key = new QuantizedVertexKey(value);
+            if (welded.TryGetValue(key, out var index))
             {
-                if (normals[i].sqrMagnitude < 0.25f)
-                {
-                    return true;
-                }
+                return index;
             }
 
-            return false;
+            index = vertices.Count;
+            vertices.Add(value);
+            welded.Add(key, index);
+            return index;
         }
 
         private static Vector3 ReadVector(BinaryReader reader)
         {
             return new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+        }
+
+        private readonly struct QuantizedVertexKey : IEquatable<QuantizedVertexKey>
+        {
+            private const float Scale = 10000f;
+            private readonly int x;
+            private readonly int y;
+            private readonly int z;
+
+            public QuantizedVertexKey(Vector3 value)
+            {
+                x = Mathf.RoundToInt(value.x * Scale);
+                y = Mathf.RoundToInt(value.y * Scale);
+                z = Mathf.RoundToInt(value.z * Scale);
+            }
+
+            public bool Equals(QuantizedVertexKey other)
+            {
+                return x == other.x && y == other.y && z == other.z;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is QuantizedVertexKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = x;
+                    hash = (hash * 397) ^ y;
+                    hash = (hash * 397) ^ z;
+                    return hash;
+                }
+            }
         }
     }
 }
