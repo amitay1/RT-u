@@ -127,3 +127,6 @@ training-videos/assets/**/animations/
 **/*-private-key.pem
 **/*private*.pem
 !**/*public*.pem
+
+# Claude Code scratch worktrees — tool artifacts, never source
+.claude/worktrees/
