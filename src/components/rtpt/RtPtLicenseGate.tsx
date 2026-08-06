@@ -23,6 +23,7 @@ import {
   useRtPtLicense,
   type RtPtLicenseStatusCode,
 } from "@/contexts/RtPtLicenseContext";
+import { RonexBrandMark } from "@/components/rtpt/RonexBrandMark";
 
 interface RtPtLicenseGateProps {
   children: ReactNode;
@@ -229,17 +230,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
     <main className="h-full min-h-0 w-full overflow-auto bg-background text-foreground">
       <div className="mx-auto flex min-h-full w-full max-w-[1240px] flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-5">
-          <div className="flex items-center gap-3.5">
-            <div className="workbench-brand-mark h-11 w-11 shrink-0">
-              <ScanLine className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div>
-              <div className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-primary">
-                RT Inspector
-              </div>
-              <div className="mt-0.5 text-sm text-muted-foreground">Controlled technique workspace</div>
-            </div>
-          </div>
+          <RonexBrandMark variant="page" />
           <div className="flex items-center gap-2 rounded-full border border-border/80 bg-card/70 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
             <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
             Offline license validation

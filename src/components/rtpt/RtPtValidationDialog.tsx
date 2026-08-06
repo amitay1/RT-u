@@ -106,6 +106,7 @@ const TAB_LABELS: Record<string, string> = {
   materials: "Materials",
   surface: "Surface preparation",
   application: "Application",
+  removal: "Application & removal",
   development: "Development",
   conditions: "Inspection conditions",
   postcleaning: "Post-cleaning",

@@ -34,6 +34,7 @@ import { useRtPtInspectionReportState } from "@/hooks/useRtPtInspectionReportSta
 import { useSheetPersistence } from "@/hooks/useSheetPersistence";
 import { decodeRtPtDocument, fingerprintRtPtContent } from "@/lib/rtPtDocumentCodec";
 import { validateRtPtDocument, type RtPtValidationIssue } from "@/lib/rtPtValidation";
+import { resolveRtPtWorkflowTab } from "@/lib/rtPtWorkflow";
 import type {
   PersistedTechniqueSheetData,
   TechniqueSheetRecord,
@@ -841,11 +842,7 @@ const Index = () => {
         validation={rtPtValidation}
         documentStatus={rtPtDocument.status}
         onSelectIssue={(issue) => {
-          const workspaceTab = issue.tab === "source"
-            ? ndtMethod === "RT-Film" ? "equipment" : "exposure"
-            : issue.tab === "storage"
-              ? "processing"
-              : issue.tab;
+          const workspaceTab = resolveRtPtWorkflowTab(ndtMethod, issue.tab);
           rtPtWorkspace.setActiveTab(ndtMethod, workspaceTab);
           setValidationDialogOpen(false);
           window.setTimeout(() => {

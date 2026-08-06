@@ -1,10 +1,24 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RtPtControlApprovalTab } from '@/components/rtpt/RtPtControlApprovalTab';
+import { RtPtWorkflowOverview } from '@/components/rtpt/RtPtWorkflowOverview';
 import type { RtPtWorkspaceController } from '@/hooks/useRtPtWorkspaceState';
-import { BookOpenCheck, Camera, Droplets, Film, ShieldCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookOpenCheck,
+  Camera,
+  Check,
+  Droplets,
+  Film,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react';
 import { RT_PT_METHOD_LABEL, RT_PT_REFERENCE_SUGGESTIONS, type RtPtMethod } from '@/types/rtPtDocument';
 import type { RtPtValidationSummary } from '@/lib/rtPtValidation';
+import {
+  buildRtPtWorkflowSnapshot,
+  type RtPtWorkflowTabDefinition,
+} from '@/lib/rtPtWorkflow';
 
 import { RtFilmGeneralTab } from '@/components/tabs/rt-film/RtFilmGeneralTab';
 import { RtFilmExposureTab } from '@/components/tabs/rt-film/RtFilmExposureTab';
@@ -54,13 +68,7 @@ const WORKSPACE_DISPLAY_LABEL: Record<RtPtMethod, string> = {
   PT: 'Penetrant Technique',
 };
 
-interface TechniqueTabDefinition {
-  value: string;
-  label: string;
-  shortLabel: string;
-}
-
-const TAB_DEFINITIONS: Record<RtPtMethod, ReadonlyArray<TechniqueTabDefinition>> = {
+const TAB_DEFINITIONS: Record<RtPtMethod, ReadonlyArray<RtPtWorkflowTabDefinition>> = {
   'RT-Film': [
     { value: 'general', label: 'General', shortLabel: 'General' },
     { value: 'exposure', label: 'Exposure Defaults', shortLabel: 'Exposure' },
@@ -106,21 +114,26 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
   const tabs = TAB_DEFINITIONS[method];
   const activeStep = Math.max(0, tabs.findIndex((tab) => tab.value === activeTab));
   const activeTabRef = useRef<HTMLButtonElement | null>(null);
-  const tabIssueCounts = useMemo(() => {
-    const counts = new Map<string, { errors: number; warnings: number }>();
-    for (const issue of validation?.issues ?? []) {
-      const tab = issue.tab === 'source'
-        ? method === 'RT-Film' ? 'equipment' : 'exposure'
-        : issue.tab === 'storage'
-          ? 'processing'
-          : issue.tab;
-      const current = counts.get(tab) ?? { errors: 0, warnings: 0 };
-      if (issue.severity === 'error') current.errors += 1;
-      else current.warnings += 1;
-      counts.set(tab, current);
-    }
-    return counts;
-  }, [method, validation?.issues]);
+  const workflowSnapshot = useMemo(
+    () => validation
+      ? buildRtPtWorkflowSnapshot(method, tabs, activeTab, validation)
+      : null,
+    [activeTab, method, tabs, validation],
+  );
+  const tabWorkflowStates = useMemo(
+    () => new Map(workflowSnapshot?.tabs.map((tab) => [tab.value, tab]) ?? []),
+    [workflowSnapshot],
+  );
+
+  const selectWorkflowTab = (tab: string) => {
+    setActiveTab(method, tab);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('[data-rtpt-workspace-scroll]')?.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+    });
+  };
 
   useEffect(() => {
     const animationFrame = window.requestAnimationFrame(() => {
@@ -174,15 +187,22 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
               </div>
             </div>
           </div>
+          {workflowSnapshot && (
+            <RtPtWorkflowOverview
+              snapshot={workflowSnapshot}
+              onSelectTab={selectWorkflowTab}
+            />
+          )}
           <div className="workbench-tabstrip workbench-tabstrip-compact sticky top-0 z-10 w-full max-w-full overflow-x-auto overscroll-x-contain" aria-label="Technique workflow steps">
             <TabsList className={workbenchTabListClass} aria-label={`${RT_PT_METHOD_LABEL[method]} sections`}>
               {tabs.map((tab, index) => {
-                const issueCount = tabIssueCounts.get(tab.value) ?? { errors: 0, warnings: 0 };
+                const workflowState = tabWorkflowStates.get(tab.value);
+                const issueCount = workflowState ?? { errors: 0, warnings: 0, status: 'ready' as const };
                 const statusText = issueCount.errors > 0
                   ? `${issueCount.errors} required correction${issueCount.errors === 1 ? '' : 's'}`
                   : issueCount.warnings > 0
                     ? `${issueCount.warnings} warning${issueCount.warnings === 1 ? '' : 's'}`
-                    : '';
+                    : workflowSnapshot ? 'section clear' : '';
                 return (
                   <TabsTrigger
                     key={tab.value}
@@ -192,7 +212,20 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
                     aria-label={`${tab.label}${statusText ? `, ${statusText}` : ''}`}
                     title={`${tab.label}${statusText ? ` — ${statusText}` : ''}`}
                   >
-                    <span className="tab-step-index" aria-hidden="true">{index + 1}</span>
+                    <span
+                      className={`tab-step-index ${
+                        workflowSnapshot ? `tab-step-index--${issueCount.status}` : ''
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {!workflowSnapshot
+                        ? index + 1
+                        : issueCount.status === 'correction'
+                          ? <ShieldAlert className="h-3 w-3" />
+                          : issueCount.status === 'review'
+                            ? <AlertTriangle className="h-3 w-3" />
+                            : <Check className="h-3 w-3" />}
+                    </span>
                     <span className="2xl:hidden" aria-hidden="true">{tab.shortLabel}</span>
                     <span className="hidden 2xl:inline" aria-hidden="true">{tab.label}</span>
                     {(issueCount.errors > 0 || issueCount.warnings > 0) && (

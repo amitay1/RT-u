@@ -71,6 +71,10 @@ All colors MUST be HSL.
     --app-font-family: "Segoe UI Variable", "Segoe UI", "Bahnschrift", sans-serif;
     --app-heading-font-family: "Segoe UI Variable", "Segoe UI", "Bahnschrift", sans-serif;
     --app-mono-font-family: "Cascadia Mono", "Consolas", "JetBrains Mono", monospace;
+    /* Wordmark face: DIN-style industrial grotesque. Bahnschrift ships with Windows,
+       so the desktop build never needs a downloaded web font. */
+    --app-brand-font-family: "Bahnschrift", "DIN Next LT Pro", "Avenir Next Condensed",
+      "Segoe UI Variable Display", "Segoe UI", "DejaVu Sans Condensed", sans-serif;
 
     --radius: 0.75rem;
 
@@ -529,6 +533,24 @@ All colors MUST be HSL.
     font-weight: 700;
   }
 
+  .tab-step-index--ready {
+    border-color: hsl(var(--success) / 0.42);
+    background: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
+  }
+
+  .tab-step-index--correction {
+    border-color: hsl(var(--destructive) / 0.42);
+    background: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive));
+  }
+
+  .tab-step-index--review {
+    border-color: hsl(var(--warning) / 0.46);
+    background: hsl(var(--warning) / 0.12);
+    color: hsl(var(--warning));
+  }
+
   .workbench-tabstrip [role="tab"]:hover {
     background: hsl(var(--surface-hover) / 0.82) !important;
     color: hsl(var(--foreground)) !important;
@@ -593,6 +615,79 @@ All colors MUST be HSL.
     border-radius: calc(var(--radius) - 0.125rem);
     background: hsl(var(--accent-soft));
     color: hsl(var(--primary));
+  }
+
+  /* RONEX RADIOGRAPHYC TEST DR/CR/FILM — workstation wordmark */
+  .ronex-brand-mark {
+    display: grid;
+    place-items: center;
+    border: 1px solid hsl(var(--accent-border));
+    border-radius: calc(var(--radius) - 0.125rem);
+    background: linear-gradient(140deg, hsl(var(--accent-soft)) 0%, hsl(var(--primary) / 0.18) 100%);
+    color: hsl(var(--primary));
+    box-shadow: inset 0 1px 0 hsl(var(--background) / 0.55), var(--shadow-sm);
+  }
+
+  .ronex-brand-word {
+    font-family: var(--app-brand-font-family);
+    font-weight: 700;
+    font-variation-settings: "wght" 700, "wdth" 87.5;
+    font-feature-settings: "kern" 1, "liga" 0;
+    font-optical-sizing: auto;
+    line-height: 1;
+    letter-spacing: 0.22em;
+    /* letter-spacing pads the right edge of the last glyph — pull it back so the
+       wordmark stays optically aligned with the tagline below it. */
+    margin-right: -0.22em;
+    color: hsl(var(--primary));
+    background-image: linear-gradient(96deg, hsl(var(--primary)) 0%, hsl(var(--foreground)) 78%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  @supports (-webkit-background-clip: text) or (background-clip: text) {
+    .ronex-brand-word {
+      color: transparent;
+    }
+  }
+
+  .ronex-brand-tagline {
+    font-family: var(--app-brand-font-family);
+    font-weight: 600;
+    font-variation-settings: "wght" 600, "wdth" 82.5;
+    line-height: 1;
+    letter-spacing: 0.26em;
+    margin-right: -0.26em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .ronex-brand-divider {
+    width: 1px;
+    height: 0.7rem;
+    background: hsl(var(--border));
+  }
+
+  .ronex-brand-modes {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid hsl(var(--primary) / 0.28);
+    border-radius: 999px;
+    background: hsl(var(--primary) / 0.08);
+    color: hsl(var(--primary));
+    font-family: var(--app-brand-font-family);
+    font-weight: 700;
+    font-variation-settings: "wght" 700, "wdth" 87.5;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: 0.14em;
+  }
+
+  .ronex-brand-modes i {
+    font-style: normal;
+    opacity: 0.45;
   }
 
   .field-shell {

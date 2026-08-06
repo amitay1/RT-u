@@ -15,7 +15,6 @@ import {
   Film,
   Camera,
   Droplets,
-  ScanLine,
   FilePlus2,
   KeyRound,
   Loader2,
@@ -28,6 +27,7 @@ import { useSavedCards } from "@/hooks/useSavedCards";
 import type { SavedCard } from "@/contexts/SavedCardsContext";
 import { RT_PT_METHOD_LABEL, type RtPtMethod } from "@/types/rtPtDocument";
 import { RtPtLicenseCenterDialog } from "@/components/rtpt/RtPtLicenseCenterDialog";
+import { RonexBrandMark } from "@/components/rtpt/RonexBrandMark";
 import { useRtPtLicense } from "@/contexts/RtPtLicenseContext";
 
 type ElectronBridge = {
@@ -118,15 +118,7 @@ export const Toolbar = ({
   return (
     <>
       <header className="workbench-toolbar z-30 flex min-h-16 flex-shrink-0 items-center gap-2 overflow-x-auto px-2 py-2 md:gap-3 md:px-3 xl:px-4">
-        <div className="hidden min-w-fit items-center gap-3 xl:flex">
-          <div className="workbench-brand-mark h-10 w-10">
-            <ScanLine className="h-5 w-5" />
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-tight">RT Inspector</div>
-            <div className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Technique workstation</div>
-          </div>
-        </div>
+        <RonexBrandMark className="hidden md:flex" />
 
         <div className="workbench-group hidden min-w-fit items-center gap-2 px-3 py-2 sm:flex" aria-label={`Current method: ${RT_PT_METHOD_LABEL[ndtMethod]}`}>
           <MethodIcon className="h-4 w-4 text-primary" />
