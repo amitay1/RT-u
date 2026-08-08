@@ -4,6 +4,10 @@ import {
   calculateDigitalGeometricUnsharpness,
   calculateFilmGeometricUnsharpness,
 } from '@/lib/rtGeometry';
+import {
+  calculateRtDigitalPlanning,
+  resolveRtDigitalInspectionArea,
+} from '@/lib/rtDigitalPlanning';
 import { normalizeRtSetupDiagram, type RtSetupDiagramInput } from '@/lib/rtPtSetupDiagram';
 import {
   calculateExposureMas,
@@ -33,6 +37,7 @@ import {
   type RtPtApprovalRole,
   type RtPtDocumentV3,
 } from '@/types/rtPtDocument';
+import type { RtDigitalPlanning } from '@/types/rtDigital';
 
 type PdfRow = [string, string];
 
@@ -58,6 +63,8 @@ const APPROVAL_ROLE_LABEL: Record<RtPtApprovalRole, string> = {
   reviewed: 'Reviewed by',
   'cognizant-engineering': 'Cognizant engineering',
   'ndt-level-3': 'NDT Level III',
+  quality: 'Quality',
+  customer: 'Customer',
 };
 
 const hasValue = (value: string | number | boolean | null | undefined): boolean => (
@@ -450,6 +457,293 @@ const digitalDefaultRows = (
   ['Default Notes', formatValue(defaults.notes)],
 ];
 
+const digitalStatus = (status: { reference: string; status: string; date: string; dueDate: string }): string => (
+  `${formatValue(status.reference)} / ${formatValue(status.status)} / ${formatValue(status.date)} to ${formatValue(status.dueDate)}`
+);
+
+const digitalPoint = (point: { x: string | number; y: string | number }): string => (
+  `x ${formatValue(point.x)}, y ${formatValue(point.y)}`
+);
+
+const digitalRegion = (region: {
+  x: string | number;
+  y: string | number;
+  width: string | number;
+  height: string | number;
+  rotationDegrees: string | number;
+}): string => (
+  `${digitalPoint(region)}, width ${formatValue(region.width)}, height ${formatValue(region.height)}, rotation ${formatValue(region.rotationDegrees, 'deg')}`
+);
+
+function digitalPlanningCalculation(planning: RtDigitalPlanning) {
+  const source = planning.sourceSelection.snapshot;
+  const detector = planning.detectorSelection.snapshot;
+  const focalSpot = source?.focalSpots.find((option) => option.id === planning.sourceSelection.focalSpotOptionId);
+  const area = resolveRtDigitalInspectionArea(planning.part, planning.geometry.inspectionAreaId);
+  if (!source || !detector || !focalSpot || !area) return null;
+  return calculateRtDigitalPlanning({
+    geometry: {
+      distanceBasis: planning.geometry.distanceBasis,
+      sod: planning.geometry.sod,
+      sdd: planning.geometry.sdd,
+      odd: planning.geometry.odd,
+      focalSpotSize: { value: focalSpot.size, unit: focalSpot.unit },
+      requiredMaximumUg: planning.geometry.requiredMaximumUg,
+      detectorPixelSize: { value: detector.pixelSize, unit: detector.pixelSizeUnit },
+      detectorActiveWidth: { value: detector.activeWidth, unit: detector.activeAreaUnit },
+      detectorActiveHeight: { value: detector.activeHeight, unit: detector.activeAreaUnit },
+      requiredMaximumEffectivePixel: planning.geometry.requiredMaximumEffectivePixel,
+    },
+    inspectionAreaWidth: { value: area.width, unit: area.unit },
+    inspectionAreaHeight: { value: area.height, unit: area.unit },
+    requiredOverlapPercent: planning.geometry.requiredOverlapPercent,
+    excessiveOverlapThresholdPercent: planning.geometry.excessiveOverlapThresholdPercent,
+  });
+}
+
+const structuredDigitalSections = (planning: RtDigitalPlanning | undefined): RtPtPdfSection[] => {
+  if (!planning) {
+    return [{
+      title: 'Structured Digital Planning',
+      rows: [[
+        'Controlled Planning Status',
+        'Unavailable in this legacy V3 draft; controlled approval and release are blocked.',
+      ]],
+    }];
+  }
+
+  const { part, sourceSelection, detectorSelection, geometry, visual, iqiRules } = planning;
+  const partGeometryRows: PdfRow[] = [
+    ['Planned Geometry Type', formatValue(part.geometry.geometryType)],
+    ['Planned Geometry Unit', formatValue(part.geometry.unit)],
+  ];
+  switch (part.geometry.geometryType) {
+    case 'Flat / Plate':
+    case 'Rectangular':
+      partGeometryRows.push(
+        ['Planned Length', formatValue(part.geometry.length, part.geometry.unit)],
+        ['Planned Width', formatValue(part.geometry.width, part.geometry.unit)],
+        ['Planned Height', formatValue(part.geometry.height, part.geometry.unit)],
+      );
+      break;
+    case 'Pipe / Tube':
+    case 'Cylinder':
+    case 'Ring':
+      partGeometryRows.push(
+        ['Planned Outside Diameter', formatValue(part.geometry.outsideDiameter, part.geometry.unit)],
+        ['Planned Inside Diameter', formatValue(part.geometry.insideDiameter, part.geometry.unit)],
+        ['Planned Length', formatValue(part.geometry.length, part.geometry.unit)],
+      );
+      break;
+    case 'Cone':
+      partGeometryRows.push(
+        ['Planned Major Diameter', formatValue(part.geometry.majorDiameter, part.geometry.unit)],
+        ['Planned Minor Diameter', formatValue(part.geometry.minorDiameter, part.geometry.unit)],
+        ['Planned Height', formatValue(part.geometry.height, part.geometry.unit)],
+        ['Planned Wall Thickness', formatValue(part.geometry.wallThickness, part.geometry.unit)],
+      );
+      break;
+    case 'Complex Casting':
+      partGeometryRows.push(
+        ['Planned Bounding Length', formatValue(part.geometry.boundingLength, part.geometry.unit)],
+        ['Planned Bounding Width', formatValue(part.geometry.boundingWidth, part.geometry.unit)],
+        ['Planned Bounding Height', formatValue(part.geometry.boundingHeight, part.geometry.unit)],
+        ['Required Inspection Envelope', formatValue(part.geometry.inspectionEnvelope)],
+      );
+      break;
+    case 'Other':
+      partGeometryRows.push(['Planned Geometry Description', formatValue(part.geometry.description)]);
+      break;
+    default:
+      break;
+  }
+
+  const thicknessRows: PdfRow[] = [
+    ['Planned Thickness Mode', formatValue(part.thickness.mode)],
+    ['Planned Thickness Unit', formatValue(part.thickness.unit)],
+  ];
+  if (part.thickness.mode === 'Single Thickness') {
+    thicknessRows.push(['Planned Thickness', formatValue(part.thickness.thickness, part.thickness.unit)]);
+  } else if (part.thickness.mode === 'Thickness Range') {
+    thicknessRows.push(['Planned Thickness Range', formatRange(part.thickness.minimum, part.thickness.maximum, part.thickness.unit)]);
+  } else if (part.thickness.mode === 'Multiple Thickness Zones') {
+    part.thickness.zones.forEach((zone, index) => thicknessRows.push(
+      [`Zone ${index + 1} ID / Description`, `${formatValue(zone.zoneId)} / ${formatValue(zone.description)}`],
+      [`Zone ${index + 1} Planned Range / Governing`, `${formatRange(zone.minimum, zone.maximum, part.thickness.unit)} / ${formatValue(zone.governing, part.thickness.unit)}`],
+      [`Zone ${index + 1} Normalized Position`, digitalRegion(zone.position)],
+    ));
+  }
+
+  const inspectionRows: PdfRow[] = [
+    ['Planned Inspection-area Mode', formatValue(part.inspectionAreas.mode)],
+    ['Part Orientation', formatValue(part.partOrientation)],
+    ['Datum / Reference', formatValue(part.datumReference)],
+  ];
+  part.inspectionAreas.areas.forEach((area, index) => inspectionRows.push(
+    [`Area ${index + 1} Controlled ID / Description`, `${formatValue(area.areaId)} / ${formatValue(area.description)}`],
+    [`Area ${index + 1} Planned Size`, `${formatValue(area.width, area.unit)} x ${formatValue(area.height, area.unit)}`],
+    [`Area ${index + 1} Normalized Position`, digitalRegion(area.position)],
+  ));
+  part.attachments.forEach((attachment, index) => inspectionRows.push(
+    [`Attachment ${index + 1} Metadata`, `${formatValue(attachment.id)} / ${formatValue(attachment.name)} / ${formatValue(attachment.mimeType)} / ${formatValue(attachment.size, 'bytes')}`],
+    [`Attachment ${index + 1} SHA-256`, formatValue(attachment.sha256)],
+  ));
+
+  const sourceSnapshot = sourceSelection.snapshot;
+  const sourceRows: PdfRow[] = [
+    ['Catalog Record / Revision', `${formatValue(sourceSelection.catalogRecordId)} / ${formatValue(sourceSelection.catalogRevisionId)} / ${formatValue(sourceSelection.catalogRevision)}`],
+    ['Selected Focal-spot Mode', formatValue(sourceSelection.focalSpotOptionId)],
+    ['Selected Filter IDs', formatValue(sourceSelection.filterOptionIds.join(', '))],
+    ['Additional Filter Instruction', formatValue(sourceSelection.extraFilter)],
+  ];
+  if (sourceSnapshot) sourceRows.push(
+    ['Immutable Source Identity', `${formatValue(sourceSnapshot.manufacturer)} / ${formatValue(sourceSnapshot.model)} / ${formatValue(sourceSnapshot.serialNumber)}`],
+    ['Qualified kV Range', formatRange(sourceSnapshot.kvMinimum, sourceSnapshot.kvMaximum, 'kV')],
+    ['Qualified Current Range', formatRange(sourceSnapshot.currentMinimum, sourceSnapshot.currentMaximum, 'mA')],
+    ['Maximum Source Power', formatValue(sourceSnapshot.maximumPowerKw, 'kW')],
+    ['Available Focal Spots', sourceSnapshot.focalSpots.map((option) => `${option.id}: ${option.label} (${formatValue(option.size, option.unit)})`).join('; ') || 'Not specified'],
+    ['Available Filters', sourceSnapshot.filters.map((option) => `${option.id}: ${option.label} - ${option.description}`).join('; ') || 'Not specified'],
+    ['Source Calibration', digitalStatus(sourceSnapshot.calibration)],
+    ['Source Qualification', digitalStatus(sourceSnapshot.qualification)],
+  );
+
+  const detectorSnapshot = detectorSelection.snapshot;
+  const detectorRows: PdfRow[] = [
+    ['Catalog Record / Revision', `${formatValue(detectorSelection.catalogRecordId)} / ${formatValue(detectorSelection.catalogRevisionId)} / ${formatValue(detectorSelection.catalogRevision)}`],
+    ['Selected Detector Mode', formatValue(detectorSelection.detectorMode)],
+    ['Selected Detector Orientation', formatValue(detectorSelection.orientation)],
+  ];
+  if (detectorSnapshot) detectorRows.push(
+    ['Immutable Detector Identity', `${formatValue(detectorSnapshot.manufacturer)} / ${formatValue(detectorSnapshot.model)} / ${formatValue(detectorSnapshot.serialNumber)}`],
+    ['Active Area', `${formatValue(detectorSnapshot.activeWidth, detectorSnapshot.activeAreaUnit)} x ${formatValue(detectorSnapshot.activeHeight, detectorSnapshot.activeAreaUnit)}`],
+    ['Matrix / Pixel / Bit Depth', `${formatValue(detectorSnapshot.matrixColumns)} x ${formatValue(detectorSnapshot.matrixRows)} / ${formatValue(detectorSnapshot.pixelSize, detectorSnapshot.pixelSizeUnit)} / ${formatValue(detectorSnapshot.bitDepth, 'bit')}`],
+    ['Detector SRb', formatValue(detectorSnapshot.detectorSrb, detectorSnapshot.detectorSrbUnit)],
+    ['Qualified Modes', detectorSnapshot.modes.join(', ') || 'Not specified'],
+    ['Detector Calibration', digitalStatus(detectorSnapshot.calibration)],
+    ['Detector Bad-pixel Map', digitalStatus(detectorSnapshot.badPixelMap)],
+    ['Detector Qualification', digitalStatus(detectorSnapshot.qualification)],
+  );
+
+  const calculation = digitalPlanningCalculation(planning);
+  const calculatedRows: PdfRow[] = [
+    ['Controlled Distance Basis', formatValue(geometry.distanceBasis)],
+    ['Controlled SOD / SDD / ODD', `${formatValue(geometry.sod.value, geometry.sod.unit)} / ${formatValue(geometry.sdd.value, geometry.sdd.unit)} / ${formatValue(geometry.odd.value, geometry.odd.unit)}`],
+    ['Available Source Distance', formatValue(geometry.availableSourceDistance.value, geometry.availableSourceDistance.unit)],
+    ['Required Maximum Ug', formatValue(geometry.requiredMaximumUg.value, geometry.requiredMaximumUg.unit)],
+    ['Required Maximum Effective Pixel', formatValue(geometry.requiredMaximumEffectivePixel.value, geometry.requiredMaximumEffectivePixel.unit)],
+    ['Required / Excessive Overlap', `${formatValue(geometry.requiredOverlapPercent, '%')} / ${formatValue(geometry.excessiveOverlapThresholdPercent, '%')}`],
+    ['Level III Planning Approval Reference', formatValue(geometry.levelThreeApprovalReference)],
+  ];
+  if (calculation) {
+    const selectedOrientation = detectorSelection.orientation === 'Portrait' || detectorSelection.orientation === 'Landscape'
+      ? detectorSelection.orientation
+      : calculation.orientation.preferredOrientation;
+    const selected = selectedOrientation === 'Portrait'
+      ? calculation.orientation.portrait
+      : calculation.orientation.landscape;
+    calculatedRows.push(
+      ['Calculated Geometry Status', calculation.geometry.status],
+      ['Calculated SOD / SDD / ODD', `${formatValue(calculation.geometry.sodMm, 'mm')} / ${formatValue(calculation.geometry.sddMm, 'mm')} / ${formatValue(calculation.geometry.oddMm, 'mm')}`],
+      ['Calculated Magnification', formatValue(calculation.geometry.magnification, 'x')],
+      ['Calculated Ug / Requirement Status', `${formatValue(calculation.geometry.ugMm, 'mm')} / ${formatValue(calculation.geometry.ugStatus)}`],
+      ['Calculated Effective Object Pixel / Status', `${formatValue(calculation.geometry.effectiveObjectPixelMm, 'mm')} / ${formatValue(calculation.geometry.resolutionStatus)}`],
+      ['Calculated Preferred / Applied Orientation', `${formatValue(calculation.orientation.preferredOrientation)} / ${formatValue(selectedOrientation)}`],
+      ['Calculated Object FOV', `${formatValue(selected.objectFovWidthMm, 'mm')} x ${formatValue(selected.objectFovHeightMm, 'mm')}`],
+      ['Calculated Exposure Count', formatValue(selected.coverage.totalExposureCount)],
+      ['Calculated Coverage Warnings', selected.coverage.warnings.join(', ') || 'None'],
+    );
+    selected.coverage.grid.forEach((descriptor) => calculatedRows.push([
+      `Calculated ${descriptor.id} Grid Placement`,
+      `row ${descriptor.row}, column ${descriptor.column}, center ${descriptor.centerXmm} x ${descriptor.centerYmm} mm, ${descriptor.orientation}`,
+    ]));
+  } else {
+    calculatedRows.push(['Calculated Geometry Status', 'Incomplete - controlled catalog and inspection inputs are required.']);
+  }
+
+  const iqiRows: PdfRow[] = [
+    ['Rule Catalog / Revision', `${formatValue(iqiRules.basis.catalogRecordId)} / ${formatValue(iqiRules.basis.catalogRevisionId)} / ${formatValue(iqiRules.basis.catalogRevision)}`],
+    ['Required Standard / Revision', `${formatValue(iqiRules.basis.standard)} / ${formatValue(iqiRules.basis.standardRevision)}`],
+    ['Required IQI Type / Material Group', `${formatValue(iqiRules.basis.iqiType)} / ${formatValue(iqiRules.basis.materialGroup)}`],
+    ['Required Placement Rule', formatValue(iqiRules.basis.placementRule)],
+  ];
+  const iqiSnapshot = iqiRules.basis.snapshot;
+  if (iqiSnapshot) {
+    iqiRows.push(
+      ['Immutable IQI Rule Snapshot', `${formatValue(iqiSnapshot.standard)} / ${formatValue(iqiSnapshot.standardRevision)} / ${formatValue(iqiSnapshot.materialGroup)} / ${formatValue(iqiSnapshot.iqiType)}`],
+      ['Snapshot Technique / Placement', `${formatValue(iqiSnapshot.wallTechnique)} / ${formatValue(iqiSnapshot.imageTechnique)} / ${formatValue(iqiSnapshot.placementRule)}`],
+    );
+    iqiSnapshot.rules.forEach((rule, index) => iqiRows.push(
+      [`Snapshot IQI Rule ${index + 1} Range`, `${formatRange(rule.minimumThickness, rule.maximumThickness, iqiSnapshot.thicknessUnit)} / ${formatValue(rule.iqiMaterial)} / ${formatValue(rule.designation)}`],
+      [`Snapshot IQI Rule ${index + 1} Requirement`, `${formatValue(rule.requiredWire || rule.requiredHole)} / ${formatValue(rule.requiredSensitivity)} / ${formatValue(rule.placement)} / ${formatValue(rule.shimRequirement)}`],
+    ));
+  }
+  iqiRules.zoneOutputs.forEach((output, index) => iqiRows.push(
+    [`IQI Zone Output ${index + 1}`, `${formatValue(output.thicknessZoneId)} / ${formatValue(output.designation)} / ${formatValue(output.governingThickness, output.thicknessUnit)}`],
+    [`IQI Zone Output ${index + 1} Requirement`, `${formatValue(output.iqiMaterial)} / ${formatValue(output.requiredWire || output.requiredHole)} / ${formatValue(output.requiredSensitivity)} / ${formatValue(output.placement)}`],
+    [`IQI Zone Output ${index + 1} Shim / Governing / Override`, `${formatValue(output.shimRequirement)} / ${output.governing ? 'Yes' : 'No'} / ${formatValue(output.overrideId)}`],
+  ));
+
+  const processingRows: PdfRow[] = [
+    ['Permitted Processing Policy', formatValue(planning.processingPolicy.permittedProcessing)],
+    ['Prohibited Processing Policy', formatValue(planning.processingPolicy.prohibitedProcessing)],
+  ];
+  planning.viewingPresets.forEach((preset, index) => processingRows.push(
+    [`Viewing Preset ${index + 1} ID / Name`, `${formatValue(preset.id)} / ${formatValue(preset.name)}`],
+    [`Viewing Preset ${index + 1} Controls`, `WL ${formatValue(preset.windowLevel)}, WW ${formatValue(preset.windowWidth)}, zoom ${formatValue(preset.zoom)}, ${formatValue(preset.sharpness)}, LUT ${formatValue(preset.lut)}, invert ${preset.invert ? 'Yes' : 'No'}`],
+    [`Viewing Preset ${index + 1} Permitted Processing`, formatValue(preset.permittedProcessing)],
+  ));
+
+  const profileRows: PdfRow[] = [];
+  planning.acceptanceProfiles.forEach((profile, index) => profileRows.push(
+    [`Acceptance Profile ${index + 1} ID / Name`, `${formatValue(profile.id)} / ${formatValue(profile.name)}`],
+    [`Acceptance Profile ${index + 1} Basis`, `${formatValue(profile.standard)} / Rev ${formatValue(profile.revision)} / Clause ${formatValue(profile.applicableClause)}`],
+    [`Acceptance Profile ${index + 1} Class / Grade / Level`, `${formatValue(profile.acceptanceClass)} / ${formatValue(profile.grade)} / ${formatValue(profile.level)}`],
+    [`Acceptance Profile ${index + 1} Required Text`, formatValue(profile.requirementText)],
+  ));
+
+  const overrideRows: PdfRow[] = planning.overrides.length === 0
+    ? [['Planning Overrides', 'None']]
+    : planning.overrides.flatMap((override, index): PdfRow[] => [
+      [`Override ${index + 1} ID / Field`, `${formatValue(override.id)} / ${formatValue(override.fieldPath)}`],
+      [`Override ${index + 1} Calculated / Approved`, `${formatValue(override.calculatedValue)} / ${formatValue(override.approvedValue)}`],
+      [`Override ${index + 1} Reason`, formatValue(override.reason)],
+      [`Override ${index + 1} Level III Trace`, `${formatValue(override.approvedBy)} / ${formatValue(override.approvedAt)}`],
+    ]);
+
+  return [
+    {
+      title: 'Structured Planned DR Part Definition',
+      rows: [
+        ['Structured Part Identity', `${formatValue(part.partName)} / ${formatValue(part.partNumber)} / ${formatValue(part.vendorCode)} / Rev ${formatValue(part.revisionOrConfiguration)}`],
+        ['Material / Specification / Group', `${formatValue(part.material)} / ${formatValue(part.materialSpecification)} / ${formatValue(part.materialGroup)}`],
+        ['Manufacturing Process', formatValue(part.manufacturingProcess === 'Other' ? part.otherManufacturingProcess : part.manufacturingProcess)],
+        ['Required Technique', `${formatValue(part.technique.wallTechnique)} / ${formatValue(part.technique.imageTechnique === 'Other' ? part.technique.otherImageTechnique : part.technique.imageTechnique)}`],
+        ['Required Inspection Standard / Revision', `${formatValue(part.inspectionStandard)} / ${formatValue(part.inspectionStandardRevision)}`],
+        ...partGeometryRows,
+      ],
+    },
+    { title: 'Structured Planned Thickness Zones', rows: thicknessRows },
+    { title: 'Structured Inspection Areas and Attachment Metadata', rows: inspectionRows },
+    { title: 'Immutable X-ray Source Catalog Snapshot', rows: sourceRows },
+    { title: 'Immutable Detector Catalog Snapshot', rows: detectorRows },
+    { title: 'Calculated DR Geometry, FOV, Orientation, and Coverage', rows: calculatedRows },
+    {
+      title: 'Structured Visual Planning Template',
+      rows: [
+        ['Planned Source Position', digitalPoint(visual.sourcePosition)],
+        ['Planned Detector Position / Rotation', `${digitalPoint(visual.detectorPosition)} / ${formatValue(visual.detectorRotationDegrees, 'deg')}`],
+        ['Planned Beam Center / Angle', `${digitalPoint(visual.beamCenter)} / ${formatValue(visual.beamAngleDegrees, 'deg')}`],
+        ['Controlled Inspection-area Link', formatValue(visual.inspectionAreaId)],
+        ['Required Lead Markers', formatValue(visual.leadMarkers)],
+      ],
+    },
+    { title: 'Structured Required IQI Rule Basis and Zone Outputs', rows: iqiRows },
+    { title: 'Controlled Processing Policy and Viewing Presets', rows: processingRows },
+    { title: 'Controlled Acceptance Profile Library', rows: profileRows },
+    { title: 'Level III Planning Override Log', rows: overrideRows },
+  ];
+};
+
 const digitalSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Digital' }>): RtPtPdfSection[] => {
   const {
     general,
@@ -464,6 +758,7 @@ const digitalSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Digital
     acceptance,
     acquisitions,
     techniqueNotes,
+    planning,
   } = document.technique;
   const sections: RtPtPdfSection[] = [
     { title: 'Part and Technique Basis', rows: commonGeneralRows(general) },
@@ -558,6 +853,7 @@ const digitalSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Digital
       ],
     },
     { title: 'Acquisition Defaults - Planning Aid Only', rows: digitalDefaultRows(acquisitionDefaults, source) },
+    ...structuredDigitalSections(planning),
   ];
 
   acquisitions.forEach((acquisition, index) => {
@@ -595,6 +891,41 @@ const digitalSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Digital
       ['Marking Instructions', formatValue(acquisition.markingInstructions)],
       ['Planned Notes', formatValue(acquisition.notes)],
     );
+    const plan = acquisition.plan;
+    if (plan) {
+      rows.push(
+        ['Structured Plan ID', formatValue(plan.id)],
+        ['Calculated Grid Row / Column', `${formatValue(plan.gridPlacement.row)} / ${formatValue(plan.gridPlacement.column)}`],
+        ['Calculated Grid Center', `${formatValue(plan.gridPlacement.centerX, plan.gridPlacement.unit)} x ${formatValue(plan.gridPlacement.centerY, plan.gridPlacement.unit)}`],
+        ['Required Detector Orientation', formatValue(plan.gridPlacement.detectorOrientation)],
+        ['Planned Source Position', digitalPoint(plan.visual.sourcePosition)],
+        ['Planned Detector Position / Rotation', `${digitalPoint(plan.visual.detectorPosition)} / ${formatValue(plan.visual.detectorRotationDegrees, 'deg')}`],
+        ['Planned Beam Center / Angle', `${digitalPoint(plan.visual.beamCenter)} / ${formatValue(plan.visual.beamAngleDegrees, 'deg')}`],
+        ['Controlled Inspection-area Link', formatValue(plan.visual.inspectionAreaId)],
+        ['Required Lead Markers', formatValue(plan.visual.leadMarkers)],
+        ['Structured IQI Output Link', formatValue(plan.iqiAssignment.zoneOutputId)],
+        ['Required IQI Designation / Element', `${formatValue(plan.iqiAssignment.designation)} / ${formatValue(plan.iqiAssignment.requiredWire || plan.iqiAssignment.requiredHole)}`],
+        ['Required IQI Shim / Position', `${formatValue(plan.iqiAssignment.shimRequirement)} / ${formatValue(plan.iqiAssignment.positionDescription)} / ${digitalPoint(plan.iqiAssignment.position)}`],
+      );
+      if (plan.representativeImage) {
+        rows.push(
+          ['Optional Representative-image Metadata', `${formatValue(plan.representativeImage.id)} / ${formatValue(plan.representativeImage.name)} / ${formatValue(plan.representativeImage.mimeType)} / ${formatValue(plan.representativeImage.size, 'bytes')}`],
+          ['Representative-image SHA-256', formatValue(plan.representativeImage.sha256)],
+        );
+      } else {
+        rows.push(['Optional Representative-image Metadata', 'Not attached']);
+      }
+      plan.interpretationAreas.forEach((area, areaIndex) => rows.push(
+        [`IA ${areaIndex + 1} Controlled ID / Description`, `${formatValue(area.areaId)} / ${formatValue(area.description)}`],
+        [`IA ${areaIndex + 1} Inspection / Thickness Links`, `${formatValue(area.inspectionAreaId)} / ${formatValue(area.thicknessZoneId)}`],
+        [`IA ${areaIndex + 1} ROI / Thickness`, `${digitalRegion(area.position)} / ${formatRange(area.thicknessMinimum, area.thicknessMaximum, area.thicknessUnit)}`],
+        [`IA ${areaIndex + 1} Viewing Preset / Acceptance Profile`, `${formatValue(area.viewingPresetId)} / ${formatValue(area.acceptanceProfileId)}`],
+        [`IA ${areaIndex + 1} Viewing Controls`, `WL ${formatValue(area.windowLevel)}, WW ${formatValue(area.windowWidth)}, zoom ${formatValue(area.zoom)}, sharpness ${formatValue(area.sharpness)}, LUT ${formatValue(area.lut)}, invert ${area.invert ? 'Yes' : 'No'}`],
+        [`IA ${areaIndex + 1} Permitted Processing`, formatValue(area.permittedProcessing)],
+      ));
+    } else {
+      rows.push(['Structured Acquisition Plan', 'Unavailable in this legacy V3 draft; controlled approval and release are blocked.']);
+    }
     sections.push({ title: `DDA Acquisition ${acquisition.viewId || index + 1}`, rows });
   });
   sections.push(

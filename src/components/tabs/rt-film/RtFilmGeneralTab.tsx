@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { RtFilmGeneralInfo } from '@/types/rtFilm';
 import { DateField, NumberField, SelectField, TextField } from '@/components/tabs/shared/FieldRow';
+import processImage from '@/assets/rtpt/rt-process-overview.png';
 
 interface Props {
   data: RtFilmGeneralInfo;
@@ -29,13 +30,53 @@ export const RtFilmGeneralTab = ({
   );
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle>1. General &amp; Part Definition</CardTitle>
         <p className="text-sm text-muted-foreground">Identify the controlled part configuration and planned inspection scope.</p>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 md:col-span-2">
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 2xl:grid-cols-4">
+          <TextField label="Part Name" value={data.partName} onChange={(value) => set('partName', value)} />
+          <TextField label="Part Number" value={data.partNumber} onChange={(value) => set('partNumber', value)} />
+          <TextField label="Vendor Code" value={data.vendorCode} onChange={(value) => set('vendorCode', value)} />
+          <TextField
+            label="Part Revision / Configuration"
+            value={data.partRevisionOrConfiguration}
+            onChange={(value) => set('partRevisionOrConfiguration', value)}
+          />
+          <TextField label="Material" value={data.material} onChange={(value) => set('material', value)} />
+          <TextField label="Surface Finish" value={data.surfaceFinish} onChange={(value) => set('surfaceFinish', value)} />
+          <div className="md:col-span-2">
+            <TextField label="Inspection Area" value={data.inspectionArea} onChange={(value) => set('inspectionArea', value)} placeholder="Zone, weld, region, or extent" />
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
+            <NumberField label="Nominal Thickness" value={data.thickness} onChange={(value) => set('thickness', value)} unit={data.thicknessUnit} min={0} />
+            <SelectField label="Unit" value={data.thicknessUnit} onChange={(value) => set('thicknessUnit', value)} options={LENGTH_UNITS} />
+          </div>
+          <TextField label="Drawing Reference" value={data.drawingReference} onChange={(value) => set('drawingReference', value)} />
+          <TextField label="Procedure Number" value={data.procedureNumber} onChange={(value) => set('procedureNumber', value)} />
+          <SelectField
+            label="Planned Inspection Stage"
+            value={data.inspectionStage}
+            onChange={(value) => set('inspectionStage', value)}
+            options={['In-process', 'Final', 'Maintenance / in-service']}
+          />
+          <SelectField
+            label="Required Personnel Level"
+            value={data.inspectorLevel}
+            onChange={(value) => set('inspectorLevel', value)}
+            options={[
+              { label: 'Level I', value: 'I' },
+              { label: 'Level II', value: 'II' },
+              { label: 'Level III', value: 'III' },
+            ]}
+            hint="qualification requirement"
+          />
+          <DateField label="Planned Inspection Date" value={data.date} onChange={(value) => set('date', value)} />
+        </div>
+
+        <div className="rounded-md border border-primary/25 bg-primary/5 p-4">
           <div className="flex items-start gap-3">
             <Switch
               id={ps811000Id}
@@ -50,41 +91,15 @@ export const RtFilmGeneralTab = ({
             </div>
           </div>
         </div>
-        <TextField label="Part Name" value={data.partName} onChange={(value) => set('partName', value)} />
-        <TextField label="Part Number" value={data.partNumber} onChange={(value) => set('partNumber', value)} />
-        <TextField label="Vendor Code" value={data.vendorCode} onChange={(value) => set('vendorCode', value)} />
-        <TextField
-          label="Part Revision / Configuration"
-          value={data.partRevisionOrConfiguration}
-          onChange={(value) => set('partRevisionOrConfiguration', value)}
-        />
-        <TextField label="Material" value={data.material} onChange={(value) => set('material', value)} />
-        <TextField label="Surface Finish" value={data.surfaceFinish} onChange={(value) => set('surfaceFinish', value)} />
-        <TextField label="Inspection Area" value={data.inspectionArea} onChange={(value) => set('inspectionArea', value)} placeholder="Zone, weld, region, or extent" />
-        <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
-          <NumberField label="Nominal Thickness" value={data.thickness} onChange={(value) => set('thickness', value)} unit={data.thicknessUnit} min={0} />
-          <SelectField label="Unit" value={data.thicknessUnit} onChange={(value) => set('thicknessUnit', value)} options={LENGTH_UNITS} />
-        </div>
-        <TextField label="Drawing Reference" value={data.drawingReference} onChange={(value) => set('drawingReference', value)} />
-        <TextField label="Procedure Number" value={data.procedureNumber} onChange={(value) => set('procedureNumber', value)} />
-        <SelectField
-          label="Planned Inspection Stage"
-          value={data.inspectionStage}
-          onChange={(value) => set('inspectionStage', value)}
-          options={['In-process', 'Final', 'Maintenance / in-service']}
-        />
-        <SelectField
-          label="Required Personnel Level"
-          value={data.inspectorLevel}
-          onChange={(value) => set('inspectorLevel', value)}
-          options={[
-            { label: 'Level I', value: 'I' },
-            { label: 'Level II', value: 'II' },
-            { label: 'Level III', value: 'III' },
-          ]}
-          hint="qualification requirement"
-        />
-        <DateField label="Planned Inspection Date" value={data.date} onChange={(value) => set('date', value)} />
+
+        <figure className="mx-auto w-fit max-w-full overflow-hidden rounded-md border border-border/80 bg-[#071421] shadow-[0_16px_36px_rgba(2,6,23,0.24)]">
+          <img
+            src={processImage}
+            alt="Radiographic exposure planning workflow with an X-ray source, aerospace ring casting, detector, and six technique-planning stages."
+            className="block h-auto max-h-[min(48vh,720px)] w-auto max-w-full"
+            draggable={false}
+          />
+        </figure>
       </CardContent>
     </Card>
   );

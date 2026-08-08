@@ -1,6 +1,6 @@
 {
     "name": "rt-pt-inspector",
-    "description": "RT-PT Inspector — radiographic and penetrant technique-sheet creator (ASTM E1742 / E2698 / E1417)",
+    "description": "RT Inspector — Radiographic Technique Engineering Platform",
     "author": {
         "name": "Amitay Levi",
         "email": "amitay1@gmail.com"

@@ -18,6 +18,7 @@ import {
   FilePlus2,
   KeyRound,
   Loader2,
+  Workflow,
 } from "lucide-react";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { UpdateCenter } from "@/components/updates/UpdateCenter";
@@ -25,7 +26,7 @@ import { SavedCardsDialog } from "@/components/SavedCardsDialog";
 import { ProfileIndicator } from "@/components/inspector";
 import { useSavedCards } from "@/hooks/useSavedCards";
 import type { SavedCard } from "@/contexts/SavedCardsContext";
-import { RT_PT_METHOD_LABEL, type RtPtMethod } from "@/types/rtPtDocument";
+import { RT_PT_METHOD_LABEL, type RtPtMethod, type RtPtWorkspaceMode } from "@/types/rtPtDocument";
 import { RtPtLicenseCenterDialog } from "@/components/rtpt/RtPtLicenseCenterDialog";
 import { RonexBrandMark } from "@/components/rtpt/RonexBrandMark";
 import { useRtPtLicense } from "@/contexts/RtPtLicenseContext";
@@ -61,8 +62,8 @@ interface ToolbarProps {
   isExportingInspectionReport?: boolean;
   onValidate: () => void;
   ndtMethod: RtPtMethod;
-  workspaceMode: "technique" | "inspection";
-  onWorkspaceModeChange: (mode: "technique" | "inspection") => void;
+  workspaceMode: RtPtWorkspaceMode;
+  onWorkspaceModeChange: (mode: RtPtWorkspaceMode) => void;
   onLoadLocalCard?: (card: SavedCard) => void;
   onOfflineUpdate?: () => void;
 }
@@ -120,7 +121,9 @@ export const Toolbar = ({
       <header className="workbench-toolbar z-30 flex min-h-16 flex-shrink-0 items-center gap-2 overflow-x-auto px-2 py-2 md:gap-3 md:px-3 xl:px-4">
         <RonexBrandMark className="hidden md:flex" />
 
-        <div className="workbench-group hidden min-w-fit items-center gap-2 px-3 py-2 sm:flex" aria-label={`Current method: ${RT_PT_METHOD_LABEL[ndtMethod]}`}>
+        {/* The active method is always named in the workspace header below, so this
+            reminder only appears once the toolbar has room to spare. */}
+        <div className="workbench-group hidden min-w-fit items-center gap-2 px-3 py-2 3xl:flex" aria-label={`Current method: ${RT_PT_METHOD_LABEL[ndtMethod]}`}>
           <MethodIcon className="h-4 w-4 text-primary" />
           <div className="leading-tight">
             <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Current method</div>
@@ -151,18 +154,31 @@ export const Toolbar = ({
             <ClipboardList className="h-4 w-4" />
             <span className="hidden 2xl:inline">Inspection Record</span>
           </Button>
+          {ndtMethod !== "PT" && (
+            <Button
+              variant={workspaceMode === "process" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => onWorkspaceModeChange("process")}
+              aria-pressed={workspaceMode === "process"}
+              title="Radiographic process overview"
+              className="h-10 px-3"
+            >
+              <Workflow className="h-4 w-4" />
+              <span className="hidden 2xl:inline">Process</span>
+            </Button>
+          )}
         </div>
 
         <div className="workbench-group flex min-w-fit items-center gap-1 p-1">
           <Button variant="ghost" size="sm" onClick={onNew} title="Start a new technique (Ctrl+N)" aria-label="Start a new technique" className="h-10 px-3">
             <FilePlus2 className="h-4 w-4" />
-            <span className="hidden 2xl:inline">New</span>
+            <span className="hidden wide:inline">New</span>
           </Button>
           <Button variant="ghost" size="sm" onClick={onSave} title="Save card" aria-label="Save card" className="h-10 px-3">
             <Save className="h-4 w-4" />
             <span className="hidden xl:inline">Save</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={onValidate} title="Validate required RT/PT fields" className="h-10 border-border/80 bg-transparent px-3">
+          <Button variant="outline" size="sm" onClick={onValidate} title="Validate required technique fields" className="h-10 border-border/80 bg-transparent px-3">
             <CheckCircle className="h-4 w-4" />
             <span className="hidden md:inline">Validate</span>
           </Button>

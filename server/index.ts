@@ -32,7 +32,7 @@ import { createStandaloneRtPtLicenseRuntime } from "./rtptLicenseRuntime";
 config();
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5199;
 const HOST = (process.env.HOST || "127.0.0.1").trim().toLowerCase();
 const isDev = process.env.NODE_ENV !== "production";
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);

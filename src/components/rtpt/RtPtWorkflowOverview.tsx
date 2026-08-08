@@ -41,7 +41,7 @@ export function RtPtWorkflowOverview({
         </div>
         <div className="mt-1.5 flex items-center gap-2.5">
           <div
-            className="relative h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-muted"
+            className="readiness-track min-w-20 flex-1"
             role="progressbar"
             aria-label="Required technique fields completed"
             aria-valuemin={0}
@@ -50,7 +50,7 @@ export function RtPtWorkflowOverview({
             aria-valuetext={`${snapshot.completedFieldsCount} of ${snapshot.totalRequiredFields} required fields`}
           >
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300"
+              className={`readiness-fill${snapshot.completionPercent >= 100 ? ' readiness-fill--complete' : ''}`}
               style={{ width: `${Math.max(0, Math.min(100, snapshot.completionPercent))}%` }}
             />
           </div>

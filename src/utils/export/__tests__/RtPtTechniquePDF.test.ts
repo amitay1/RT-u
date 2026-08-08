@@ -106,13 +106,37 @@ describe('RT/PT V3 controlled PDF export', () => {
     expect(serialized).toContain('Required SNR / Normalized SNR');
     expect(serialized).toContain('Required Contrast Sensitivity / CNR');
     expect(serialized).toContain('Calculated Ug');
+    expect(serialized).toContain('Structured Planned DR Part Definition');
+    expect(serialized).toContain('Immutable X-ray Source Catalog Snapshot');
+    expect(serialized).toContain('Immutable Detector Catalog Snapshot');
+    expect(serialized).toContain('Calculated DR Geometry, FOV, Orientation, and Coverage');
+    expect(serialized).toContain('Calculated EXP-001 Grid Placement');
+    expect(serialized).toContain('Structured Required IQI Rule Basis and Zone Outputs');
+    expect(serialized).toContain('IQI Zone Output 1 Shim / Governing / Override');
+    expect(serialized).toContain('Controlled Processing Policy and Viewing Presets');
+    expect(serialized).toContain('Controlled Acceptance Profile Library');
+    expect(serialized).toContain('Structured IQI Output Link');
+    expect(serialized).toContain('Optional Representative-image Metadata');
+    expect(serialized).toContain('Representative-image SHA-256');
+    expect(serialized).toContain('IA 1 Viewing Preset / Acceptance Profile');
+    expect(serialized).toContain('VP-01');
+    expect(serialized).toContain('AC-01');
     expect(serialized).not.toContain('achieved');
     const pdf = buildRtPtTechniquePdf(document, validateRtPtDocument(document));
     const pdfCommands = JSON.stringify((pdf.internal as unknown as { pages: string[][] }).pages);
     expect(pdfCommands).toContain('STATIC ACQUISITION PLAN OVERVIEW');
-    expect(pdfCommands).toContain('ACQUISITION SETUP MAP - D1');
+    expect(pdfCommands).toContain('ACQUISITION SETUP MAP - EXP-001');
     expect(pdfCommands).toContain('SDD - 110 mm');
     expect(pdfCommands).toContain('DDA DETECTOR');
+  });
+
+  it('marks missing structured Digital planning as legacy draft-only output', () => {
+    const document = createCompleteDigitalDocument();
+    delete document.technique.planning;
+
+    const serialized = serializeSections(document);
+    expect(serialized).toContain('Structured Digital Planning');
+    expect(serialized).toContain('controlled approval and release are blocked');
   });
 
   it('includes migration warnings/count/categories but never quarantine paths or values', () => {

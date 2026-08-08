@@ -133,6 +133,9 @@ export default {
       // Additional breakpoints for better responsive scaling
       screens: {
         'xs': '480px',    // Small phones
+        // Workstation width at which the toolbar and workflow tab strip can
+        // carry their full-length labels without overflowing.
+        'wide': '1720px',
         '3xl': '1920px',  // Large screens / 4K
       },
     },

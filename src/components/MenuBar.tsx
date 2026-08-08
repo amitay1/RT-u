@@ -9,6 +9,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 import { FileText, Save, Download, FolderOpen, Info, Book, Stethoscope, HardDrive, Usb, ClipboardCheck } from "lucide-react";
+import type { RtPtWorkspaceMode } from "@/types/rtPtDocument";
 
 interface MenuBarProps {
   onSave: () => void;
@@ -16,7 +17,7 @@ interface MenuBarProps {
   onOpenSavedCards: () => void;
   onExportTechnique: () => void;
   onExportInspectionReport: () => void;
-  workspaceMode: "technique" | "inspection";
+  workspaceMode: RtPtWorkspaceMode;
   onNew: () => void;
   onExportDiagnostics?: () => void;
   onRunDiagnostics?: () => void;
@@ -92,7 +93,7 @@ export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExportTechnique,
             </MenubarItem>
           )}
           <MenubarSeparator />
-          <MenubarItem onClick={() => alert(`RT Inspector v${__APP_VERSION__}\nRadiographic and Penetrant Testing Inspection System`)} className="text-base py-2">
+          <MenubarItem onClick={() => alert(`RT Inspector v${__APP_VERSION__}\nRadiographic Technique Engineering Platform`)} className="text-base py-2">
             <Info className="mr-3 h-5 w-5" />
             About
           </MenubarItem>

@@ -25,7 +25,13 @@ const validation = (
 describe('RT/PT workflow visualization', () => {
   it('maps validation-only section names to their visible workspace tabs', () => {
     expect(resolveRtPtWorkflowTab('RT-Film', 'source')).toBe('equipment');
-    expect(resolveRtPtWorkflowTab('RT-Digital', 'source')).toBe('exposure');
+    expect(resolveRtPtWorkflowTab('RT-Digital', 'source')).toBe('source');
+    expect(resolveRtPtWorkflowTab('RT-Digital', 'system')).toBe('detector');
+    expect(resolveRtPtWorkflowTab('RT-Digital', 'geometry')).toBe('engineering');
+    expect(resolveRtPtWorkflowTab('RT-Digital', 'visual')).toBe('planner');
+    expect(resolveRtPtWorkflowTab('RT-Digital', 'iqi')).toBe('iqc');
+    expect(resolveRtPtWorkflowTab('RT-Digital', 'exposure')).toBe('acquisitions');
+    expect(resolveRtPtWorkflowTab('RT-Digital', 'interpretation')).toBe('interpretation');
     expect(resolveRtPtWorkflowTab('RT-Digital', 'storage')).toBe('processing');
     expect(resolveRtPtWorkflowTab('PT', 'removal')).toBe('application');
   });

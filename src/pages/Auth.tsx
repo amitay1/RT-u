@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CircleAlert,
-  Droplets,
   FileCheck2,
   Loader2,
   LockKeyhole,
@@ -173,7 +172,7 @@ export default function Auth() {
               </div>
               <div>
                 <h1 className="text-sm font-semibold tracking-[0.16em] text-foreground">
-                  RT-PT INSPECTOR
+                  RT INSPECTOR
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">Controlled NDT workspace</p>
               </div>
@@ -187,11 +186,11 @@ export default function Auth() {
                 Inspection documentation with clarity built in.
               </h2>
               <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground xl:text-lg">
-                Prepare, review and manage RT/PT technique sheets in a focused workspace designed for disciplined inspection planning.
+                Prepare, review and manage radiographic technique sheets in a focused workspace designed for disciplined inspection planning.
               </p>
             </div>
 
-            <div className="mt-10 grid max-w-2xl grid-cols-3 gap-3">
+            <div className="mt-10 grid max-w-2xl grid-cols-2 gap-3">
               <div className="rounded-xl border border-border/70 bg-card/40 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
                 <FileCheck2 className="h-5 w-5 text-primary/80" strokeWidth={1.75} />
                 <p className="mt-5 text-sm font-semibold text-foreground">RT Film</p>
@@ -202,17 +201,12 @@ export default function Auth() {
                 <p className="mt-5 text-sm font-semibold text-foreground">Digital / DDA</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">X-ray workflows</p>
               </div>
-              <div className="rounded-xl border border-border/70 bg-card/40 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
-                <Droplets className="h-5 w-5 text-primary/80" strokeWidth={1.75} />
-                <p className="mt-5 text-sm font-semibold text-foreground">Liquid PT</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Process control</p>
-              </div>
             </div>
           </div>
 
           <div className="flex max-w-2xl items-center gap-3 border-t border-border/60 pt-6 text-sm text-muted-foreground">
             <ShieldCheck className="h-5 w-5 shrink-0 text-primary/80" strokeWidth={1.75} />
-            <span>Independent RT/PT workspace</span>
+            <span>Independent RT workspace</span>
             <span aria-hidden="true" className="h-1 w-1 rounded-full bg-border" />
             <span>Controlled document access</span>
           </div>
@@ -225,7 +219,7 @@ export default function Auth() {
                 <ScanLine className="h-5 w-5 text-primary" strokeWidth={1.75} />
               </div>
               <div>
-                <h1 className="text-sm font-semibold tracking-[0.12em] text-foreground">RT-PT INSPECTOR</h1>
+                <h1 className="text-sm font-semibold tracking-[0.12em] text-foreground">RT INSPECTOR</h1>
                 <p className="text-xs text-muted-foreground">Controlled NDT workspace</p>
               </div>
             </div>
@@ -238,7 +232,7 @@ export default function Auth() {
                     Secure workspace access
                   </div>
                   <span className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground/80">
-                    RT/PT
+                    RT
                   </span>
                 </div>
                 <h2 className="text-2xl font-semibold leading-tight tracking-[-0.025em] sm:text-[1.75rem]">
@@ -246,8 +240,8 @@ export default function Auth() {
                 </h2>
                 <CardDescription className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                   {isSignUp
-                    ? 'Create an account to save and manage your RT/PT inspection technique sheets'
-                    : 'Sign in to access your RT/PT inspection technique sheets'}
+                    ? 'Create an account to save and manage your radiographic technique sheets'
+                    : 'Sign in to access your radiographic technique sheets'}
                 </CardDescription>
               </CardHeader>
 
@@ -372,7 +366,7 @@ export default function Auth() {
 
                 <div className="mt-6 flex items-start gap-2 border-t border-border/60 pt-5 text-xs leading-5 text-muted-foreground">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary/75" strokeWidth={1.75} />
-                  <p>Your session is used only to access your RT/PT inspection workspace.</p>
+                  <p>Your session is used only to access your RT inspection workspace.</p>
                 </div>
               </CardContent>
             </Card>

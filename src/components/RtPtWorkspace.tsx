@@ -30,12 +30,14 @@ import { RtFilmExposureViewsTab } from '@/components/tabs/rt-film/RtFilmExposure
 
 import { RtDigitalGeneralTab } from '@/components/tabs/rt-digital/RtDigitalGeneralTab';
 import { RtDigitalExposureTab } from '@/components/tabs/rt-digital/RtDigitalExposureTab';
-import { RtDigitalSystemTab } from '@/components/tabs/rt-digital/RtDigitalSystemTab';
 import { RtDigitalDetectorTab } from '@/components/tabs/rt-digital/RtDigitalDetectorTab';
+import { RtDigitalEngineeringTab } from '@/components/tabs/rt-digital/RtDigitalEngineeringTab';
+import { RtDigitalVisualPlannerTab } from '@/components/tabs/rt-digital/RtDigitalVisualPlannerTab';
 import { RtDigitalImageProcessingTab } from '@/components/tabs/rt-digital/RtDigitalImageProcessingTab';
 import { RtDigitalIqcTab } from '@/components/tabs/rt-digital/RtDigitalIqcTab';
 import { RtDigitalAcceptanceTab } from '@/components/tabs/rt-digital/RtDigitalAcceptanceTab';
 import { RtDigitalAcquisitionPlanTab } from '@/components/tabs/rt-digital/RtDigitalAcquisitionPlanTab';
+import { RtDigitalInterpretationTab } from '@/components/tabs/rt-digital/RtDigitalInterpretationTab';
 
 import { PtGeneralTab } from '@/components/tabs/penetrant/PtGeneralTab';
 import { PtMaterialsTab } from '@/components/tabs/penetrant/PtMaterialsTab';
@@ -80,14 +82,16 @@ const TAB_DEFINITIONS: Record<RtPtMethod, ReadonlyArray<RtPtWorkflowTabDefinitio
     { value: 'control', label: 'Control & Approval', shortLabel: 'Control' },
   ],
   'RT-Digital': [
-    { value: 'general', label: 'General', shortLabel: 'General' },
-    { value: 'exposure', label: 'Exposure Defaults', shortLabel: 'Exposure' },
-    { value: 'system', label: 'System', shortLabel: 'System' },
-    { value: 'detector', label: 'Detector', shortLabel: 'Detector' },
-    { value: 'processing', label: 'Image Processing', shortLabel: 'Processing' },
-    { value: 'iqc', label: 'Image Quality', shortLabel: 'IQI' },
-    { value: 'acceptance', label: 'Acceptance', shortLabel: 'Acceptance' },
-    { value: 'acquisitions', label: 'Acquisition Plan', shortLabel: 'Plan' },
+    { value: 'general', label: 'Part & Inspection Definition', shortLabel: 'Definition' },
+    { value: 'source', label: 'X-Ray Source', shortLabel: 'Source' },
+    { value: 'detector', label: 'Detector / DDA', shortLabel: 'Detector' },
+    { value: 'engineering', label: 'Geometry & Coverage', shortLabel: 'Geometry' },
+    { value: 'planner', label: 'Visual Planner', shortLabel: 'Planner' },
+    { value: 'iqc', label: 'IQI / Sensitivity', shortLabel: 'IQI' },
+    { value: 'acquisitions', label: 'Exposure List', shortLabel: 'Exposures' },
+    { value: 'interpretation', label: 'Interpretation Areas', shortLabel: 'Interpretation' },
+    { value: 'processing', label: 'Processing & Viewing', shortLabel: 'Processing' },
+    { value: 'acceptance', label: 'Acceptance Profiles', shortLabel: 'Acceptance' },
     { value: 'control', label: 'Control & Approval', shortLabel: 'Control' },
   ],
   PT: [
@@ -164,8 +168,8 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
                   aria-label={RT_PT_METHOD_LABEL[method]}
                   title={RT_PT_METHOD_LABEL[method]}
                 >
-                  <span className="2xl:hidden" aria-hidden="true">{WORKSPACE_DISPLAY_LABEL[method]}</span>
-                  <span className="hidden 2xl:inline" aria-hidden="true">{RT_PT_METHOD_LABEL[method]}</span>
+                  <span className="wide:hidden" aria-hidden="true">{WORKSPACE_DISPLAY_LABEL[method]}</span>
+                  <span className="hidden wide:inline" aria-hidden="true">{RT_PT_METHOD_LABEL[method]}</span>
                 </h2>
                 <span className="hidden h-1 w-1 rounded-full bg-border sm:block" aria-hidden="true" />
                 <span
@@ -226,8 +230,8 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
                             ? <AlertTriangle className="h-3 w-3" />
                             : <Check className="h-3 w-3" />}
                     </span>
-                    <span className="2xl:hidden" aria-hidden="true">{tab.shortLabel}</span>
-                    <span className="hidden 2xl:inline" aria-hidden="true">{tab.label}</span>
+                    <span className="wide:hidden" aria-hidden="true">{tab.shortLabel}</span>
+                    <span className="hidden wide:inline" aria-hidden="true">{tab.label}</span>
                     {(issueCount.errors > 0 || issueCount.warnings > 0) && (
                       <span
                         className={issueCount.errors > 0
@@ -310,45 +314,153 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
           )}
           {method === 'RT-Digital' && (
             <>
-              <TabsContent value="general" className="m-0"><RtDigitalGeneralTab data={rtDigital.sheet.general} onChange={rtDigital.updateGeneral} /></TabsContent>
-              <TabsContent value="exposure" className="m-0">
+              <TabsContent value="general" className="m-0">
+                <RtDigitalGeneralTab
+                  data={rtDigital.sheet.general}
+                  planning={rtDigital.sheet.planning}
+                  onChange={rtDigital.updateGeneral}
+                  onPlanningChange={rtDigital.updatePlanning}
+                />
+              </TabsContent>
+              <TabsContent value="source" className="m-0">
                 <RtDigitalExposureTab
                   workflow={rtDigital.sheet.workflow}
                   onWorkflowChange={rtDigital.updateWorkflow}
                   source={rtDigital.sheet.source}
                   onSourceChange={rtDigital.updateSource}
-                  data={rtDigital.sheet.acquisitionDefaults}
-                  onChange={rtDigital.updateAcquisitionDefaults}
+                  selection={rtDigital.sheet.planning.sourceSelection}
+                  onSelectionChange={(sourceSelection) => rtDigital.updatePlanning({
+                    ...rtDigital.sheet.planning,
+                    sourceSelection,
+                  })}
                 />
               </TabsContent>
-              <TabsContent value="system" className="m-0"><RtDigitalSystemTab data={rtDigital.sheet.system} onChange={rtDigital.updateSystem} /></TabsContent>
-              <TabsContent value="detector" className="m-0"><RtDigitalDetectorTab data={rtDigital.sheet.detectorPerformance} onChange={rtDigital.updateDetectorPerformance} /></TabsContent>
-              <TabsContent value="processing" className="m-0">
-                <RtDigitalImageProcessingTab
-                  data={rtDigital.sheet.imageProcessing}
-                  onChange={rtDigital.updateImageProcessing}
-                  displayAndStorage={rtDigital.sheet.displayAndStorage}
-                  onDisplayAndStorageChange={rtDigital.updateDisplayAndStorage}
+              <TabsContent value="detector" className="m-0">
+                <RtDigitalDetectorTab
+                  system={rtDigital.sheet.system}
+                  onSystemChange={rtDigital.updateSystem}
+                  performance={rtDigital.sheet.detectorPerformance}
+                  onPerformanceChange={rtDigital.updateDetectorPerformance}
+                  selection={rtDigital.sheet.planning.detectorSelection}
+                  onSelectionChange={(detectorSelection) => rtDigital.updatePlanning({
+                    ...rtDigital.sheet.planning,
+                    detectorSelection,
+                  })}
                 />
               </TabsContent>
-              <TabsContent value="iqc" className="m-0"><RtDigitalIqcTab data={rtDigital.sheet.iqi} onChange={rtDigital.updateIqi} /></TabsContent>
-              <TabsContent value="acceptance" className="m-0">
-                <RtDigitalAcceptanceTab
-                  data={rtDigital.sheet.acceptance}
-                  onChange={rtDigital.updateAcceptance}
-                  techniqueNotes={rtDigital.sheet.techniqueNotes}
-                  onTechniqueNotesChange={rtDigital.updateTechniqueNotes}
+              <TabsContent value="engineering" className="m-0">
+                <RtDigitalEngineeringTab
+                  planning={rtDigital.sheet.planning}
+                  source={rtDigital.sheet.source}
+                  system={rtDigital.sheet.system}
+                  defaults={rtDigital.sheet.acquisitionDefaults}
+                  onPlanningChange={rtDigital.updatePlanning}
+                  onSourceChange={rtDigital.updateSource}
+                  onSystemChange={rtDigital.updateSystem}
+                  onDefaultsChange={rtDigital.updateAcquisitionDefaults}
+                />
+              </TabsContent>
+              <TabsContent value="planner" className="m-0">
+                <RtDigitalVisualPlannerTab
+                  planning={rtDigital.sheet.planning}
+                  source={rtDigital.sheet.source}
+                  system={rtDigital.sheet.system}
+                  defaults={rtDigital.sheet.acquisitionDefaults}
+                  visual={rtDigital.sheet.planning.visual}
+                  onPlanningChange={rtDigital.updatePlanning}
+                  onDefaultsChange={rtDigital.updateAcquisitionDefaults}
+                  onVisualChange={(visual) => rtDigital.updatePlanning({
+                    ...rtDigital.sheet.planning,
+                    visual,
+                  })}
+                  onCommitGrid={(grid, inspectionAreaId, governingIqi) => {
+                    const areaExposureCount = rtDigital.sheet.acquisitions.filter((acquisition) => (
+                      (acquisition.plan.visual.inspectionAreaId || acquisition.inspectionZone) === inspectionAreaId
+                    )).length;
+                    if (rtDigital.sheet.acquisitions.length > 0) {
+                      const message = areaExposureCount > 0
+                        ? `Rebuild the ${areaExposureCount} exposure setup(s) for this inspection area as a ${grid.length}-position automatic layout? Existing images, interpretation areas, and exposure-specific entries for this area will be reset. Other inspection areas remain and all EXP IDs are renumbered.`
+                        : `Add this ${grid.length}-position automatic layout? Existing inspection-area setups remain, but all EXP IDs are renumbered into one controlled sequence.`;
+                      if (!window.confirm(message)) return;
+                    }
+                    rtDigital.applyAutoExposureGrid(grid, inspectionAreaId, governingIqi);
+                  }}
+                />
+              </TabsContent>
+              <TabsContent value="iqc" className="m-0">
+                <RtDigitalIqcTab
+                  data={rtDigital.sheet.iqi}
+                  planning={rtDigital.sheet.planning}
+                  onChange={rtDigital.updateIqi}
+                  onPlanningChange={rtDigital.updatePlanning}
                 />
               </TabsContent>
               <TabsContent value="acquisitions" className="m-0">
                 <RtDigitalAcquisitionPlanTab
                   data={rtDigital.sheet.acquisitions}
                   source={rtDigital.sheet.source}
+                  system={rtDigital.sheet.system}
+                  planning={rtDigital.sheet.planning}
                   onAdd={rtDigital.addAcquisition}
                   onChange={rtDigital.updateAcquisition}
                   onDuplicate={rtDigital.duplicateAcquisition}
                   onMove={rtDigital.moveAcquisition}
                   onDelete={rtDigital.deleteAcquisition}
+                />
+              </TabsContent>
+              <TabsContent value="interpretation" className="m-0">
+                <RtDigitalInterpretationTab
+                  acquisitions={rtDigital.sheet.acquisitions}
+                  planning={rtDigital.sheet.planning}
+                  viewingPresets={rtDigital.sheet.planning.viewingPresets}
+                  acceptanceProfiles={rtDigital.sheet.planning.acceptanceProfiles}
+                  onRepresentativeImageChange={(acquisitionId, representativeImage) => {
+                    const acquisition = rtDigital.sheet.acquisitions.find(({ id }) => id === acquisitionId);
+                    if (!acquisition) return;
+                    rtDigital.updateAcquisitionPlan(acquisitionId, {
+                      ...acquisition.plan,
+                      representativeImage,
+                    });
+                  }}
+                  onInterpretationAreasChange={(acquisitionId, interpretationAreas) => {
+                    const acquisition = rtDigital.sheet.acquisitions.find(({ id }) => id === acquisitionId);
+                    if (!acquisition) return;
+                    rtDigital.updateAcquisitionPlan(acquisitionId, {
+                      ...acquisition.plan,
+                      interpretationAreas,
+                    });
+                  }}
+                />
+              </TabsContent>
+              <TabsContent value="processing" className="m-0">
+                <RtDigitalImageProcessingTab
+                  data={rtDigital.sheet.imageProcessing}
+                  onChange={rtDigital.updateImageProcessing}
+                  displayAndStorage={rtDigital.sheet.displayAndStorage}
+                  onDisplayAndStorageChange={rtDigital.updateDisplayAndStorage}
+                  processingPolicy={rtDigital.sheet.planning.processingPolicy}
+                  viewingPresets={rtDigital.sheet.planning.viewingPresets}
+                  onProcessingPolicyChange={(processingPolicy) => rtDigital.updatePlanning({
+                    ...rtDigital.sheet.planning,
+                    processingPolicy,
+                  })}
+                  onViewingPresetsChange={(viewingPresets) => rtDigital.updatePlanning({
+                    ...rtDigital.sheet.planning,
+                    viewingPresets,
+                  })}
+                />
+              </TabsContent>
+              <TabsContent value="acceptance" className="m-0">
+                <RtDigitalAcceptanceTab
+                  data={rtDigital.sheet.acceptance}
+                  onChange={rtDigital.updateAcceptance}
+                  techniqueNotes={rtDigital.sheet.techniqueNotes}
+                  onTechniqueNotesChange={rtDigital.updateTechniqueNotes}
+                  acceptanceProfiles={rtDigital.sheet.planning.acceptanceProfiles}
+                  onAcceptanceProfilesChange={(acceptanceProfiles) => rtDigital.updatePlanning({
+                    ...rtDigital.sheet.planning,
+                    acceptanceProfiles,
+                  })}
                 />
               </TabsContent>
             </>
@@ -387,7 +499,7 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
             </>
           )}
           <TabsContent value="control" className="m-0">
-            <RtPtControlApprovalTab workspace={workspace} />
+            <RtPtControlApprovalTab workspace={workspace} validation={validation} />
           </TabsContent>
         </div>
       </div>

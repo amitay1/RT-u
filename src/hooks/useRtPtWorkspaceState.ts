@@ -17,6 +17,7 @@ import {
   bindRtPtApprovedContent,
   reconcileRtPtApprovedContent,
 } from '@/lib/rtPtApprovalLifecycle';
+import { validateRtPtDocument } from '@/lib/rtPtValidation';
 import {
   DEFAULT_RT_PT_ACTIVE_TABS,
   EMPTY_RT_PT_DOCUMENT_CONTROL,
@@ -147,6 +148,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
         setStatusState('draft');
         return;
       }
+      if (!validateRtPtDocument(rawDocument).approvalReadiness.isReady) return;
       const approvedDocument = bindRtPtApprovedContent(rawDocument);
       setApprovalFingerprint(approvedDocument.approvalFingerprint);
       setStatusState(approvedDocument.status);

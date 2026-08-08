@@ -247,7 +247,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
               Activate RT Inspector
             </h1>
             <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">
-              Unlock the RT Film, RT Digital/DDA, and Liquid Penetrant technique workspaces with a license issued specifically for this installation.
+              Unlock the RT Film and RT Digital/DDA technique workspaces with a license issued specifically for this installation.
             </p>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">

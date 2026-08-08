@@ -454,7 +454,7 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
       a.download = `rtpt-${safeFilename(card?.name || 'card')}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('RT-PT card exported successfully');
+      toast.success('RT card exported successfully');
     }
   };
   
@@ -484,13 +484,13 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
           const description = report.errors.slice(0, 3).join('\n');
           if (report.imported > 0 && report.rejected > 0) {
             toast.warning(
-              `Imported ${report.imported} RT-PT card(s); rejected ${report.rejected}.`,
+              `Imported ${report.imported} RT card(s); rejected ${report.rejected}.`,
               { description },
             );
           } else if (report.imported > 0) {
-            toast.success(`Imported ${report.imported} RT-PT card(s) successfully.`);
+            toast.success(`Imported ${report.imported} RT card(s) successfully.`);
           } else {
-            toast.error('No valid RT-PT cards were imported.', { description });
+            toast.error('No valid RT cards were imported.', { description });
           }
         };
         reader.onerror = () => {
@@ -514,7 +514,7 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
                   <div className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-primary/20 bg-primary/10">
                     <FolderOpen className="h-5 w-5 text-primary" />
                   </div>
-                  RT-PT Saved Cards
+                  RT Saved Cards
                 </DialogTitle>
                 <DialogDescription className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                   {currentProfile && (

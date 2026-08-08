@@ -4,9 +4,19 @@ import {
   type PtTechnique,
 } from '@/types/penetrant';
 import {
+  createEmptyRtDigitalAcquisitionPlan,
+  createEmptyRtDigitalAcquisitionVisualControls,
+  createEmptyRtDigitalPlanning,
   emptyRtDigitalAcquisitionDefaults,
   emptyRtDigitalSheet,
   type RtDigitalAcquisition,
+  type RtDigitalAcquisitionPlan,
+  type RtDigitalAttachmentMetadata,
+  type RtDigitalNormalizedAcquisition,
+  type RtDigitalNormalizedSheet,
+  type RtDigitalPartGeometry,
+  type RtDigitalPlanning,
+  type RtDigitalThicknessDefinition,
   type RtDigitalSheet,
   type RtDigitalTechnique,
 } from '@/types/rtDigital';
@@ -73,12 +83,52 @@ const PS811000_THICKNESS_BASES = ['entered-thickness', 'honeycomb-components', '
 const PS811000_VIEWING_MODES = ['single', 'superimposed', ''] as const;
 const DIGITAL_SOURCE_TYPES = ['X-ray', ''] as const;
 const DIGITAL_WORKFLOWS = ['Static', ''] as const;
+const DIGITAL_WALL_TECHNIQUES = ['Single Wall', 'Double Wall', ''] as const;
+const DIGITAL_IMAGE_TECHNIQUES = ['SWSI', 'DWSI', 'DWDI', 'Elliptical', 'Other', ''] as const;
+const DIGITAL_MANUFACTURING_PROCESSES = [
+  'Casting',
+  'Weldment',
+  'Forging',
+  'Additive Manufacturing',
+  'Assembly',
+  'Other',
+  '',
+] as const;
+const DIGITAL_PART_GEOMETRIES = [
+  'Flat / Plate',
+  'Rectangular',
+  'Pipe / Tube',
+  'Cylinder',
+  'Ring',
+  'Cone',
+  'Complex Casting',
+  'Other',
+  '',
+] as const;
+const DIGITAL_THICKNESS_MODES = [
+  'Single Thickness',
+  'Thickness Range',
+  'Multiple Thickness Zones',
+  '',
+] as const;
+const DIGITAL_INSPECTION_AREA_MODES = ['Entire Part', 'Defined Area', 'Multiple Areas', ''] as const;
+const DIGITAL_DETECTOR_ORIENTATIONS = ['Portrait', 'Landscape', 'Auto', ''] as const;
+const DIGITAL_IQI_TYPES = ['Wire', 'Hole', ''] as const;
+const DIGITAL_DISTANCE_BASES = ['SOD + ODD', 'SDD - ODD', 'SDD - SOD', ''] as const;
+const DIGITAL_ATTACHMENT_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
 const PENETRANT_TYPES = ['Type I', 'Type II', ''] as const;
 const PENETRANT_METHODS = ['A', 'B', 'C', 'D', ''] as const;
 const SENSITIVITY_LEVELS = ['1/2', '1', '2', '3', '4', ''] as const;
 const DOCUMENT_STATUSES = ['draft', 'in-review', 'approved', 'superseded'] as const;
 const UNIT_SYSTEMS = ['SI', 'US-customary'] as const;
-const APPROVAL_ROLES = ['prepared', 'reviewed', 'cognizant-engineering', 'ndt-level-3'] as const;
+const APPROVAL_ROLES = [
+  'prepared',
+  'reviewed',
+  'cognizant-engineering',
+  'ndt-level-3',
+  'quality',
+  'customer',
+] as const;
 const METHODS = ['RT-Film', 'RT-Digital', 'PT'] as const;
 const QUARANTINE_REASONS = [
   'performed-result',
@@ -187,6 +237,36 @@ function arrayField<T>(
   if (value === undefined && partial) return [];
   if (!Array.isArray(value)) throw new CodecError(`${path} must be an array.`);
   return value.map((item, index) => parser(item, `${path}[${index}]`));
+}
+
+function stringArrayField(value: unknown, path: string, partial = false): string[] {
+  if (value === undefined && partial) return [];
+  if (!Array.isArray(value)) throw new CodecError(`${path} must be an array.`);
+  return value.map((item, index) => {
+    if (typeof item !== 'string') throw new CodecError(`${path}[${index}] must be a string.`);
+    return item;
+  });
+}
+
+function stableIdField(
+  source: UnknownRecord,
+  key: string,
+  path: string,
+  partial: boolean,
+  prefix: string,
+): string {
+  const value = valueAt(source, key, path, partial);
+  if (value === MISSING) return createStableId(prefix);
+  if (typeof value !== 'string' || !value.trim()) throw new CodecError(`${path}.${key} must be a non-empty string.`);
+  return value;
+}
+
+function positiveSafeIntegerField(source: UnknownRecord, key: string, path: string): number {
+  const value = valueAt(source, key, path, false);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+    throw new CodecError(`${path}.${key} must be a positive safe integer.`);
+  }
+  return value;
 }
 
 function parseGeneral(value: unknown, path: string, partial = false) {
@@ -447,16 +527,23 @@ function parseDigitalAcquisitionDefaults(value: unknown, path: string, partial =
   };
 }
 
-function parseDigitalAcquisition(value: unknown, path: string): RtDigitalAcquisition {
-  const source = record(value, path);
+function parseDigitalAcquisition(value: unknown, path: string, partial = false): RtDigitalAcquisition {
+  const source = record(value, path, partial);
+  const planPresent = Object.prototype.hasOwnProperty.call(source, 'plan');
+  const plan = planPresent
+    ? parseDigitalAcquisitionPlan(source.plan, `${path}.plan`, partial)
+    : partial
+      ? createEmptyRtDigitalAcquisitionPlan()
+      : undefined;
   return {
-    id: nonEmptyStringField(source, 'id', path),
-    viewId: stringField(source, 'viewId', path),
-    description: stringField(source, 'description', path),
-    orientation: stringField(source, 'orientation', path),
-    inspectionZone: stringField(source, 'inspectionZone', path),
-    referenceAttachmentId: stringField(source, 'referenceAttachmentId', path),
-    ...parseDigitalAcquisitionDefaults(source, path),
+    id: stableIdField(source, 'id', path, partial, 'dda-acquisition'),
+    viewId: stringField(source, 'viewId', path, partial),
+    description: stringField(source, 'description', path, partial),
+    orientation: stringField(source, 'orientation', path, partial),
+    inspectionZone: stringField(source, 'inspectionZone', path, partial),
+    referenceAttachmentId: stringField(source, 'referenceAttachmentId', path, partial),
+    ...parseDigitalAcquisitionDefaults(source, path, partial),
+    ...(plan === undefined ? {} : { plan }),
   };
 }
 
@@ -571,8 +658,675 @@ function parseDigitalIqi(value: unknown, path: string, partial = false) {
   };
 }
 
+function parseDigitalAttachment(value: unknown, path: string): RtDigitalAttachmentMetadata {
+  const source = record(value, path);
+  const sha256 = stringField(source, 'sha256', path);
+  if (!/^(?:sha256:)?[0-9a-f]{64}$/.test(sha256)) {
+    throw new CodecError(`${path}.sha256 must be a lowercase SHA-256 digest.`);
+  }
+  return {
+    id: nonEmptyStringField(source, 'id', path),
+    name: nonEmptyStringField(source, 'name', path),
+    mimeType: enumField(source, 'mimeType', path, DIGITAL_ATTACHMENT_MIME_TYPES),
+    size: positiveSafeIntegerField(source, 'size', path),
+    sha256,
+  };
+}
+
+function parseDigitalVisualPoint(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    x: numberOrEmptyField(source, 'x', path, partial),
+    y: numberOrEmptyField(source, 'y', path, partial),
+  };
+}
+
+function parseDigitalVisualRegion(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    ...parseDigitalVisualPoint(source, path, partial),
+    width: numberOrEmptyField(source, 'width', path, partial),
+    height: numberOrEmptyField(source, 'height', path, partial),
+    rotationDegrees: numberOrEmptyField(source, 'rotationDegrees', path, partial),
+  };
+}
+
+function parseDigitalPartGeometry(
+  value: unknown,
+  path: string,
+  partial = false,
+): RtDigitalPartGeometry {
+  const source = record(value, path, partial);
+  const geometryType = enumField(source, 'geometryType', path, DIGITAL_PART_GEOMETRIES, partial, '');
+  const base = {
+    id: stableIdField(source, 'id', path, partial, 'dr-part-geometry'),
+    geometryType,
+    unit: enumField(source, 'unit', path, LENGTH_UNITS, partial, 'mm'),
+  };
+  if (geometryType === 'Flat / Plate' || geometryType === 'Rectangular') {
+    return {
+      ...base,
+      geometryType,
+      length: numberOrEmptyField(source, 'length', path, partial),
+      width: numberOrEmptyField(source, 'width', path, partial),
+      height: numberOrEmptyField(source, 'height', path, partial),
+    };
+  }
+  if (geometryType === 'Pipe / Tube' || geometryType === 'Cylinder' || geometryType === 'Ring') {
+    return {
+      ...base,
+      geometryType,
+      outsideDiameter: numberOrEmptyField(source, 'outsideDiameter', path, partial),
+      insideDiameter: numberOrEmptyField(source, 'insideDiameter', path, partial),
+      length: numberOrEmptyField(source, 'length', path, partial),
+    };
+  }
+  if (geometryType === 'Cone') {
+    return {
+      ...base,
+      geometryType,
+      majorDiameter: numberOrEmptyField(source, 'majorDiameter', path, partial),
+      minorDiameter: numberOrEmptyField(source, 'minorDiameter', path, partial),
+      height: numberOrEmptyField(source, 'height', path, partial),
+      wallThickness: numberOrEmptyField(source, 'wallThickness', path, partial),
+    };
+  }
+  if (geometryType === 'Complex Casting') {
+    return {
+      ...base,
+      geometryType,
+      boundingLength: numberOrEmptyField(source, 'boundingLength', path, partial),
+      boundingWidth: numberOrEmptyField(source, 'boundingWidth', path, partial),
+      boundingHeight: numberOrEmptyField(source, 'boundingHeight', path, partial),
+      inspectionEnvelope: stringField(source, 'inspectionEnvelope', path, partial),
+    };
+  }
+  if (geometryType === 'Other') {
+    return { ...base, geometryType, description: stringField(source, 'description', path, partial) };
+  }
+  return { ...base, geometryType: '' };
+}
+
+function parseDigitalThicknessZone(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-thickness-zone'),
+    zoneId: stringField(source, 'zoneId', path, partial),
+    description: stringField(source, 'description', path, partial),
+    minimum: numberOrEmptyField(source, 'minimum', path, partial),
+    maximum: numberOrEmptyField(source, 'maximum', path, partial),
+    governing: numberOrEmptyField(source, 'governing', path, partial),
+    position: parseDigitalVisualRegion(source.position, `${path}.position`, partial),
+  };
+}
+
+function parseDigitalThicknessDefinition(
+  value: unknown,
+  path: string,
+  partial = false,
+): RtDigitalThicknessDefinition {
+  const source = record(value, path, partial);
+  const mode = enumField(source, 'mode', path, DIGITAL_THICKNESS_MODES, partial, '');
+  const base = {
+    id: stableIdField(source, 'id', path, partial, 'dr-thickness'),
+    mode,
+    unit: enumField(source, 'unit', path, LENGTH_UNITS, partial, 'mm'),
+  };
+  if (mode === 'Single Thickness') {
+    return { ...base, mode, thickness: numberOrEmptyField(source, 'thickness', path, partial) };
+  }
+  if (mode === 'Thickness Range') {
+    return {
+      ...base,
+      mode,
+      minimum: numberOrEmptyField(source, 'minimum', path, partial),
+      maximum: numberOrEmptyField(source, 'maximum', path, partial),
+    };
+  }
+  if (mode === 'Multiple Thickness Zones') {
+    return {
+      ...base,
+      mode,
+      zones: arrayField(
+        source.zones,
+        `${path}.zones`,
+        (item, itemPath) => parseDigitalThicknessZone(item, itemPath, partial),
+        partial,
+      ),
+    };
+  }
+  return { ...base, mode: '' };
+}
+
+function parseDigitalInspectionArea(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-inspection-area'),
+    areaId: stringField(source, 'areaId', path, partial),
+    description: stringField(source, 'description', path, partial),
+    width: numberOrEmptyField(source, 'width', path, partial),
+    height: numberOrEmptyField(source, 'height', path, partial),
+    unit: enumField(source, 'unit', path, LENGTH_UNITS, partial, 'mm'),
+    position: parseDigitalVisualRegion(source.position, `${path}.position`, partial),
+  };
+}
+
+function parseDigitalInspectionAreas(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-inspection-areas'),
+    mode: enumField(source, 'mode', path, DIGITAL_INSPECTION_AREA_MODES, partial, ''),
+    areas: arrayField(
+      source.areas,
+      `${path}.areas`,
+      (item, itemPath) => parseDigitalInspectionArea(item, itemPath, partial),
+      partial,
+    ),
+  };
+}
+
+function parseDigitalPartDefinition(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  const techniquePath = `${path}.technique`;
+  const technique = record(source.technique, techniquePath, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-part'),
+    partName: stringField(source, 'partName', path, partial),
+    partNumber: stringField(source, 'partNumber', path, partial),
+    vendorCode: stringField(source, 'vendorCode', path, partial),
+    revisionOrConfiguration: stringField(source, 'revisionOrConfiguration', path, partial),
+    drawingOrSpecificationReference: stringField(source, 'drawingOrSpecificationReference', path, partial),
+    procedureNumber: stringField(source, 'procedureNumber', path, partial),
+    material: stringField(source, 'material', path, partial),
+    materialSpecification: stringField(source, 'materialSpecification', path, partial),
+    materialGroup: stringField(source, 'materialGroup', path, partial),
+    surfaceFinish: stringField(source, 'surfaceFinish', path, partial),
+    manufacturingProcess: enumField(
+      source,
+      'manufacturingProcess',
+      path,
+      DIGITAL_MANUFACTURING_PROCESSES,
+      partial,
+      '',
+    ),
+    otherManufacturingProcess: stringField(source, 'otherManufacturingProcess', path, partial),
+    geometry: parseDigitalPartGeometry(source.geometry, `${path}.geometry`, partial),
+    thickness: parseDigitalThicknessDefinition(source.thickness, `${path}.thickness`, partial),
+    inspectionAreas: parseDigitalInspectionAreas(source.inspectionAreas, `${path}.inspectionAreas`, partial),
+    technique: {
+      wallTechnique: enumField(
+        technique,
+        'wallTechnique',
+        techniquePath,
+        DIGITAL_WALL_TECHNIQUES,
+        partial,
+        '',
+      ),
+      imageTechnique: enumField(
+        technique,
+        'imageTechnique',
+        techniquePath,
+        DIGITAL_IMAGE_TECHNIQUES,
+        partial,
+        '',
+      ),
+      otherImageTechnique: stringField(technique, 'otherImageTechnique', techniquePath, partial),
+    },
+    inspectionStandard: stringField(source, 'inspectionStandard', path, partial),
+    inspectionStandardRevision: stringField(source, 'inspectionStandardRevision', path, partial),
+    attachments: arrayField(source.attachments, `${path}.attachments`, parseDigitalAttachment, partial),
+    referenceAttachmentId: stringField(source, 'referenceAttachmentId', path, partial),
+    partOrientation: stringField(source, 'partOrientation', path, partial),
+    datumReference: stringField(source, 'datumReference', path, partial),
+  };
+}
+
+function parseDigitalCatalogStatus(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    reference: stringField(source, 'reference', path, partial),
+    status: stringField(source, 'status', path, partial),
+    date: stringField(source, 'date', path, partial),
+    dueDate: stringField(source, 'dueDate', path, partial),
+  };
+}
+
+function parseDigitalSourceFocalSpot(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-focal-spot'),
+    label: stringField(source, 'label', path, partial),
+    size: numberOrEmptyField(source, 'size', path, partial),
+    unit: enumField(source, 'unit', path, LENGTH_UNITS, partial, 'mm'),
+  };
+}
+
+function parseDigitalSourceFilter(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-source-filter'),
+    label: stringField(source, 'label', path, partial),
+    description: stringField(source, 'description', path, partial),
+  };
+}
+
+function parseDigitalSourceSnapshot(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    manufacturer: stringField(source, 'manufacturer', path, partial),
+    model: stringField(source, 'model', path, partial),
+    serialNumber: stringField(source, 'serialNumber', path, partial),
+    kvMinimum: numberOrEmptyField(source, 'kvMinimum', path, partial),
+    kvMaximum: numberOrEmptyField(source, 'kvMaximum', path, partial),
+    currentMinimum: numberOrEmptyField(source, 'currentMinimum', path, partial),
+    currentMaximum: numberOrEmptyField(source, 'currentMaximum', path, partial),
+    maximumPowerKw: numberOrEmptyField(source, 'maximumPowerKw', path, partial),
+    focalSpots: arrayField(
+      source.focalSpots,
+      `${path}.focalSpots`,
+      (item, itemPath) => parseDigitalSourceFocalSpot(item, itemPath, partial),
+      partial,
+    ),
+    filters: arrayField(
+      source.filters,
+      `${path}.filters`,
+      (item, itemPath) => parseDigitalSourceFilter(item, itemPath, partial),
+      partial,
+    ),
+    calibration: parseDigitalCatalogStatus(source.calibration, `${path}.calibration`, partial),
+    qualification: parseDigitalCatalogStatus(source.qualification, `${path}.qualification`, partial),
+  };
+}
+
+function parseDigitalDetectorSnapshot(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    manufacturer: stringField(source, 'manufacturer', path, partial),
+    model: stringField(source, 'model', path, partial),
+    serialNumber: stringField(source, 'serialNumber', path, partial),
+    activeWidth: numberOrEmptyField(source, 'activeWidth', path, partial),
+    activeHeight: numberOrEmptyField(source, 'activeHeight', path, partial),
+    activeAreaUnit: enumField(source, 'activeAreaUnit', path, LENGTH_UNITS, partial, 'mm'),
+    matrixColumns: numberOrEmptyField(source, 'matrixColumns', path, partial),
+    matrixRows: numberOrEmptyField(source, 'matrixRows', path, partial),
+    pixelSize: numberOrEmptyField(source, 'pixelSize', path, partial),
+    pixelSizeUnit: enumField(source, 'pixelSizeUnit', path, DETECTOR_LENGTH_UNITS, partial, 'um'),
+    bitDepth: numberOrEmptyField(source, 'bitDepth', path, partial),
+    detectorSrb: numberOrEmptyField(source, 'detectorSrb', path, partial),
+    detectorSrbUnit: enumField(source, 'detectorSrbUnit', path, DETECTOR_LENGTH_UNITS, partial, 'um'),
+    modes: stringArrayField(source.modes, `${path}.modes`, partial),
+    calibration: parseDigitalCatalogStatus(source.calibration, `${path}.calibration`, partial),
+    badPixelMap: parseDigitalCatalogStatus(source.badPixelMap, `${path}.badPixelMap`, partial),
+    qualification: parseDigitalCatalogStatus(source.qualification, `${path}.qualification`, partial),
+  };
+}
+
+function parseDigitalIqiRuleRow(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-iqi-rule-row'),
+    minimumThickness: numberOrEmptyField(source, 'minimumThickness', path, partial),
+    maximumThickness: numberOrEmptyField(source, 'maximumThickness', path, partial),
+    iqiMaterial: stringField(source, 'iqiMaterial', path, partial),
+    designation: stringField(source, 'designation', path, partial),
+    requiredWire: stringField(source, 'requiredWire', path, partial),
+    requiredHole: stringField(source, 'requiredHole', path, partial),
+    requiredSensitivity: stringField(source, 'requiredSensitivity', path, partial),
+    placement: stringField(source, 'placement', path, partial),
+    shimRequirement: stringField(source, 'shimRequirement', path, partial),
+  };
+}
+
+function parseDigitalIqiRuleSnapshot(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    standard: stringField(source, 'standard', path, partial),
+    standardRevision: stringField(source, 'standardRevision', path, partial),
+    materialGroup: stringField(source, 'materialGroup', path, partial),
+    iqiType: enumField(source, 'iqiType', path, DIGITAL_IQI_TYPES, partial, ''),
+    wallTechnique: enumField(source, 'wallTechnique', path, DIGITAL_WALL_TECHNIQUES, partial, ''),
+    imageTechnique: enumField(source, 'imageTechnique', path, DIGITAL_IMAGE_TECHNIQUES, partial, ''),
+    thicknessUnit: enumField(source, 'thicknessUnit', path, LENGTH_UNITS, partial, 'mm'),
+    placementRule: stringField(source, 'placementRule', path, partial),
+    rules: arrayField(
+      source.rules,
+      `${path}.rules`,
+      (item, itemPath) => parseDigitalIqiRuleRow(item, itemPath, partial),
+      partial,
+    ),
+  };
+}
+
+function parseDigitalSourceSelection(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  const snapshotValue = valueAt(source, 'snapshot', path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-source-selection'),
+    catalogRecordId: stringField(source, 'catalogRecordId', path, partial),
+    catalogRevisionId: stringField(source, 'catalogRevisionId', path, partial),
+    catalogRevision: numberOrEmptyField(source, 'catalogRevision', path, partial),
+    snapshot: snapshotValue === MISSING || snapshotValue === null
+      ? null
+      : parseDigitalSourceSnapshot(snapshotValue, `${path}.snapshot`, partial),
+    focalSpotOptionId: stringField(source, 'focalSpotOptionId', path, partial),
+    filterOptionIds: stringArrayField(source.filterOptionIds, `${path}.filterOptionIds`, partial),
+    extraFilter: stringField(source, 'extraFilter', path, partial),
+    notes: stringField(source, 'notes', path, partial),
+  };
+}
+
+function parseDigitalDetectorSelection(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  const snapshotValue = valueAt(source, 'snapshot', path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-detector-selection'),
+    catalogRecordId: stringField(source, 'catalogRecordId', path, partial),
+    catalogRevisionId: stringField(source, 'catalogRevisionId', path, partial),
+    catalogRevision: numberOrEmptyField(source, 'catalogRevision', path, partial),
+    snapshot: snapshotValue === MISSING || snapshotValue === null
+      ? null
+      : parseDigitalDetectorSnapshot(snapshotValue, `${path}.snapshot`, partial),
+    detectorMode: stringField(source, 'detectorMode', path, partial),
+    orientation: enumField(source, 'orientation', path, DIGITAL_DETECTOR_ORIENTATIONS, partial, ''),
+    extraMode: stringField(source, 'extraMode', path, partial),
+    notes: stringField(source, 'notes', path, partial),
+  };
+}
+
+function parseDigitalLengthInput(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    value: numberOrEmptyField(source, 'value', path, partial),
+    unit: enumField(source, 'unit', path, DETECTOR_LENGTH_UNITS, partial, 'mm'),
+  };
+}
+
+function parseDigitalGeometryInputs(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-geometry'),
+    distanceBasis: enumField(source, 'distanceBasis', path, DIGITAL_DISTANCE_BASES, partial, ''),
+    sod: parseDigitalLengthInput(source.sod, `${path}.sod`, partial),
+    sdd: parseDigitalLengthInput(source.sdd, `${path}.sdd`, partial),
+    odd: parseDigitalLengthInput(source.odd, `${path}.odd`, partial),
+    availableSourceDistance: parseDigitalLengthInput(
+      source.availableSourceDistance,
+      `${path}.availableSourceDistance`,
+      partial,
+    ),
+    geometryRestrictions: stringField(source, 'geometryRestrictions', path, partial),
+    requiredMaximumUg: parseDigitalLengthInput(source.requiredMaximumUg, `${path}.requiredMaximumUg`, partial),
+    requiredMaximumEffectivePixel: parseDigitalLengthInput(
+      source.requiredMaximumEffectivePixel,
+      `${path}.requiredMaximumEffectivePixel`,
+      partial,
+    ),
+    inspectionAreaId: stringField(source, 'inspectionAreaId', path, partial),
+    requiredOverlapPercent: numberOrEmptyField(source, 'requiredOverlapPercent', path, partial),
+    excessiveOverlapThresholdPercent: numberOrEmptyField(
+      source,
+      'excessiveOverlapThresholdPercent',
+      path,
+      partial,
+    ),
+    optimizeExposureCount: booleanField(source, 'optimizeExposureCount', path, partial, true),
+    optimizeSodForUg: booleanField(source, 'optimizeSodForUg', path, partial, false),
+    optimizeOdd: booleanField(source, 'optimizeOdd', path, partial, false),
+    levelThreeApprovalReference: stringField(source, 'levelThreeApprovalReference', path, partial),
+  };
+}
+
+function parseDigitalIqiRuleBasis(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  const snapshotValue = valueAt(source, 'snapshot', path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-iqi-basis'),
+    catalogRecordId: stringField(source, 'catalogRecordId', path, partial),
+    catalogRevisionId: stringField(source, 'catalogRevisionId', path, partial),
+    catalogRevision: numberOrEmptyField(source, 'catalogRevision', path, partial),
+    snapshot: snapshotValue === MISSING || snapshotValue === null
+      ? null
+      : parseDigitalIqiRuleSnapshot(snapshotValue, `${path}.snapshot`, partial),
+    standard: stringField(source, 'standard', path, partial),
+    standardRevision: stringField(source, 'standardRevision', path, partial),
+    iqiType: enumField(source, 'iqiType', path, DIGITAL_IQI_TYPES, partial, ''),
+    material: stringField(source, 'material', path, partial),
+    materialGroup: stringField(source, 'materialGroup', path, partial),
+    placementRule: stringField(source, 'placementRule', path, partial),
+  };
+}
+
+function parseDigitalIqiZoneOutput(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-iqi-zone-output'),
+    thicknessZoneId: stringField(source, 'thicknessZoneId', path, partial),
+    governingThickness: numberOrEmptyField(source, 'governingThickness', path, partial),
+    thicknessUnit: enumField(source, 'thicknessUnit', path, LENGTH_UNITS, partial, 'mm'),
+    iqiMaterial: stringField(source, 'iqiMaterial', path, partial),
+    designation: stringField(source, 'designation', path, partial),
+    requiredWire: stringField(source, 'requiredWire', path, partial),
+    requiredHole: stringField(source, 'requiredHole', path, partial),
+    requiredSensitivity: stringField(source, 'requiredSensitivity', path, partial),
+    placement: stringField(source, 'placement', path, partial),
+    shimRequirement: stringField(source, 'shimRequirement', path, partial),
+    governing: booleanField(source, 'governing', path, partial, false),
+    overrideId: stringField(source, 'overrideId', path, partial),
+  };
+}
+
+function parseDigitalIqiPlanning(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-iqi-rules'),
+    basis: parseDigitalIqiRuleBasis(source.basis, `${path}.basis`, partial),
+    zoneOutputs: arrayField(
+      source.zoneOutputs,
+      `${path}.zoneOutputs`,
+      (item, itemPath) => parseDigitalIqiZoneOutput(item, itemPath, partial),
+      partial,
+    ),
+  };
+}
+
+function parseDigitalViewingPreset(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-viewing-preset'),
+    name: stringField(source, 'name', path, partial),
+    windowLevel: numberOrEmptyField(source, 'windowLevel', path, partial),
+    windowWidth: numberOrEmptyField(source, 'windowWidth', path, partial),
+    zoom: numberOrEmptyField(source, 'zoom', path, partial),
+    sharpness: stringField(source, 'sharpness', path, partial),
+    permittedProcessing: stringField(source, 'permittedProcessing', path, partial),
+    lut: stringField(source, 'lut', path, partial),
+    invert: booleanField(source, 'invert', path, partial, false),
+  };
+}
+
+function parseDigitalAcceptanceProfile(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-acceptance-profile'),
+    name: stringField(source, 'name', path, partial),
+    standard: stringField(source, 'standard', path, partial),
+    revision: stringField(source, 'revision', path, partial),
+    acceptanceClass: stringField(source, 'acceptanceClass', path, partial),
+    grade: stringField(source, 'grade', path, partial),
+    level: stringField(source, 'level', path, partial),
+    applicableClause: stringField(source, 'applicableClause', path, partial),
+    drawingRequirement: stringField(source, 'drawingRequirement', path, partial),
+    customerRequirement: stringField(source, 'customerRequirement', path, partial),
+    requirementText: stringField(source, 'requirementText', path, partial),
+  };
+}
+
+function parseDigitalPlanningOverride(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-override'),
+    fieldPath: stringField(source, 'fieldPath', path, partial),
+    calculatedValue: stringField(source, 'calculatedValue', path, partial),
+    approvedValue: stringField(source, 'approvedValue', path, partial),
+    reason: stringField(source, 'reason', path, partial),
+    approvedBy: stringField(source, 'approvedBy', path, partial),
+    approvedAt: stringField(source, 'approvedAt', path, partial),
+  };
+}
+
+function parseDigitalPlanning(value: unknown, path: string, partial = false): RtDigitalPlanning {
+  const source = record(value, path, partial);
+  const id = stableIdField(source, 'id', path, partial, 'dr-planning');
+  const processingPath = `${path}.processingPolicy`;
+  const processingPolicy = record(source.processingPolicy, processingPath, partial);
+  const visual = Object.prototype.hasOwnProperty.call(source, 'visual')
+    ? parseDigitalVisualControls(source.visual, `${path}.visual`, partial)
+    : createEmptyRtDigitalAcquisitionVisualControls(`${id}-visual`);
+  return {
+    id,
+    part: parseDigitalPartDefinition(source.part, `${path}.part`, partial),
+    sourceSelection: parseDigitalSourceSelection(source.sourceSelection, `${path}.sourceSelection`, partial),
+    detectorSelection: parseDigitalDetectorSelection(
+      source.detectorSelection,
+      `${path}.detectorSelection`,
+      partial,
+    ),
+    geometry: parseDigitalGeometryInputs(source.geometry, `${path}.geometry`, partial),
+    visual,
+    iqiRules: parseDigitalIqiPlanning(source.iqiRules, `${path}.iqiRules`, partial),
+    viewingPresets: arrayField(
+      source.viewingPresets,
+      `${path}.viewingPresets`,
+      (item, itemPath) => parseDigitalViewingPreset(item, itemPath, partial),
+      partial,
+    ),
+    processingPolicy: {
+      permittedProcessing: stringField(processingPolicy, 'permittedProcessing', processingPath, partial),
+      prohibitedProcessing: stringField(processingPolicy, 'prohibitedProcessing', processingPath, partial),
+    },
+    acceptanceProfiles: arrayField(
+      source.acceptanceProfiles,
+      `${path}.acceptanceProfiles`,
+      (item, itemPath) => parseDigitalAcceptanceProfile(item, itemPath, partial),
+      partial,
+    ),
+    overrides: arrayField(
+      source.overrides,
+      `${path}.overrides`,
+      (item, itemPath) => parseDigitalPlanningOverride(item, itemPath, partial),
+      partial,
+    ),
+  };
+}
+
+function parseDigitalGridPlacement(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-grid-placement'),
+    row: numberOrEmptyField(source, 'row', path, partial),
+    column: numberOrEmptyField(source, 'column', path, partial),
+    centerX: numberOrEmptyField(source, 'centerX', path, partial),
+    centerY: numberOrEmptyField(source, 'centerY', path, partial),
+    unit: enumField(source, 'unit', path, LENGTH_UNITS, partial, 'mm'),
+    detectorOrientation: enumField(
+      source,
+      'detectorOrientation',
+      path,
+      DIGITAL_DETECTOR_ORIENTATIONS,
+      partial,
+      '',
+    ),
+  };
+}
+
+function parseDigitalVisualControls(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-visual'),
+    sourcePosition: parseDigitalVisualPoint(source.sourcePosition, `${path}.sourcePosition`, partial),
+    detectorPosition: parseDigitalVisualPoint(source.detectorPosition, `${path}.detectorPosition`, partial),
+    detectorRotationDegrees: numberOrEmptyField(source, 'detectorRotationDegrees', path, partial),
+    beamCenter: parseDigitalVisualPoint(source.beamCenter, `${path}.beamCenter`, partial),
+    beamAngleDegrees: numberOrEmptyField(source, 'beamAngleDegrees', path, partial),
+    inspectionAreaId: stringField(source, 'inspectionAreaId', path, partial),
+    leadMarkers: stringField(source, 'leadMarkers', path, partial),
+  };
+}
+
+function parseDigitalAcquisitionIqiAssignment(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-iqi-assignment'),
+    zoneOutputId: stringField(source, 'zoneOutputId', path, partial),
+    designation: stringField(source, 'designation', path, partial),
+    requiredWire: stringField(source, 'requiredWire', path, partial),
+    requiredHole: stringField(source, 'requiredHole', path, partial),
+    shimRequirement: stringField(source, 'shimRequirement', path, partial),
+    positionDescription: stringField(source, 'positionDescription', path, partial),
+    position: parseDigitalVisualPoint(source.position, `${path}.position`, partial),
+  };
+}
+
+function parseDigitalInterpretationArea(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-interpretation-area'),
+    areaId: stringField(source, 'areaId', path, partial),
+    description: stringField(source, 'description', path, partial),
+    inspectionAreaId: stringField(source, 'inspectionAreaId', path, partial),
+    thicknessZoneId: stringField(source, 'thicknessZoneId', path, partial),
+    position: parseDigitalVisualRegion(source.position, `${path}.position`, partial),
+    thicknessMinimum: numberOrEmptyField(source, 'thicknessMinimum', path, partial),
+    thicknessMaximum: numberOrEmptyField(source, 'thicknessMaximum', path, partial),
+    thicknessUnit: enumField(source, 'thicknessUnit', path, LENGTH_UNITS, partial, 'mm'),
+    viewingPresetId: stringField(source, 'viewingPresetId', path, partial),
+    windowLevel: numberOrEmptyField(source, 'windowLevel', path, partial),
+    windowWidth: numberOrEmptyField(source, 'windowWidth', path, partial),
+    zoom: numberOrEmptyField(source, 'zoom', path, partial),
+    sharpness: stringField(source, 'sharpness', path, partial),
+    permittedProcessing: stringField(source, 'permittedProcessing', path, partial),
+    lut: stringField(source, 'lut', path, partial),
+    invert: booleanField(source, 'invert', path, partial, false),
+    acceptanceProfileId: stringField(source, 'acceptanceProfileId', path, partial),
+  };
+}
+
+function parseDigitalAcquisitionPlan(
+  value: unknown,
+  path: string,
+  partial = false,
+): RtDigitalAcquisitionPlan {
+  const source = record(value, path, partial);
+  const representativeImageValue = valueAt(source, 'representativeImage', path, partial);
+  return {
+    id: stableIdField(source, 'id', path, partial, 'dr-acquisition-plan'),
+    gridPlacement: parseDigitalGridPlacement(source.gridPlacement, `${path}.gridPlacement`, partial),
+    visual: parseDigitalVisualControls(source.visual, `${path}.visual`, partial),
+    representativeImage: representativeImageValue === MISSING || representativeImageValue === null
+      ? null
+      : parseDigitalAttachment(representativeImageValue, `${path}.representativeImage`),
+    iqiAssignment: parseDigitalAcquisitionIqiAssignment(
+      source.iqiAssignment,
+      `${path}.iqiAssignment`,
+      partial,
+    ),
+    interpretationAreas: arrayField(
+      source.interpretationAreas,
+      `${path}.interpretationAreas`,
+      (item, itemPath) => parseDigitalInterpretationArea(item, itemPath, partial),
+      partial,
+    ),
+  };
+}
+
 function parseDigitalTechnique(value: unknown, path: string, partial = false): RtDigitalTechnique {
   const source = record(value, path, partial);
+  const planningPresent = Object.prototype.hasOwnProperty.call(source, 'planning');
+  const planning = planningPresent
+    ? parseDigitalPlanning(source.planning, `${path}.planning`, partial)
+    : partial
+      ? createEmptyRtDigitalPlanning()
+      : undefined;
   return {
     general: parseGeneral(source.general, `${path}.general`, partial),
     workflow: enumField(source, 'workflow', path, DIGITAL_WORKFLOWS, partial, ''),
@@ -592,8 +1346,14 @@ function parseDigitalTechnique(value: unknown, path: string, partial = false): R
     displayAndStorage: parseDisplayAndStorage(source.displayAndStorage, `${path}.displayAndStorage`, partial),
     iqi: parseDigitalIqi(source.iqi, `${path}.iqi`, partial),
     acceptance: parseAcceptance(source.acceptance, `${path}.acceptance`, partial),
-    acquisitions: arrayField(source.acquisitions, `${path}.acquisitions`, parseDigitalAcquisition, partial),
+    acquisitions: arrayField(
+      source.acquisitions,
+      `${path}.acquisitions`,
+      (item, itemPath) => parseDigitalAcquisition(item, itemPath, partial),
+      partial,
+    ),
     techniqueNotes: stringField(source, 'techniqueNotes', path, partial),
+    ...(planning === undefined ? {} : { planning }),
   };
 }
 
@@ -902,7 +1662,8 @@ export function duplicateRtFilmExposureView(view: RtFilmExposureView): RtFilmExp
 
 export function createRtDigitalAcquisition(
   overrides: Partial<RtDigitalAcquisition> = {},
-): RtDigitalAcquisition {
+): RtDigitalNormalizedAcquisition {
+  const { plan, ...scalarOverrides } = overrides;
   return parseDigitalAcquisition({
     ...emptyRtDigitalAcquisitionDefaults,
     id: createStableId('dda-acquisition'),
@@ -911,17 +1672,33 @@ export function createRtDigitalAcquisition(
     orientation: '',
     inspectionZone: '',
     referenceAttachmentId: '',
-    ...overrides,
-  }, 'digitalAcquisition');
+    plan: plan ?? createEmptyRtDigitalAcquisitionPlan(),
+    ...scalarOverrides,
+  }, 'digitalAcquisition') as RtDigitalNormalizedAcquisition;
 }
 
 export function duplicateRtDigitalAcquisition(
   acquisition: RtDigitalAcquisition,
-): RtDigitalAcquisition {
+): RtDigitalNormalizedAcquisition {
+  const freshPlan = createEmptyRtDigitalAcquisitionPlan();
+  const plan = acquisition.plan
+    ? {
+        ...acquisition.plan,
+        id: freshPlan.id,
+        gridPlacement: { ...acquisition.plan.gridPlacement, id: freshPlan.gridPlacement.id },
+        visual: { ...acquisition.plan.visual, id: freshPlan.visual.id },
+        iqiAssignment: { ...acquisition.plan.iqiAssignment, id: freshPlan.iqiAssignment.id },
+        interpretationAreas: acquisition.plan.interpretationAreas.map((area) => ({
+          ...area,
+          id: createStableId('dr-interpretation-area'),
+        })),
+      }
+    : freshPlan;
   return createRtDigitalAcquisition({
     ...acquisition,
     id: createStableId('dda-acquisition'),
     viewId: '',
+    plan,
   });
 }
 
@@ -1567,8 +2344,12 @@ export function normalizeRtFilmSheet(value: unknown): RtFilmSheet {
   return parseFilmTechnique(value ?? emptyRtFilmSheet, 'rtFilm', true);
 }
 
-export function normalizeRtDigitalSheet(value: unknown): RtDigitalSheet {
-  return parseDigitalTechnique(value ?? emptyRtDigitalSheet, 'rtDigital', true);
+export function normalizeRtDigitalSheet(value: unknown): RtDigitalNormalizedSheet {
+  return parseDigitalTechnique(
+    value ?? emptyRtDigitalSheet,
+    'rtDigital',
+    true,
+  ) as RtDigitalNormalizedSheet;
 }
 
 export function normalizePtSheet(value: unknown): PtSheet {
@@ -1595,7 +2376,7 @@ export function hydrateRtFilmSheet(document: RtPtDocumentV3): RtFilmSheet {
 }
 
 /** Quarantine is intentionally unreachable from all hydration helpers. */
-export function hydrateRtDigitalSheet(document: RtPtDocumentV3): RtDigitalSheet {
+export function hydrateRtDigitalSheet(document: RtPtDocumentV3): RtDigitalNormalizedSheet {
   return document.method === 'RT-Digital'
     ? normalizeRtDigitalSheet(document.technique)
     : normalizeRtDigitalSheet(emptyRtDigitalSheet);

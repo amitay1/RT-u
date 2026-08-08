@@ -11,6 +11,7 @@ import { RtPtSidebar } from "@/components/RtPtSidebar";
 import { RtPtWorkspace } from "@/components/RtPtWorkspace";
 import { RtPtValidationDialog } from "@/components/rtpt/RtPtValidationDialog";
 import { RtPtInspectionWorkspace } from "@/components/rtpt/RtPtInspectionWorkspace";
+import { RtPtProcessOverview } from "@/components/rtpt/RtPtProcessOverview";
 import { SelfDiagnosticPanel } from "@/components/diagnostics/SelfDiagnosticPanel";
 import { StatusBar } from "@/components/StatusBar";
 import { Toolbar } from "@/components/Toolbar";
@@ -39,7 +40,7 @@ import type {
   PersistedTechniqueSheetData,
   TechniqueSheetRecord,
 } from "@/services/techniqueSheetService";
-import { RT_PT_METHOD_LABEL, type RtPtMethod } from "@/types/rtPtDocument";
+import { RT_PT_METHOD_LABEL, type RtPtMethod, type RtPtWorkspaceMode } from "@/types/rtPtDocument";
 import {
   buildRtPtTechniquePdf,
   getRtPtPdfReleaseState,
@@ -171,7 +172,7 @@ const Index = () => {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [unsavedCloseDialogOpen, setUnsavedCloseDialogOpen] = useState(false);
   const [updateRecoveryNotice, setUpdateRecoveryNotice] = useState<UpdateRecoveryRecord | null>(null);
-  const [workspaceMode, setWorkspaceMode] = useState<"technique" | "inspection">("technique");
+  const [workspaceMode, setWorkspaceMode] = useState<RtPtWorkspaceMode>("technique");
   const [isExportingTechniquePdf, setIsExportingTechniquePdf] = useState(false);
   const [isExportingInspectionReportPdf, setIsExportingInspectionReportPdf] = useState(false);
   const [isClosingAfterSave, setIsClosingAfterSave] = useState(false);
@@ -367,6 +368,18 @@ const Index = () => {
   const markCurrentAsSaved = useCallback((snapshot = currentCardSnapshot) => {
     setLastSavedSnapshot(snapshot);
   }, [currentCardSnapshot]);
+
+  /** Process overview hand-off: open the technique tab that owns the picked stage. */
+  const openTechniqueTab = useCallback((tab: string) => {
+    setWorkspaceMode("technique");
+    rtPtWorkspace.setActiveTab(ndtMethod, tab);
+  }, [ndtMethod, rtPtWorkspace]);
+
+  // Penetrant techniques have no radiographic pipeline to overview.
+  useEffect(() => {
+    if (ndtMethod !== "PT") return;
+    setWorkspaceMode((mode) => (mode === "process" ? "technique" : mode));
+  }, [ndtMethod]);
 
   useEffect(() => {
     if (hasHydratedRtPtDraft) {
@@ -799,29 +812,35 @@ const Index = () => {
         </CollapsibleSidebar>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {workspaceMode === "technique" ? (
-            <RtPtWorkspace workspace={rtPtWorkspace} validation={rtPtValidation} />
-          ) : (
+          {workspaceMode === "inspection" ? (
             <RtPtInspectionWorkspace controller={inspectionReportWorkspace} technique={rtPtDocument} />
+          ) : workspaceMode === "process" ? (
+            <RtPtProcessOverview
+              techniqueDocument={rtPtDocument}
+              validation={rtPtValidation}
+              onOpenTab={openTechniqueTab}
+            />
+          ) : (
+            <RtPtWorkspace workspace={rtPtWorkspace} validation={rtPtValidation} />
           )}
         </div>
       </div>
 
       <StatusBar
-        completionPercent={workspaceMode === "technique"
-          ? rtPtValidation.completionPercent
-          : inspectionReportWorkspace.validation.completionPercent}
-        requiredFieldsComplete={workspaceMode === "technique"
-          ? rtPtValidation.completedFieldsCount
-          : inspectionReportWorkspace.validation.completedFieldsCount}
-        totalRequiredFields={workspaceMode === "technique"
-          ? rtPtValidation.totalRequiredFields
-          : inspectionReportWorkspace.validation.totalRequiredFields}
-        completionLabel={workspaceMode === "technique" ? "Required technique fields" : "Inspection report fields"}
-        autoSaveStatus={workspaceMode === "technique"
-          ? persistence.autoSaveStatus
-          : inspectionReportWorkspace.persistenceError ? "error" : "saved"}
-        lastSaved={workspaceMode === "technique" ? persistence.lastSaved : null}
+        completionPercent={workspaceMode === "inspection"
+          ? inspectionReportWorkspace.validation.completionPercent
+          : rtPtValidation.completionPercent}
+        requiredFieldsComplete={workspaceMode === "inspection"
+          ? inspectionReportWorkspace.validation.completedFieldsCount
+          : rtPtValidation.completedFieldsCount}
+        totalRequiredFields={workspaceMode === "inspection"
+          ? inspectionReportWorkspace.validation.totalRequiredFields
+          : rtPtValidation.totalRequiredFields}
+        completionLabel={workspaceMode === "inspection" ? "Inspection report fields" : "Required technique fields"}
+        autoSaveStatus={workspaceMode === "inspection"
+          ? inspectionReportWorkspace.persistenceError ? "error" : "saved"
+          : persistence.autoSaveStatus}
+        lastSaved={workspaceMode === "inspection" ? null : persistence.lastSaved}
       />
 
       <DiagnosticsExportDialog

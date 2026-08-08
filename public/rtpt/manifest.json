@@ -1,7 +1,7 @@
 {
   "name": "RT Inspector",
   "short_name": "RT Inspector",
-  "description": "Radiographic and liquid-penetrant technique-sheet workspace.",
+  "description": "Radiographic Technique Engineering Platform.",
   "start_url": "/",
   "scope": "/",
   "id": "/rtpt-inspector",

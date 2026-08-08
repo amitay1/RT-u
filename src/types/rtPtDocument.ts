@@ -13,13 +13,21 @@ export type RtPtApprovalRole =
   | 'prepared'
   | 'reviewed'
   | 'cognizant-engineering'
-  | 'ndt-level-3';
+  | 'ndt-level-3'
+  | 'quality'
+  | 'customer';
 
 export interface RtPtActiveTabs {
   rtFilm: string;
   rtDigital: string;
   pt: string;
 }
+
+/**
+ * Top-level workspace the shell is showing. `process` is the read-only
+ * radiographic pipeline overview and owns no editable document data.
+ */
+export type RtPtWorkspaceMode = 'technique' | 'inspection' | 'process';
 
 export interface RtPtDocumentControl {
   number: string;

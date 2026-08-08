@@ -16,7 +16,7 @@ const EMBEDDED_SERVER_HOST = '127.0.0.1';
 // server binds an OS-assigned free port (see startEmbeddedServer) so this app can
 // never collide with — or load — a different co-installed application that also
 // happens to listen on 127.0.0.1:5000.
-const EMBEDDED_SERVER_PORT = 5000;
+const EMBEDDED_SERVER_PORT = 5199;
 const EMBEDDED_SERVER_ORIGIN = `http://${EMBEDDED_SERVER_HOST}:${EMBEDDED_SERVER_PORT}`;
 // The origin actually loaded and trusted at runtime. Stays the dev origin above
 // until the packaged embedded server binds its own free port.
@@ -1064,7 +1064,7 @@ function buildMenuTemplate() {
               type: 'info',
               title: 'About RT Inspector',
               message: 'RT Inspector',
-              detail: `Radiographic and penetrant technique-sheet creator\n(ASTM E1742 / E2698 / E1417)\n\nVersion: ${app.getVersion()}\n\nBuilt with Electron, React, and Node.js`,
+              detail: `Radiographic Technique Engineering Platform\n\nVersion: ${app.getVersion()}\n\nBuilt with Electron, React, and Node.js`,
               buttons: ['OK']
             });
           }

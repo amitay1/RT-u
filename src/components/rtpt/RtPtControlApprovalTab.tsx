@@ -1,5 +1,17 @@
-import { Archive, History, Info, Plus, ShieldAlert, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Archive,
+  CheckCircle2,
+  History,
+  Info,
+  Plus,
+  ShieldAlert,
+  Trash2,
+} from 'lucide-react';
 import type { RtPtWorkspaceController } from '@/hooks/useRtPtWorkspaceState';
+import type { RtPtValidationSummary } from '@/lib/rtPtValidation';
+import { resolveRtPtWorkflowTab } from '@/lib/rtPtWorkflow';
+import type { RtDigitalPlanningOverride } from '@/types/rtDigital';
 import {
   RT_PT_REFERENCE_SUGGESTIONS,
   type RtPtApproval,
@@ -22,6 +34,7 @@ import {
 
 interface RtPtControlApprovalTabProps {
   workspace: RtPtWorkspaceController;
+  validation?: RtPtValidationSummary;
 }
 
 const APPROVAL_ROLE_OPTIONS: ReadonlyArray<{ value: RtPtApprovalRole; label: string }> = [
@@ -29,6 +42,8 @@ const APPROVAL_ROLE_OPTIONS: ReadonlyArray<{ value: RtPtApprovalRole; label: str
   { value: 'reviewed', label: 'Reviewed by' },
   { value: 'cognizant-engineering', label: 'Cognizant engineering' },
   { value: 'ndt-level-3', label: 'NDT Level III' },
+  { value: 'quality', label: 'Quality' },
+  { value: 'customer', label: 'Customer' },
 ];
 
 const emptyReference = (): RtPtControlledReference => ({
@@ -61,6 +76,16 @@ const emptyRevisionHistoryEntry = (): RtPtRevisionHistoryEntry => ({
   author: '',
 });
 
+const emptyPlanningOverride = (): RtDigitalPlanningOverride => ({
+  id: createLocalId('dr-override'),
+  fieldPath: '',
+  calculatedValue: '',
+  approvedValue: '',
+  reason: '',
+  approvedBy: '',
+  approvedAt: '',
+});
+
 const quarantineCategory = (sourcePath: string): string => {
   const path = sourcePath.toLowerCase();
   if (path.includes('iqc') || path.includes('iqi') || path.includes('cnr') || path.includes('density') || path.includes('sensitivity')) {
@@ -76,10 +101,11 @@ const quarantineCategory = (sourcePath: string): string => {
   return 'Other legacy performed data';
 };
 
-export function RtPtControlApprovalTab({ workspace }: RtPtControlApprovalTabProps) {
+export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApprovalTabProps) {
   const { currentProfile } = useInspectorProfile();
   const {
     method,
+    setActiveTab,
     documentId,
     status,
     setStatus,
@@ -100,6 +126,30 @@ export function RtPtControlApprovalTab({ workspace }: RtPtControlApprovalTabProp
     migration,
     acknowledgeMigration,
   } = workspace;
+
+  const digitalPlanning = method === 'RT-Digital' ? workspace.rtDigital.sheet.planning : null;
+  const approvalIssues = validation?.approvalReadiness.issues ?? [];
+  const approvalErrorCount = approvalIssues.filter((issue) => issue.severity === 'error').length;
+  const approvalWarningCount = approvalIssues.filter((issue) => issue.severity === 'warning').length;
+
+  const updatePlanningOverride = (id: string, patch: Partial<RtDigitalPlanningOverride>) => {
+    if (!digitalPlanning) return;
+    workspace.rtDigital.updatePlanning({
+      ...digitalPlanning,
+      overrides: digitalPlanning.overrides.map((override) => (
+        override.id === id ? { ...override, ...patch, id: override.id } : override
+      )),
+    });
+  };
+
+  const setDocumentStatus = (nextStatus: typeof status) => {
+    if (nextStatus === 'approved' && validation && !validation.approvalReadiness.isReady) {
+      const firstIssue = validation.approvalReadiness.issues[0];
+      if (firstIssue) setActiveTab(method, resolveRtPtWorkflowTab(method, firstIssue.tab));
+      return;
+    }
+    setStatus(nextStatus);
+  };
 
   const updateReference = (index: number, patch: Partial<RtPtControlledReference>) => {
     setControlledReferences((current) => current.map((reference, referenceIndex) => (
@@ -153,13 +203,21 @@ export function RtPtControlApprovalTab({ workspace }: RtPtControlApprovalTabProp
           <SelectField
             label="Document Status"
             value={status}
-            onChange={setStatus}
+            onChange={setDocumentStatus}
             options={[
               { value: 'draft', label: 'Draft' },
               { value: 'in-review', label: 'In review' },
-              { value: 'approved', label: 'Approved' },
+              {
+                value: 'approved',
+                label: validation && !validation.approvalReadiness.isReady
+                  ? 'Approved (blocked by technique check)'
+                  : 'Approved',
+              },
               { value: 'superseded', label: 'Superseded' },
             ]}
+            hint={validation && !validation.approvalReadiness.isReady
+              ? 'Approval remains blocked until the current document independently passes every approval-readiness check.'
+              : 'Approved status is available only after current validation passes.'}
           />
           <TextField
             label="Document Number"
@@ -203,6 +261,166 @@ export function RtPtControlApprovalTab({ workspace }: RtPtControlApprovalTabProp
           />
         </CardContent>
       </Card>
+
+      {method === 'RT-Digital' && validation ? (
+        <Card className={validation.approvalReadiness.isReady ? 'border-emerald-500/30' : 'border-destructive/30'}>
+          <CardHeader className="gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {validation.approvalReadiness.isReady
+                  ? <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  : <ShieldAlert className="h-5 w-5 text-destructive" />}
+                <CardTitle>11. Automatic Technique Check</CardTitle>
+              </div>
+              <Badge variant={validation.approvalReadiness.isReady ? 'outline' : 'destructive'}>
+                {validation.approvalReadiness.isReady ? 'READY FOR APPROVAL' : 'APPROVAL BLOCKED'}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              This check is recalculated from the current controlled inputs. Stored overrides are reviewed explicitly and never replace calculated values.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Approval readiness</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums">{validation.approvalReadiness.completionPercent}%</div>
+                <div className="text-xs text-muted-foreground">
+                  {validation.approvalReadiness.completedRequirements} / {validation.approvalReadiness.totalRequirements} checks
+                </div>
+              </div>
+              <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Blocking corrections</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums text-destructive">{approvalErrorCount}</div>
+                <div className="text-xs text-muted-foreground">must be resolved before release</div>
+              </div>
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Warnings</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-300">{approvalWarningCount}</div>
+                <div className="text-xs text-muted-foreground">require engineering review</div>
+              </div>
+            </div>
+
+            {approvalIssues.length === 0 ? (
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 text-sm">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none text-emerald-600" />
+                <span>The current Digital / DDA technique passes the approval-readiness rules.</span>
+              </div>
+            ) : (
+              <div className="space-y-2" aria-live="polite">
+                {approvalIssues.map((issue, index) => (
+                  <button
+                    key={`${issue.path}-${index}`}
+                    type="button"
+                    className="flex w-full items-start gap-3 rounded-lg border border-border/80 bg-background/60 p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/30"
+                    onClick={() => setActiveTab(method, resolveRtPtWorkflowTab(method, issue.tab))}
+                  >
+                    {issue.severity === 'error'
+                      ? <ShieldAlert className="mt-0.5 h-4 w-4 flex-none text-destructive" />
+                      : <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-amber-600" />}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{issue.label}</span>
+                      <span className="block text-xs text-muted-foreground">{issue.message}</span>
+                    </span>
+                    <Badge variant="outline" className="flex-none">
+                      Open {resolveRtPtWorkflowTab(method, issue.tab)}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {digitalPlanning ? (
+        <Card>
+          <CardHeader className="gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle>Engineering Override Log</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Record a controlled Level III disposition when an approved value intentionally differs from a calculated requirement.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => workspace.rtDigital.updatePlanning({
+                  ...digitalPlanning,
+                  overrides: [...digitalPlanning.overrides, emptyPlanningOverride()],
+                })}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add Override
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {digitalPlanning.overrides.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                No engineering overrides are recorded.
+              </div>
+            ) : digitalPlanning.overrides.map((override, index) => (
+              <div key={override.id} className="rounded-xl border border-border/80 bg-background/40 p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">Override {index + 1}</span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    aria-label={`Remove engineering override ${index + 1}`}
+                    onClick={() => workspace.rtDigital.updatePlanning({
+                      ...digitalPlanning,
+                      overrides: digitalPlanning.overrides.filter((candidate) => candidate.id !== override.id),
+                    })}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  <TextField
+                    label="Controlled Field / Check"
+                    value={override.fieldPath}
+                    onChange={(fieldPath) => updatePlanningOverride(override.id, { fieldPath })}
+                    placeholder="e.g. geometry.requiredMaximumUg"
+                  />
+                  <TextField
+                    label="Calculated Value"
+                    value={override.calculatedValue}
+                    onChange={(calculatedValue) => updatePlanningOverride(override.id, { calculatedValue })}
+                  />
+                  <TextField
+                    label="Approved Value"
+                    value={override.approvedValue}
+                    onChange={(approvedValue) => updatePlanningOverride(override.id, { approvedValue })}
+                  />
+                  <TextField
+                    label="Approved By (Level III)"
+                    value={override.approvedBy}
+                    onChange={(approvedBy) => updatePlanningOverride(override.id, { approvedBy })}
+                  />
+                  <DateField
+                    label="Approval Date"
+                    value={override.approvedAt}
+                    onChange={(approvedAt) => updatePlanningOverride(override.id, { approvedAt })}
+                  />
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <TextAreaField
+                      label="Technical Justification"
+                      value={override.reason}
+                      onChange={(reason) => updatePlanningOverride(override.id, { reason })}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="gap-3">

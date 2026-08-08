@@ -7,6 +7,7 @@ import { componentTagger } from "lovable-tagger";
 const appPackageVersion =
   process.env.npm_package_version ||
   JSON.parse(fs.readFileSync(path.resolve(__dirname, "package.json"), "utf8")).version;
+const RT_PT_DEV_PORT = 5199;
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -19,7 +20,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "127.0.0.1",
     allowedHosts: ["127.0.0.1", "localhost"],
-    port: 5000,
+    port: RT_PT_DEV_PORT,
+    strictPort: true,
   },
   plugins: [
     react(),

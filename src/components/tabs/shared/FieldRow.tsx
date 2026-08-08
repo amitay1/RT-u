@@ -139,6 +139,7 @@ interface SelectFieldProps<T extends string> {
   options: ReadonlyArray<SelectOption | string>;
   placeholder?: string;
   hint?: string;
+  disabled?: boolean;
 }
 
 export function SelectField<T extends string>({
@@ -149,14 +150,15 @@ export function SelectField<T extends string>({
   options,
   placeholder,
   hint,
+  disabled,
 }: SelectFieldProps<T>) {
   const generatedId = useId();
   const id = providedId ?? `${label.replace(/\s+/g, '-').toLowerCase()}-${generatedId.replace(/:/g, '')}`;
   const normalised = options.map(o => (typeof o === 'string' ? { label: o, value: o } : o));
   return (
     <FieldShell label={label} htmlFor={id} hint={hint}>
-      <Select value={value} onValueChange={v => onChange(v as T)}>
-        <SelectTrigger id={id}>
+      <Select value={value} onValueChange={v => onChange(v as T)} disabled={disabled}>
+        <SelectTrigger id={id} disabled={disabled}>
           <SelectValue placeholder={placeholder ?? 'Select…'} />
         </SelectTrigger>
         <SelectContent>

@@ -110,10 +110,13 @@ export const RtPtSidebar = ({ method, onMethodChange, compact = false }: RtPtSid
             <ActiveIcon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Current technique</span>
-            <h4 id={activeTitleId} className="mt-0.5 truncate text-base font-semibold tracking-tight">{active.label}</h4>
+            {/* The eyebrow is tracked wide, so it must never wrap under the badge. */}
+            <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Current technique</span>
+            <div className="mt-0.5 flex items-center gap-2">
+              <h4 id={activeTitleId} className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">{active.label}</h4>
+              <Badge variant="secondary" className="flex-none font-mono text-[11px]">{active.tabCount} steps</Badge>
+            </div>
           </div>
-          <Badge variant="secondary" className="flex-none font-mono text-[11px]">{active.tabCount} steps</Badge>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{active.summary}</p>
         <div className="mt-3 rounded-lg border border-border/70 bg-background/40 p-3">

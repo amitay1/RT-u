@@ -922,21 +922,22 @@ async function readActiveDocumentId(page) {
 
     const documentStatus = page.getByLabel("Document Status");
     await documentStatus.click({ timeout: 10_000 });
-    await page.getByRole("option", { name: /^Approved$/i }).click({ timeout: 10_000 });
+    await page.getByRole("option", { name: /^Approved \(blocked by technique check\)$/i }).click({ timeout: 10_000 });
     assertRelease(
-      /Approved/i.test(await documentStatus.innerText()),
-      "Document status could not enter the approval lifecycle smoke state.",
+      /Draft/i.test(await documentStatus.innerText()),
+      "An incomplete technique entered Approved despite the approval-readiness gate.",
+    );
+    assertRelease(
+      await page.getByText(/Approval remains blocked until the current document independently passes every approval-readiness check/i).count() === 1,
+      "The incomplete-technique approval gate did not remain visible after the blocked transition.",
     );
 
     await page.getByLabel("Title").fill("Release smoke controlled-content edit");
-    await page.waitForFunction((controlId) => (
-      document.getElementById(controlId)?.textContent?.includes("Draft") === true
-    ), await documentStatus.getAttribute("id"), { timeout: 10_000 });
     assertRelease(
-      await page.getByText(/No approvals recorded/i).count() === 1,
-      "Editing approved content did not clear stale approval records.",
+      await page.getByText(/^Approval 1$/i).count() === 1,
+      "Editing a draft unexpectedly removed its unbound approval record.",
     );
-    await assertNoCrash(page, errors, "invalidating approval after a controlled-content edit");
+    await assertNoCrash(page, errors, "enforcing the approval-readiness gate");
 
     await clickFirstVisible(page, [
       page.getByRole("button", { name: /^Export$/i }),
@@ -1015,16 +1016,16 @@ async function readActiveDocumentId(page) {
       "Switching from RT Film to RT Digital reused the previous document identity.",
     );
 
-    await page.locator('[role="tab"][title^="Acquisition Plan"]').click({ timeout: 10_000 });
+    await page.locator('[role="tab"][title^="Exposure List"]').click({ timeout: 10_000 });
     await page.getByRole("button", { name: /^Add Acquisition$/i }).click({ timeout: 10_000 });
     await page.getByRole("button", { name: /^Duplicate$/i }).click({ timeout: 10_000 });
     assertRelease(
-      await page.getByText(/^Acquisition \d+$/i).count() === 2,
+      await page.getByText(/^Exposure \d+$/i).count() === 2,
       "Digital acquisition add/duplicate did not create two planned acquisitions.",
     );
     await page.getByRole("button", { name: /^Delete acquisition 2$/i }).click({ timeout: 10_000 });
     assertRelease(
-      await page.getByText(/^Acquisition \d+$/i).count() === 1,
+      await page.getByText(/^Exposure \d+$/i).count() === 1,
       "Digital acquisition delete did not leave exactly one planned acquisition.",
     );
 
@@ -1050,7 +1051,7 @@ async function readActiveDocumentId(page) {
       "Switching from RT Digital to PT reused the previous document identity.",
     );
 
-    console.log("Release smoke passed: RT/PT production UI, approval invalidation, PDF export, validation, fresh method identities, dirty-switch confirmation, and acquisition CRUD.");
+    console.log("Release smoke passed: RT/PT production UI, approval-readiness gating, PDF export, validation, fresh method identities, dirty-switch confirmation, and acquisition CRUD.");
   } finally {
     await browser.close().catch(() => {});
     await server.close().catch(() => {});

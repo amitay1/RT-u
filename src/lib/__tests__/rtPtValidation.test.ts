@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { reconcileRtPtApprovedContent } from '@/lib/rtPtApprovalLifecycle';
 import { validateRtPtDocument } from '@/lib/rtPtValidation';
 import {
   createCompleteDigitalDocument,
@@ -122,6 +123,207 @@ describe('RT/PT V3 validation', () => {
     expect(document.technique.acquisitions).toHaveLength(2);
     expect(result.draftCompleteness.isComplete).toBe(true);
     expect(result.approvalReadiness.isReady).toBe(true);
+  });
+
+  it('keeps legacy V3 Digital drafts readable but blocks controlled approval without structured planning', () => {
+    const document = createCompleteDigitalDocument();
+    delete document.technique.planning;
+
+    const result = validateRtPtDocument(document);
+
+    expect(result.draftCompleteness.isComplete).toBe(false);
+    expect(result.approvalReadiness.isReady).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Structured Digital Planning' }),
+    ]));
+  });
+
+  it('allows a blank acquisition IQI override when structured IQI is complete and still requires sensitivity', () => {
+    const document = createCompleteDigitalDocument('approved');
+    expect(document.technique.acquisitions.every((acquisition) => acquisition.iqiOverride === '')).toBe(true);
+    expect(validateRtPtDocument(document).approvalReadiness.isReady).toBe(true);
+
+    document.technique.iqi.requiredSensitivity = '';
+    const result = validateRtPtDocument(document);
+    expect(result.draftCompleteness.isComplete).toBe(false);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: 'technique.iqi.requiredSensitivity' }),
+    ]));
+  });
+
+  it('rejects conditional part, catalog, source-envelope, and calculated-grid inconsistencies', () => {
+    const document = createCompleteDigitalDocument();
+    const planning = document.technique.planning;
+    if (!planning || planning.part.thickness.mode !== 'Multiple Thickness Zones') throw new Error('Expected complete Digital fixture planning.');
+    planning.part.thickness.zones.pop();
+    planning.part.inspectionAreas.areas[0].position.width = 1;
+    planning.sourceSelection.snapshot!.kvMinimum = 220;
+    planning.sourceSelection.snapshot!.calibration.dueDate = '2026-07-19';
+    document.technique.acquisitions[0].tubeVoltage = 250;
+    document.technique.acquisitions[0].plan!.gridPlacement.centerX = 999;
+
+    const labels = validateRtPtDocument(document).issues.map((issue) => issue.label);
+    expect(labels).toEqual(expect.arrayContaining([
+      'Multiple Thickness Zones',
+      'Inspection Area 1 Position',
+      'Source kV Range',
+      'Source Calibration Currency',
+      'Acquisition 1 Source kV Range',
+      'Acquisition 1 Grid Placement',
+      'IQI Output 2 Thickness Zone',
+    ]));
+  });
+
+  it('aggregates every Multiple Areas grid while retaining one global EXP sequence', () => {
+    const document = createCompleteDigitalDocument('approved');
+    const planning = document.technique.planning!;
+    planning.part.inspectionAreas.mode = 'Multiple Areas';
+    planning.part.inspectionAreas.areas.push({
+      ...planning.part.inspectionAreas.areas[0],
+      id: 'inspection-area-2',
+      areaId: 'AREA-02',
+      description: 'Second controlled inspection footprint',
+      position: { x: 0.05, y: 0.1, width: 0.9, height: 0.8, rotationDegrees: 0 },
+    });
+    const secondAreaAcquisitions = document.technique.acquisitions.map((source, index) => {
+      const clone = JSON.parse(JSON.stringify(source)) as typeof source;
+      const sequence = index + 3;
+      clone.id = `dda-acquisition-${sequence}`;
+      clone.viewId = `EXP-${String(sequence).padStart(3, '0')}`;
+      clone.plan!.id = `acquisition-plan-${sequence}`;
+      clone.plan!.gridPlacement.id = `grid-placement-${sequence}`;
+      clone.plan!.visual.id = `exposure-visual-${sequence}`;
+      clone.plan!.visual.inspectionAreaId = 'inspection-area-2';
+      clone.plan!.iqiAssignment.id = `iqi-assignment-${sequence}`;
+      clone.plan!.representativeImage = null;
+      clone.plan!.interpretationAreas[0].id = `interpretation-area-${sequence}`;
+      clone.plan!.interpretationAreas[0].areaId = `IA-${String(sequence).padStart(2, '0')}`;
+      clone.plan!.interpretationAreas[0].inspectionAreaId = 'inspection-area-2';
+      return clone;
+    });
+    document.technique.acquisitions.push(...secondAreaAcquisitions);
+
+    expect(validateRtPtDocument(document).approvalReadiness.isReady).toBe(true);
+
+    document.technique.acquisitions.pop();
+    expect(validateRtPtDocument(document).draftCompleteness.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Calculated Exposure Grid' }),
+    ]));
+  });
+
+  it('recomputes effective pixel and FOV for every committed acquisition geometry', () => {
+    const document = createCompleteDigitalDocument();
+    document.technique.acquisitions[0].sod = 110;
+    document.technique.acquisitions[0].sdd = 120;
+
+    const result = validateRtPtDocument(document);
+    expect(result.draftCompleteness.issues.map((issue) => issue.label)).toEqual(expect.arrayContaining([
+      'Acquisition 1 Acquisition-specific Footprint',
+    ]));
+  });
+
+  it('fails closed on IQI synchronization, interpretation links, and missing Digital approval roles', () => {
+    const document = createCompleteDigitalDocument('approved');
+    document.technique.acquisitions[0].plan!.iqiAssignment.requiredWire = 'W99';
+    document.technique.acquisitions[0].plan!.interpretationAreas[0].viewingPresetId = 'VP-MISSING';
+    document.technique.acquisitions[1].plan!.interpretationAreas[0].acceptanceProfileId = 'AC-MISSING';
+    document.approvals = document.approvals.filter((approval) => (
+      approval.role !== 'prepared' && approval.role !== 'quality' && approval.role !== 'customer'
+    ));
+
+    const result = validateRtPtDocument(document);
+    expect(result.draftCompleteness.issues.map((issue) => issue.label)).toEqual(expect.arrayContaining([
+      'Acquisition 1 Structured IQI',
+      'Interpretation Area IA-01 Viewing Preset',
+      'Interpretation Area IA-02 Acceptance Profile',
+    ]));
+    expect(result.approvalReadiness.issues.map((issue) => issue.label)).toEqual(expect.arrayContaining([
+      'Prepared Approval',
+      'Quality Approval',
+      'Customer Approval',
+    ]));
+  });
+
+  it('recomputes IQI outputs from the immutable thickness rule even when the persisted assignment is changed with it', () => {
+    const document = createCompleteDigitalDocument();
+    const planning = document.technique.planning!;
+    planning.iqiRules.zoneOutputs[0].designation = 'WIRE-99';
+    planning.iqiRules.zoneOutputs[0].requiredWire = 'W99';
+    document.technique.acquisitions[0].plan!.iqiAssignment.designation = 'WIRE-99';
+    document.technique.acquisitions[0].plan!.iqiAssignment.requiredWire = 'W99';
+
+    const result = validateRtPtDocument(document);
+    expect(result.draftCompleteness.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'IQI Output 1 Rule Synchronization' }),
+    ]));
+  });
+
+  it.each([
+    'not qualified',
+    'not-qualified',
+    'valid: no',
+    'qualified=false',
+    'valid cancelled',
+    'qualified lapsed',
+    'active decommissioned',
+  ])('rejects explicitly negative catalog status wording: %s', (status) => {
+    const document = createCompleteDigitalDocument();
+    const planning = document.technique.planning!;
+    planning.sourceSelection.snapshot!.qualification.status = status;
+
+    const result = validateRtPtDocument(document);
+    expect(result.draftCompleteness.issues.map((issue) => issue.label)).toEqual(expect.arrayContaining([
+      'Source Qualification Status',
+    ]));
+  });
+
+  it('does not force optional representative evidence or inapplicable viewing/profile values', () => {
+    const document = createCompleteDigitalDocument('approved');
+    const planning = document.technique.planning!;
+    document.technique.acquisitions[0].plan!.representativeImage = null;
+    planning.viewingPresets[0].permittedProcessing = '';
+    planning.viewingPresets[0].lut = '';
+    planning.acceptanceProfiles[0].grade = '';
+    planning.acceptanceProfiles[0].level = '';
+    document.technique.acquisitions[0].plan!.interpretationAreas[0].permittedProcessing = '';
+    document.technique.acquisitions[0].plan!.interpretationAreas[0].lut = '';
+
+    expect(validateRtPtDocument(document).approvalReadiness.isReady).toBe(true);
+  });
+
+  it('applies a linked Level III IQI override to exactly one assignment field', () => {
+    const document = createCompleteDigitalDocument('approved');
+    const planning = document.technique.planning!;
+    planning.overrides.push({
+      id: 'override-iqi-wire-1',
+      fieldPath: 'iqiRules.zoneOutputs.iqi-output-1.requiredWire',
+      calculatedValue: 'W12',
+      approvedValue: 'W11',
+      reason: 'Controlled customer-specific IQI substitution',
+      approvedBy: 'Level Three / L3-001',
+      approvedAt: '2026-07-20',
+    });
+    planning.iqiRules.zoneOutputs[0].overrideId = 'override-iqi-wire-1';
+    document.technique.acquisitions[0].plan!.iqiAssignment.requiredWire = 'W11';
+
+    expect(validateRtPtDocument(document).approvalReadiness.isReady).toBe(true);
+
+    planning.overrides[0].calculatedValue = 'W09';
+    const invalid = validateRtPtDocument(document);
+    expect(invalid.draftCompleteness.issues.map((issue) => issue.label)).toEqual(expect.arrayContaining([
+      'IQI Output 1 Override',
+      'Acquisition 1 Structured IQI',
+    ]));
+  });
+
+  it('invalidates an existing approval after a structured Digital planning edit', () => {
+    const document = createCompleteDigitalDocument('approved');
+    document.technique.planning!.processingPolicy.prohibitedProcessing = 'Changed after approval';
+
+    const reconciliation = reconcileRtPtApprovedContent(document);
+    expect(reconciliation.invalidated).toBe(true);
+    expect(reconciliation.document.status).toBe('draft');
+    expect(reconciliation.document.approvals).toEqual([]);
   });
 
   it('requires explicit DDA qualification and performance baseline references for approval', () => {

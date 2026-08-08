@@ -8,8 +8,15 @@ import {
   validateWritableRtPtDocument,
   type RtPtRouteDependencies,
 } from "./rtptRoutes";
-import { createRtPtDocument } from "../src/lib/rtPtDocumentCodec";
-import { createCompletePtDocument } from "../src/lib/__tests__/rtPtV3Fixtures";
+import {
+  createRtPtDocument,
+  fingerprintRtPtApprovedContent,
+} from "../src/lib/rtPtDocumentCodec";
+import {
+  createCompleteDigitalDocument,
+  createCompleteFilmDocument,
+  createCompletePtDocument,
+} from "../src/lib/__tests__/rtPtV3Fixtures";
 import { emptyPtSheet } from "../src/types/penetrant";
 
 const USER_ID = "00000000-0000-4000-8000-000000000001";
@@ -79,6 +86,23 @@ const validV2Document = {
 };
 
 const validV3Document = createRtPtDocument({ method: "PT", technique: emptyPtSheet });
+
+function createOlderV3FilmDocument(): Record<string, unknown> {
+  const document = JSON.parse(JSON.stringify(createCompleteFilmDocument())) as Record<string, unknown>;
+  const technique = document.technique as Record<string, unknown>;
+  const exposureDefaults = technique.exposureDefaults as Record<string, unknown>;
+  const exposureViews = technique.exposureViews as Array<Record<string, unknown>>;
+
+  delete technique.ps811000Applicable;
+  delete exposureDefaults.ps811000EnergyCurve;
+  delete exposureDefaults.ps811000ThicknessBasis;
+  delete exposureDefaults.machineTechniqueReference;
+  delete exposureViews[0].ps811000EnergyCurve;
+  delete exposureViews[0].ps811000ThicknessBasis;
+  delete exposureViews[0].machineTechniqueReference;
+
+  return document;
+}
 
 interface CapturedRoute {
   method: "GET" | "POST" | "PATCH" | "DELETE";
@@ -212,10 +236,11 @@ test("the standalone router exposes only the RT/PT API allowlist", () => {
   );
 });
 
-test("the read boundary recognizes V1/V2/V3 while the write boundary accepts only exact native V3", () => {
+test("the read boundary recognizes V1/V2/V3 while the write boundary accepts only native V3", () => {
   assert.equal(validateSupportedRtPtDocument(validV1Document).success, true);
   assert.equal(validateSupportedRtPtDocument(validV2Document).success, true);
   assert.equal(validateSupportedRtPtDocument(validV3Document).success, true);
+  assert.equal(validateSupportedRtPtDocument(createOlderV3FilmDocument()).success, true);
   assert.equal(validateWritableRtPtDocument(validV1Document).success, false);
   assert.equal(validateWritableRtPtDocument(validV2Document).success, false);
   assert.equal(validateWritableRtPtDocument(validV3Document).success, true);
@@ -241,6 +266,109 @@ test("the read boundary recognizes V1/V2/V3 while the write boundary accepts onl
     sheets: { rtFilm: {}, rtDigital: {} },
   });
   assert.equal(incomplete.success, false);
+});
+
+test("the write boundary rejects a freshly fingerprinted Approved document that is not domain-complete", () => {
+  const incompleteApproved = createCompletePtDocument("D", "Type I", "approved");
+  incompleteApproved.approvals = [];
+  incompleteApproved.approvalFingerprint = fingerprintRtPtApprovedContent(incompleteApproved);
+
+  const validation = validateWritableRtPtDocument(incompleteApproved);
+  assert.equal(validation.success, false);
+  if (!validation.success) {
+    assert.match(validation.message, /completeness and approval-readiness/i);
+  }
+});
+
+test("the write boundary rejects re-fingerprinted Approved Digital IQI values that contradict their immutable rule", () => {
+  const tamperedApproved = createCompleteDigitalDocument("approved");
+  const planning = tamperedApproved.technique.planning!;
+  planning.iqiRules.zoneOutputs[0].designation = "WIRE-99";
+  planning.iqiRules.zoneOutputs[0].requiredWire = "W99";
+  tamperedApproved.technique.acquisitions[0].plan!.iqiAssignment.designation = "WIRE-99";
+  tamperedApproved.technique.acquisitions[0].plan!.iqiAssignment.requiredWire = "W99";
+  tamperedApproved.approvalFingerprint = fingerprintRtPtApprovedContent(tamperedApproved);
+
+  const validation = validateWritableRtPtDocument(tamperedApproved);
+  assert.equal(validation.success, false);
+  if (!validation.success) {
+    assert.match(validation.message, /completeness and approval-readiness/i);
+  }
+});
+
+test("technique-sheet GET canonicalizes an older V3 response without mutating stored data", async () => {
+  const sheetId = "88888888-8888-4888-8888-888888888888";
+  const storedData = createOlderV3FilmDocument();
+  storedData.status = "in-review";
+  const storedTechnique = storedData.technique as Record<string, unknown>;
+  const storedSheet = techniqueSheetRecord(storedData, USER_ID, sheetId);
+  const { app, routes } = createFakeApp();
+  registerRtPtRoutes(app, {
+    storage: createStorage({
+      getTechniqueSheetById: async () => storedSheet,
+    }),
+    listOrganizations: async () => [],
+  });
+  const route = routes.find(({ method, path }) => (
+    method === "GET" && path === "/api/technique-sheets/:id"
+  ));
+  assert.ok(route);
+
+  const request = {
+    headers: { "x-user-id": USER_ID, "x-org-id": ORG_ID },
+    body: undefined,
+    params: { id: sheetId },
+  } as unknown as Request;
+  const response = createResponse();
+  await runHandlers(route.handlers, request, response);
+
+  assert.equal(response.statusCode, 200);
+  const returnedSheet = response.body as TechniqueSheet;
+  const returnedData = returnedSheet.data as Record<string, unknown>;
+  const returnedTechnique = returnedData.technique as Record<string, unknown>;
+  assert.equal(returnedSheet.status, "in-review");
+  assert.equal(returnedTechnique.ps811000Applicable, false);
+  assert.equal(
+    ((returnedTechnique.exposureDefaults as Record<string, unknown>).ps811000EnergyCurve),
+    "",
+  );
+  assert.equal(storedSheet.status, "draft");
+  assert.equal(Object.prototype.hasOwnProperty.call(storedTechnique, "ps811000Applicable"), false);
+});
+
+test("technique-sheet POST rejects unknown V3 fields even when known defaults are absent", async () => {
+  let createCalls = 0;
+  const unknownV3 = createOlderV3FilmDocument();
+  const technique = unknownV3.technique as Record<string, unknown>;
+  const exposureDefaults = technique.exposureDefaults as Record<string, unknown>;
+  exposureDefaults.uncontrolledPlanningField = "must not be silently stripped";
+
+  const { app, routes } = createFakeApp();
+  registerRtPtRoutes(app, {
+    storage: createStorage({
+      createTechniqueSheet: async () => {
+        createCalls += 1;
+        throw new Error("Unknown data reached storage");
+      },
+    }),
+    listOrganizations: async () => [],
+  });
+  const route = routes.find(({ method, path }) => (
+    method === "POST" && path === "/api/technique-sheets"
+  ));
+  assert.ok(route);
+
+  const request = {
+    headers: { "x-user-id": USER_ID, "x-org-id": ORG_ID },
+    body: { sheetName: "Unknown V3 field", data: unknownV3 },
+    params: {},
+  } as unknown as Request;
+  const response = createResponse();
+  await runHandlers(route.handlers, request, response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(createCalls, 0);
+  assert.match(String((response.body as { error?: string }).error), /unknown or non-canonical/i);
 });
 
 test("technique-sheet POST rejects V1/V2 writes and persists canonical V3", async () => {
@@ -280,6 +408,70 @@ test("technique-sheet POST rejects V1/V2 writes and persists canonical V3", asyn
   assert.equal(response.statusCode, 201);
   assert.equal(persisted.length, 1);
   assert.equal((persisted[0] as { schemaVersion: number }).schemaVersion, 3);
+});
+
+test("technique-sheet create and update derive envelope status from canonical V3 data", async () => {
+  const sheetId = "99999999-9999-4999-8999-999999999999";
+  const existingData = createRtPtDocument({
+    method: "PT",
+    technique: emptyPtSheet,
+    status: "draft",
+  });
+  const createData = createRtPtDocument({
+    method: "PT",
+    technique: emptyPtSheet,
+    status: "in-review",
+  });
+  const updateData = createRtPtDocument({
+    method: "PT",
+    technique: emptyPtSheet,
+    status: "superseded",
+  });
+  let createdEnvelopeStatus: unknown;
+  let updatedEnvelopeStatus: unknown;
+
+  const { app, routes } = createFakeApp();
+  registerRtPtRoutes(app, {
+    storage: createStorage({
+      createTechniqueSheet: async (insert) => {
+        createdEnvelopeStatus = insert.status;
+        return techniqueSheetRecord(insert.data);
+      },
+      getTechniqueSheetById: async () => techniqueSheetRecord(existingData, USER_ID, sheetId),
+      updateTechniqueSheet: async (_id, updates) => {
+        updatedEnvelopeStatus = updates.status;
+        return techniqueSheetRecord(updates.data ?? existingData, USER_ID, sheetId);
+      },
+    }),
+    listOrganizations: async () => [],
+  });
+
+  const createRoute = routes.find(({ method, path }) => (
+    method === "POST" && path === "/api/technique-sheets"
+  ));
+  const updateRoute = routes.find(({ method, path }) => (
+    method === "PATCH" && path === "/api/technique-sheets/:id"
+  ));
+  assert.ok(createRoute);
+  assert.ok(updateRoute);
+
+  const createResponseValue = createResponse();
+  await runHandlers(createRoute.handlers, {
+    headers: { "x-user-id": USER_ID, "x-org-id": ORG_ID },
+    body: { sheetName: "Create status", status: "approved", data: createData },
+    params: {},
+  } as unknown as Request, createResponseValue);
+  assert.equal(createResponseValue.statusCode, 201);
+  assert.equal(createdEnvelopeStatus, "in-review");
+
+  const updateResponseValue = createResponse();
+  await runHandlers(updateRoute.handlers, {
+    headers: { "x-user-id": USER_ID, "x-org-id": ORG_ID },
+    body: { status: "draft", data: updateData },
+    params: { id: sheetId },
+  } as unknown as Request, updateResponseValue);
+  assert.equal(updateResponseValue.statusCode, 200);
+  assert.equal(updatedEnvelopeStatus, "superseded");
 });
 
 test("technique-sheet PATCH requires the resulting document to be native V3", async () => {
@@ -413,11 +605,18 @@ test("an invalid technique-sheet POST is rejected before storage", async () => {
 });
 
 test("the technique-sheet list filters legacy records", async () => {
+  const olderV3 = createOlderV3FilmDocument();
+  olderV3.status = "in-review";
   const { app, routes } = createFakeApp();
   registerRtPtRoutes(app, {
     storage: createStorage({
       getTechniqueSheetsByUserId: async () => [
         techniqueSheetRecord(validV2Document),
+        techniqueSheetRecord(
+          olderV3,
+          USER_ID,
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ),
         techniqueSheetRecord(
           { inspectionSetup: {} },
           USER_ID,
@@ -442,8 +641,15 @@ test("the technique-sheet list filters legacy records", async () => {
 
   await runHandlers(route.handlers, request, response);
   assert.equal(response.statusCode, 200);
-  assert.equal((response.body as TechniqueSheet[]).length, 1);
-  assert.equal((response.body as TechniqueSheet[])[0].data, validV2Document);
+  const returnedSheets = response.body as TechniqueSheet[];
+  assert.equal(returnedSheets.length, 2);
+  assert.equal(returnedSheets[0].data, validV2Document);
+  assert.equal(returnedSheets[1].status, "in-review");
+  assert.equal(
+    ((returnedSheets[1].data as Record<string, unknown>).technique as Record<string, unknown>)
+      .ps811000Applicable,
+    false,
+  );
 });
 
 test("item reads enforce user ownership before returning a stored document", async () => {

@@ -132,7 +132,7 @@ export function RtPtLicenseCenterDialog({ open, onOpenChange }: RtPtLicenseCente
             </div>
             <DialogTitle>Workstation license</DialogTitle>
             <DialogDescription>
-              View this installation's signed RT-PT license, renew it early, or remove it from this workstation.
+              View this installation's signed RT Inspector license, renew it early, or remove it from this workstation.
             </DialogDescription>
           </DialogHeader>
 

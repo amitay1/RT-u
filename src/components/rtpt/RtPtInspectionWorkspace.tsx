@@ -34,7 +34,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -1169,7 +1168,19 @@ export function RtPtInspectionWorkspace({ controller, technique }: RtPtInspectio
                 <span className="font-semibold">Performed record completion</span>
                 <span className="font-mono font-semibold">{validation.completionPercent}%</span>
               </div>
-              <Progress value={validation.completionPercent} className="h-2" aria-label={`${validation.completionPercent}% of performed report fields complete`} />
+              <div
+                className="readiness-track"
+                role="progressbar"
+                aria-label={`${validation.completionPercent}% of performed report fields complete`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={validation.completionPercent}
+              >
+                <div
+                  className={`readiness-fill${validation.completionPercent >= 100 ? ' readiness-fill--complete' : ''}`}
+                  style={{ width: `${Math.max(0, Math.min(100, validation.completionPercent))}%` }}
+                />
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <Badge variant={dataIssueCount === 0 ? 'outline' : 'secondary'}>{dataIssueCount} report item{dataIssueCount === 1 ? '' : 's'} open</Badge>

@@ -229,7 +229,7 @@ describe('RT/PT performed inspection report PDF export', { timeout: 15_000 }, ()
     const commands = pdfCommands(buildRtPtInspectionReportPdf(approved, technique));
 
     expect(commands).toContain('PERFORMED DDA ACQUISITION SUMMARY');
-    expect(commands).toContain('DDA ACQUISITION RESULT D1');
+    expect(commands).toContain('DDA ACQUISITION RESULT EXP-001');
     expect(commands).toContain('Normalized SNR 120');
     expect(commands).toContain('CNR 8.5');
     expect(commands).toContain('IQI Requirement Assessment');

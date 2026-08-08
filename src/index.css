@@ -67,6 +67,8 @@ All colors MUST be HSL.
     --accent-border: 197 34% 69%;
     --canvas-top: 210 27% 98%;
     --canvas-bottom: 212 20% 94%;
+    /* Highlight band swept across the brand emblem on hover. */
+    --ronex-sweep: hsl(0 0% 100% / 0.62);
 
     --app-font-family: "Segoe UI Variable", "Segoe UI", "Bahnschrift", sans-serif;
     --app-heading-font-family: "Segoe UI Variable", "Segoe UI", "Bahnschrift", sans-serif;
@@ -130,6 +132,7 @@ All colors MUST be HSL.
     --accent-border: 195 33% 34%;
     --canvas-top: 218 24% 11%;
     --canvas-bottom: 220 26% 7%;
+    --ronex-sweep: hsl(var(--primary) / 0.32);
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
     --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.24);
@@ -472,6 +475,41 @@ All colors MUST be HSL.
     transition: width 180ms ease;
   }
 
+  /* Draft-readiness meter: a gauge-like track with quarter marks. */
+  .readiness-track {
+    position: relative;
+    height: 0.5rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: hsl(var(--surface-inset));
+    box-shadow: inset 0 1px 2px hsl(var(--foreground) / 0.1);
+  }
+
+  .readiness-track::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0 calc(25% - 1px),
+      hsl(var(--foreground) / 0.16) calc(25% - 1px) 25%
+    );
+  }
+
+  .readiness-fill {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.9), hsl(var(--primary)));
+    transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1), background-color 240ms ease;
+  }
+
+  .readiness-fill--complete {
+    background: linear-gradient(180deg, hsl(var(--success) / 0.9), hsl(var(--success)));
+  }
+
   .workbench-tabstrip {
     min-width: 0;
     border-top: 1px solid hsl(var(--border) / 0.75);
@@ -577,6 +615,46 @@ All colors MUST be HSL.
     background: hsl(var(--surface-subtle) / 0.44);
   }
 
+  /* Every card inside a workflow step reads as a numbered document section:
+     a tinted title band, a hairline, then the fields. */
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"] {
+    position: relative;
+    gap: 0.28rem;
+    padding: 0.9rem 1.1rem 0.8rem;
+    border-bottom: 1px solid hsl(var(--border) / 0.7);
+    border-top-left-radius: calc(var(--radius) - 0.0625rem);
+    border-top-right-radius: calc(var(--radius) - 0.0625rem);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-inset) / 0.6) 0%,
+      hsl(var(--surface-subtle) / 0.35) 100%
+    );
+  }
+
+  /* Descendant match: some section headers wrap the title beside an action button. */
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"] [data-slot="card-title"] {
+    position: relative;
+    padding-left: 0.72rem;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  /* Section marker aligned to the title's cap height. */
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"] [data-slot="card-title"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.28em;
+    height: 0.82em;
+    width: 3px;
+    border-radius: 999px;
+    background: hsl(var(--primary));
+  }
+
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"] + [data-slot="card-content"] {
+    padding-top: 1.05rem;
+  }
+
   .workstation-card {
     border: 1px solid hsl(var(--border) / 0.86);
     border-radius: calc(var(--radius) + 0.125rem);
@@ -618,14 +696,62 @@ All colors MUST be HSL.
   }
 
   /* RONEX RADIOGRAPHYC TEST DR/CR/FILM — workstation wordmark */
-  .ronex-brand-mark {
-    display: grid;
-    place-items: center;
-    border: 1px solid hsl(var(--accent-border));
-    border-radius: calc(var(--radius) - 0.125rem);
-    background: linear-gradient(140deg, hsl(var(--accent-soft)) 0%, hsl(var(--primary) / 0.18) 100%);
+  .ronex-emblem {
+    position: relative;
+    display: block;
+    flex: none;
+    overflow: hidden;
+    border: 1px solid hsl(var(--accent-border) / 0.85);
+    border-radius: calc(var(--radius) - 0.0625rem);
+    background:
+      radial-gradient(120% 110% at 26% 6%, hsl(var(--background) / 0.55) 0%, transparent 58%),
+      linear-gradient(155deg, hsl(var(--accent-soft)) 0%, hsl(var(--primary) / 0.22) 100%);
     color: hsl(var(--primary));
-    box-shadow: inset 0 1px 0 hsl(var(--background) / 0.55), var(--shadow-sm);
+    box-shadow: inset 0 1px 0 hsl(var(--background) / 0.6), 0 1px 3px hsl(var(--primary) / 0.18);
+    transition: box-shadow 220ms ease, border-color 220ms ease;
+  }
+
+  .dark .ronex-emblem {
+    box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.07), 0 0 12px hsl(var(--primary) / 0.16);
+  }
+
+  .ronex-brand:hover .ronex-emblem {
+    border-color: hsl(var(--primary) / 0.55);
+    box-shadow: inset 0 1px 0 hsl(var(--background) / 0.6), 0 2px 10px hsl(var(--primary) / 0.28);
+  }
+
+  .ronex-emblem > svg {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  /* Single beam sweep down the emblem when the wordmark is hovered. */
+  .ronex-emblem-sweep {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 42%;
+    opacity: 0;
+    background: linear-gradient(180deg, transparent 0%, var(--ronex-sweep) 50%, transparent 100%);
+  }
+
+  .ronex-brand:hover .ronex-emblem-sweep {
+    animation: ronex-beam-sweep 1100ms ease-in-out;
+  }
+
+  @keyframes ronex-beam-sweep {
+    0% { opacity: 0; transform: translateY(-100%); }
+    22% { opacity: 1; }
+    78% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(240%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ronex-brand:hover .ronex-emblem-sweep {
+      animation: none;
+    }
   }
 
   .ronex-brand-word {
@@ -635,12 +761,17 @@ All colors MUST be HSL.
     font-feature-settings: "kern" 1, "liga" 0;
     font-optical-sizing: auto;
     line-height: 1;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.205em;
     /* letter-spacing pads the right edge of the last glyph — pull it back so the
-       wordmark stays optically aligned with the tagline below it. */
-    margin-right: -0.22em;
+       wordmark stays optically aligned with the rule and tagline below it. */
+    margin-right: -0.205em;
     color: hsl(var(--primary));
-    background-image: linear-gradient(96deg, hsl(var(--primary)) 0%, hsl(var(--foreground)) 78%);
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--foreground)) 52%,
+      hsl(var(--primary) / 0.85) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
   }
@@ -651,43 +782,64 @@ All colors MUST be HSL.
     }
   }
 
+  /* Graduated hairline under the wordmark — reads as a drawing datum line. */
+  .ronex-brand-rule {
+    position: relative;
+    height: 1px;
+    margin: 0.3rem 0 0.3rem;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary) / 0.8) 0%,
+      hsl(var(--primary) / 0.3) 46%,
+      transparent 100%
+    );
+  }
+
+  .ronex-brand-rule::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: -2px;
+    height: 5px;
+    width: 1px;
+    background: hsl(var(--primary) / 0.6);
+  }
+
+  .ronex-brand-sub {
+    align-items: center;
+    gap: 0.42rem;
+  }
+
   .ronex-brand-tagline {
     font-family: var(--app-brand-font-family);
     font-weight: 600;
     font-variation-settings: "wght" 600, "wdth" 82.5;
     line-height: 1;
-    letter-spacing: 0.26em;
-    margin-right: -0.26em;
+    letter-spacing: 0.235em;
+    margin-right: -0.235em;
     text-transform: uppercase;
+    white-space: nowrap;
     color: hsl(var(--muted-foreground));
-  }
-
-  .ronex-brand-divider {
-    width: 1px;
-    height: 0.7rem;
-    background: hsl(var(--border));
   }
 
   .ronex-brand-modes {
     display: inline-flex;
     align-items: center;
-    gap: 0.2rem;
-    padding: 0.15rem 0.45rem;
-    border: 1px solid hsl(var(--primary) / 0.28);
-    border-radius: 999px;
-    background: hsl(var(--primary) / 0.08);
+    gap: 0.24rem;
+  }
+
+  .ronex-brand-mode {
+    padding: 0.17rem 0.24rem 0.13rem 0.32rem;
+    border: 1px solid hsl(var(--primary) / 0.3);
+    border-radius: 3px;
+    background: hsl(var(--primary) / 0.1);
     color: hsl(var(--primary));
     font-family: var(--app-brand-font-family);
     font-weight: 700;
     font-variation-settings: "wght" 700, "wdth" 87.5;
     font-variant-numeric: tabular-nums;
     line-height: 1;
-    letter-spacing: 0.14em;
-  }
-
-  .ronex-brand-modes i {
-    font-style: normal;
-    opacity: 0.45;
+    letter-spacing: 0.11em;
   }
 
   .field-shell {

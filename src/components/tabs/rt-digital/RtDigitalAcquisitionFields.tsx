@@ -69,11 +69,11 @@ export function RtDigitalAcquisitionFields({ data, onChange }: RtDigitalAcquisit
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <SelectField
-            label="Wall Technique"
+            label="Image Technique (Exposure)"
             value={data.wallTechnique}
             onChange={(value) => set('wallTechnique', value)}
-            options={['SWSI', 'DWDI', 'DWSI']}
-            hint="planned"
+            options={['SWSI', 'DWSI', 'DWDI']}
+            hint="legacy exposure image technique; Elliptical/Other are controlled once in Section 01"
           />
           {lengthPair('SDD (Source-to-Detector Distance)', 'sdd', 'sddUnit')}
           {lengthPair('SOD (Source-to-Object Distance)', 'sod', 'sodUnit')}

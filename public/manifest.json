@@ -1,7 +1,7 @@
 {
   "name": "RT Inspector",
   "short_name": "RT Inspector",
-  "description": "Radiographic and penetrant technique-sheet creator (ASTM E1742 / E2698 / E1417).",
+  "description": "Radiographic Technique Engineering Platform.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1419",

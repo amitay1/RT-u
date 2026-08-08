@@ -4,6 +4,12 @@ import {
   lengthToMillimeters,
 } from '@/lib/rtGeometry';
 import {
+  calculateRtDigitalPlanning,
+  convertRtDigitalLength,
+  resolveRtDigitalInspectionArea,
+  type RtDigitalExposureGridDescriptor,
+} from '@/lib/rtDigitalPlanning';
+import {
   calculateHoneycombRadiographicThickness,
   lookupPs811000DensityRequirement,
   lookupPs811000EnergySuggestion,
@@ -12,7 +18,24 @@ import {
   isThinAdhesiveTenKvpCase,
 } from '@/lib/ps811000';
 import type { LengthUnit, RtFilmExposureDefaults } from '@/types/rtFilm';
+import type {
+  RtDigitalAcquisition,
+  RtDigitalAcquisitionIqiAssignment,
+  RtDigitalAttachmentMetadata,
+  RtDigitalCatalogStatus,
+  RtDigitalInspectionArea,
+  RtDigitalIqiRuleCatalogSnapshot,
+  RtDigitalIqiRuleRow,
+  RtDigitalIqiZoneOutput,
+  RtDigitalPlanning,
+  RtDigitalPlanningOverride,
+  RtDigitalThicknessDefinition,
+  RtDigitalVisualPoint,
+  RtDigitalVisualRegion,
+} from '@/types/rtDigital';
 import type { RtPtDocumentV3, RtPtMethod } from '@/types/rtPtDocument';
+
+type RtDigitalDocument = Extract<RtPtDocumentV3, { method: 'RT-Digital' }>;
 
 export interface RtPtValidationIssue {
   path: string;
@@ -109,6 +132,236 @@ const field = (
   isValid: (value: unknown) => boolean = isPresent,
   invalidMessage = 'Required planned field is missing.',
 ): RequiredField => ({ path, label, tab, value, isValid, invalidMessage });
+
+const positiveNumber = (value: unknown): boolean => (
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+);
+
+const nonNegativeNumber = (value: unknown): boolean => (
+  typeof value === 'number' && Number.isFinite(value) && value >= 0
+);
+
+const positiveInteger = (value: unknown): boolean => positiveNumber(value) && Number.isInteger(value);
+
+const nonEmptyArray = (value: unknown): boolean => Array.isArray(value) && value.length > 0;
+
+const validAttachmentMetadata = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false;
+  const metadata = value as Partial<RtDigitalAttachmentMetadata>;
+  return isMeaningfulControlledText(metadata.id)
+    && isMeaningfulControlledText(metadata.name)
+    && ['image/jpeg', 'image/png', 'application/pdf'].includes(metadata.mimeType ?? '')
+    && positiveInteger(metadata.size)
+    && typeof metadata.sha256 === 'string'
+    && /^[a-f0-9]{64}$/.test(metadata.sha256);
+};
+
+const completeGlobalDigitalIqi = (document: RtDigitalDocument): boolean => {
+  const { iqi } = document.technique;
+  return [
+    iqi.type,
+    iqi.standard,
+    iqi.designation,
+    iqi.material,
+    iqi.placement,
+    iqi.requiredSensitivity,
+    iqi.requiredSnrOrNormalizedSnr,
+    iqi.requiredContrastSensitivityOrCnr,
+  ].every(isPresent)
+    && positiveNumber(iqi.thickness)
+    && nonNegativeNumber(iqi.requiredUg);
+};
+
+type DigitalIqiOverrideField = 'designation' | 'requiredWire' | 'requiredHole' | 'shimRequirement';
+
+interface DigitalIqiOverrideControl {
+  override: RtDigitalPlanningOverride;
+  field: DigitalIqiOverrideField;
+}
+
+function resolveDigitalIqiOverrideControl(
+  planning: RtDigitalPlanning,
+  output: RtDigitalIqiZoneOutput,
+): DigitalIqiOverrideControl | null {
+  if (!output.overrideId) return null;
+  const override = planning.overrides.find((candidate) => candidate.id === output.overrideId);
+  if (!override) return null;
+  const prefix = `iqiRules.zoneOutputs.${output.id}.`;
+  if (!override.fieldPath.startsWith(prefix)) return null;
+  const field = override.fieldPath.slice(prefix.length) as DigitalIqiOverrideField;
+  if (!(['designation', 'requiredWire', 'requiredHole', 'shimRequirement'] as const).includes(field)) return null;
+  if (
+    !isMeaningfulControlledText(override.calculatedValue)
+    || !isMeaningfulControlledText(override.approvedValue)
+    || !isMeaningfulControlledText(override.reason)
+    || !isMeaningfulControlledText(override.approvedBy)
+    || !isIsoCalendarDate(override.approvedAt)
+    || override.calculatedValue.trim() !== output[field].trim()
+  ) return null;
+  return { override, field };
+}
+
+const completeDigitalIqiAssignment = (
+  assignment: RtDigitalAcquisitionIqiAssignment | undefined,
+  planning: RtDigitalPlanning | undefined,
+): boolean => {
+  if (!assignment || !planning) return false;
+  const output = planning.iqiRules.zoneOutputs.find((candidate) => candidate.id === assignment.zoneOutputId);
+  if (!output) return false;
+  const basisType = planning.iqiRules.basis.iqiType;
+  const overrideControl = resolveDigitalIqiOverrideControl(planning, output);
+  const expected = (field: DigitalIqiOverrideField): string => (
+    overrideControl?.field === field ? overrideControl.override.approvedValue : output[field]
+  );
+  return isMeaningfulControlledText(assignment.id)
+    && isMeaningfulControlledText(assignment.zoneOutputId)
+    && isMeaningfulControlledText(assignment.designation)
+    && isMeaningfulControlledText(assignment.positionDescription)
+    && (basisType !== 'Wire' || isMeaningfulControlledText(assignment.requiredWire))
+    && (basisType !== 'Hole' || isMeaningfulControlledText(assignment.requiredHole))
+    && assignment.designation.trim() === expected('designation').trim()
+    && assignment.shimRequirement.trim() === expected('shimRequirement').trim()
+    && (basisType !== 'Wire' || assignment.requiredWire.trim() === expected('requiredWire').trim())
+    && (basisType !== 'Hole' || assignment.requiredHole.trim() === expected('requiredHole').trim());
+};
+
+interface DigitalIqiThicknessZoneBasis {
+  stableId: string;
+  aliases: string[];
+  governingThickness: number | '';
+  unit: LengthUnit;
+}
+
+interface ExpectedDigitalIqiZoneOutput {
+  zone: DigitalIqiThicknessZoneBasis;
+  matchedRule: RtDigitalIqiRuleRow | null;
+  governingThickness: number | '';
+  thicknessUnit: LengthUnit;
+  iqiMaterial: string;
+  designation: string;
+  requiredWire: string;
+  requiredHole: string;
+  requiredSensitivity: string;
+  placement: string;
+  shimRequirement: string;
+  governing: boolean;
+}
+
+const digitalIqiThicknessZones = (
+  thickness: RtDigitalThicknessDefinition,
+): DigitalIqiThicknessZoneBasis[] => {
+  if (thickness.mode === 'Single Thickness') {
+    return [{
+      stableId: thickness.id,
+      aliases: [thickness.id],
+      governingThickness: thickness.thickness,
+      unit: thickness.unit,
+    }];
+  }
+  if (thickness.mode === 'Thickness Range') {
+    return [{
+      stableId: thickness.id,
+      aliases: [thickness.id],
+      governingThickness: thickness.maximum === '' ? thickness.minimum : thickness.maximum,
+      unit: thickness.unit,
+    }];
+  }
+  if (thickness.mode === 'Multiple Thickness Zones') {
+    return thickness.zones.map((zone) => ({
+      stableId: zone.id,
+      aliases: [zone.id, zone.zoneId],
+      governingThickness: zone.governing === ''
+        ? zone.maximum === '' ? zone.minimum : zone.maximum
+        : zone.governing,
+      unit: thickness.unit,
+    }));
+  }
+  return [];
+};
+
+const matchDigitalIqiRule = (
+  rules: ReadonlyArray<RtDigitalIqiRuleRow>,
+  thickness: number,
+): RtDigitalIqiRuleRow | null => {
+  const candidates = rules
+    .map((rule, index) => ({ rule, index }))
+    .filter(({ rule }) => {
+      const minimum = rule.minimumThickness === '' ? Number.NEGATIVE_INFINITY : rule.minimumThickness;
+      const maximum = rule.maximumThickness === '' ? Number.POSITIVE_INFINITY : rule.maximumThickness;
+      return minimum <= thickness && thickness <= maximum;
+    })
+    .sort((left, right) => {
+      const leftMinimum = left.rule.minimumThickness === '' ? Number.NEGATIVE_INFINITY : left.rule.minimumThickness;
+      const rightMinimum = right.rule.minimumThickness === '' ? Number.NEGATIVE_INFINITY : right.rule.minimumThickness;
+      const leftMaximum = left.rule.maximumThickness === '' ? Number.POSITIVE_INFINITY : left.rule.maximumThickness;
+      const rightMaximum = right.rule.maximumThickness === '' ? Number.POSITIVE_INFINITY : right.rule.maximumThickness;
+      const spanOrder = (leftMaximum - leftMinimum) - (rightMaximum - rightMinimum);
+      if (spanOrder !== 0) return spanOrder;
+      if (leftMinimum !== rightMinimum) return rightMinimum - leftMinimum;
+      return left.rule.id.localeCompare(right.rule.id) || left.index - right.index;
+    });
+  return candidates[0]?.rule ?? null;
+};
+
+const expectedDigitalIqiZoneOutputs = (
+  thickness: RtDigitalThicknessDefinition,
+  snapshot: RtDigitalIqiRuleCatalogSnapshot,
+): ExpectedDigitalIqiZoneOutput[] => {
+  const normalized = digitalIqiThicknessZones(thickness).map((zone) => ({
+    zone,
+    convertedThickness: zone.governingThickness === ''
+      ? null
+      : convertRtDigitalLength(zone.governingThickness, zone.unit, snapshot.thicknessUnit),
+  }));
+  const governingZoneId = [...normalized]
+    .filter((entry): entry is typeof entry & { convertedThickness: number } => entry.convertedThickness !== null)
+    .sort((left, right) => (
+      right.convertedThickness - left.convertedThickness
+      || left.zone.stableId.localeCompare(right.zone.stableId)
+    ))[0]?.zone.stableId ?? '';
+
+  return normalized.map(({ zone, convertedThickness }) => {
+    const matchedRule = convertedThickness === null
+      ? null
+      : matchDigitalIqiRule(snapshot.rules, convertedThickness);
+    return {
+      zone,
+      matchedRule,
+      governingThickness: convertedThickness ?? '',
+      thicknessUnit: snapshot.thicknessUnit,
+      iqiMaterial: matchedRule?.iqiMaterial ?? '',
+      designation: matchedRule?.designation ?? '',
+      requiredWire: matchedRule?.requiredWire ?? '',
+      requiredHole: matchedRule?.requiredHole ?? '',
+      requiredSensitivity: matchedRule?.requiredSensitivity ?? '',
+      placement: matchedRule?.placement || snapshot.placementRule,
+      shimRequirement: matchedRule?.shimRequirement ?? '',
+      governing: zone.stableId === governingZoneId,
+    };
+  });
+};
+
+const digitalIqiOutputMatchesRule = (
+  output: RtDigitalIqiZoneOutput,
+  expected: ExpectedDigitalIqiZoneOutput,
+): boolean => {
+  const sameNumberOrEmpty = (left: number | '', right: number | ''): boolean => (
+    left === right
+    || (typeof left === 'number' && typeof right === 'number' && Math.abs(left - right) <= 1e-9)
+  );
+  const sameText = (left: string, right: string): boolean => left.trim() === right.trim();
+  return expected.zone.aliases.includes(output.thicknessZoneId)
+    && sameNumberOrEmpty(output.governingThickness, expected.governingThickness)
+    && output.thicknessUnit === expected.thicknessUnit
+    && sameText(output.iqiMaterial, expected.iqiMaterial)
+    && sameText(output.designation, expected.designation)
+    && sameText(output.requiredWire, expected.requiredWire)
+    && sameText(output.requiredHole, expected.requiredHole)
+    && sameText(output.requiredSensitivity, expected.requiredSensitivity)
+    && sameText(output.placement, expected.placement)
+    && sameText(output.shimRequirement, expected.shimRequirement)
+    && output.governing === expected.governing;
+};
 
 function commonGeneralFields(general: Extract<RtPtDocumentV3, { method: 'RT-Film' }>['technique']['general']): RequiredField[] {
   return [
@@ -302,6 +555,10 @@ function digitalAcquisitionFields(
 ): RequiredField[] {
   return document.technique.acquisitions.flatMap((acquisition, index) => {
     const path = `technique.acquisitions[${index}]`;
+    const iqRequirementAvailable = completeDigitalIqiAssignment(
+      acquisition.plan?.iqiAssignment,
+      document.technique.planning,
+    ) || completeGlobalDigitalIqi(document);
     return [
       field(`${path}.id`, `Acquisition ${index + 1} Stable ID`, 'acquisitions', acquisition.id),
       field(`${path}.viewId`, `Acquisition ${index + 1} Controlled ID`, 'acquisitions', acquisition.viewId),
@@ -331,12 +588,480 @@ function digitalAcquisitionFields(
       field(`${path}.framesAveraged`, `Acquisition ${index + 1} Frames Averaged`, 'acquisitions', acquisition.framesAveraged),
       field(`${path}.filter`, `Acquisition ${index + 1} Filter`, 'acquisitions', acquisition.filter),
       field(`${path}.collimation`, `Acquisition ${index + 1} Collimation`, 'acquisitions', acquisition.collimation),
-      field(`${path}.iqiOverride`, `Acquisition ${index + 1} IQI Requirement / Override`, 'acquisitions', acquisition.iqiOverride),
+      field(
+        `${path}.iqiOverride`,
+        `Acquisition ${index + 1} IQI Requirement / Override`,
+        'acquisitions',
+        acquisition.iqiOverride,
+        (value) => isPresent(value) || iqRequirementAvailable,
+        'Enter an IQI override or complete the structured/global IQI assignment.',
+      ),
       field(`${path}.coverage`, `Acquisition ${index + 1} Coverage Plan`, 'acquisitions', acquisition.coverage),
       field(`${path}.imageNaming`, `Acquisition ${index + 1} Image Naming`, 'acquisitions', acquisition.imageNaming),
       field(`${path}.markingInstructions`, `Acquisition ${index + 1} Marking Instructions`, 'acquisitions', acquisition.markingInstructions),
     ];
   });
+}
+
+const normalizedCoordinate = (value: unknown): boolean => (
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+);
+
+function digitalPointFields(
+  path: string,
+  label: string,
+  tab: string,
+  point: RtDigitalVisualPoint,
+): RequiredField[] {
+  return [
+    field(`${path}.x`, `${label} X`, tab, point.x, normalizedCoordinate, 'Enter a normalized X coordinate from 0 to 1.'),
+    field(`${path}.y`, `${label} Y`, tab, point.y, normalizedCoordinate, 'Enter a normalized Y coordinate from 0 to 1.'),
+  ];
+}
+
+function digitalRegionFields(
+  path: string,
+  label: string,
+  tab: string,
+  region: RtDigitalVisualRegion,
+): RequiredField[] {
+  return [
+    ...digitalPointFields(path, label, tab, region),
+    field(`${path}.width`, `${label} Width`, tab, region.width, positiveNumber, 'Enter a positive normalized width.'),
+    field(`${path}.height`, `${label} Height`, tab, region.height, positiveNumber, 'Enter a positive normalized height.'),
+    field(`${path}.rotationDegrees`, `${label} Rotation`, tab, region.rotationDegrees),
+  ];
+}
+
+function digitalPlanningFields(document: RtDigitalDocument): RequiredField[] {
+  const planning = document.technique.planning;
+  const fields: RequiredField[] = [field(
+    'technique.planning',
+    'Structured Digital Planning',
+    'general',
+    planning,
+    (value) => Boolean(value),
+    'Complete the structured Digital RT planning model before controlled approval.',
+  )];
+  if (!planning) return fields;
+
+  const { part, sourceSelection, detectorSelection, geometry, visual, iqiRules } = planning;
+  fields.push(
+    field('technique.planning.id', 'Digital Planning Stable ID', 'general', planning.id),
+    field('technique.planning.part.id', 'Part Definition Stable ID', 'general', part.id),
+    field('technique.planning.part.partName', 'Structured Part Name', 'general', part.partName),
+    field('technique.planning.part.partNumber', 'Structured Part Number', 'general', part.partNumber),
+    field('technique.planning.part.vendorCode', 'Structured Vendor Code', 'general', part.vendorCode),
+    field('technique.planning.part.revisionOrConfiguration', 'Structured Revision / Configuration', 'general', part.revisionOrConfiguration),
+    field('technique.planning.part.drawingOrSpecificationReference', 'Structured Drawing / Specification', 'general', part.drawingOrSpecificationReference),
+    field('technique.planning.part.procedureNumber', 'Structured Procedure Number', 'general', part.procedureNumber),
+    field('technique.planning.part.material', 'Structured Material', 'general', part.material),
+    field('technique.planning.part.materialSpecification', 'Material Specification', 'general', part.materialSpecification),
+    field('technique.planning.part.materialGroup', 'Material Group', 'general', part.materialGroup),
+    field('technique.planning.part.surfaceFinish', 'Structured Surface Finish', 'general', part.surfaceFinish),
+    field('technique.planning.part.manufacturingProcess', 'Manufacturing Process', 'general', part.manufacturingProcess),
+    field('technique.planning.part.geometry.id', 'Part Geometry Stable ID', 'general', part.geometry.id),
+    field('technique.planning.part.geometry.geometryType', 'Part Geometry Type', 'general', part.geometry.geometryType),
+    field('technique.planning.part.thickness.id', 'Thickness Definition Stable ID', 'general', part.thickness.id),
+    field('technique.planning.part.thickness.mode', 'Thickness Definition Mode', 'general', part.thickness.mode),
+    field('technique.planning.part.inspectionAreas.id', 'Inspection Area Definition Stable ID', 'general', part.inspectionAreas.id),
+    field('technique.planning.part.inspectionAreas.mode', 'Inspection Area Mode', 'general', part.inspectionAreas.mode),
+    field('technique.planning.part.technique.wallTechnique', 'Structured Wall Technique', 'general', part.technique.wallTechnique),
+    field('technique.planning.part.technique.imageTechnique', 'Structured Image Technique', 'general', part.technique.imageTechnique),
+    field('technique.planning.part.inspectionStandard', 'Inspection Standard', 'general', part.inspectionStandard),
+    field('technique.planning.part.inspectionStandardRevision', 'Inspection Standard Revision', 'general', part.inspectionStandardRevision),
+    field('technique.planning.part.attachments', 'Part Image / Drawing Attachment', 'general', part.attachments, nonEmptyArray, 'Attach at least one controlled JPG, PNG, or PDF reference.'),
+    field('technique.planning.part.referenceAttachmentId', 'Reference Attachment', 'general', part.referenceAttachmentId),
+    field('technique.planning.part.partOrientation', 'Part Orientation', 'general', part.partOrientation),
+    field('technique.planning.part.datumReference', 'Datum / Reference', 'general', part.datumReference),
+  );
+  if (part.manufacturingProcess === 'Other') {
+    fields.push(field('technique.planning.part.otherManufacturingProcess', 'Other Manufacturing Process', 'general', part.otherManufacturingProcess));
+  }
+  if (part.technique.imageTechnique === 'Other') {
+    fields.push(field('technique.planning.part.technique.otherImageTechnique', 'Other Image Technique', 'general', part.technique.otherImageTechnique));
+  }
+
+  const geometryPath = 'technique.planning.part.geometry';
+  if (part.geometry.geometryType === 'Flat / Plate' || part.geometry.geometryType === 'Rectangular') {
+    fields.push(
+      field(`${geometryPath}.length`, 'Part Length', 'general', part.geometry.length, positiveNumber),
+      field(`${geometryPath}.width`, 'Part Width', 'general', part.geometry.width, positiveNumber),
+      field(`${geometryPath}.height`, 'Part Height', 'general', part.geometry.height, positiveNumber),
+    );
+  } else if (part.geometry.geometryType === 'Pipe / Tube' || part.geometry.geometryType === 'Cylinder' || part.geometry.geometryType === 'Ring') {
+    fields.push(
+      field(`${geometryPath}.outsideDiameter`, 'Part Outside Diameter', 'general', part.geometry.outsideDiameter, positiveNumber),
+      field(`${geometryPath}.insideDiameter`, 'Part Inside Diameter', 'general', part.geometry.insideDiameter, nonNegativeNumber),
+      field(`${geometryPath}.length`, 'Part Length', 'general', part.geometry.length, positiveNumber),
+    );
+  } else if (part.geometry.geometryType === 'Cone') {
+    fields.push(
+      field(`${geometryPath}.majorDiameter`, 'Cone Major Diameter', 'general', part.geometry.majorDiameter, positiveNumber),
+      field(`${geometryPath}.minorDiameter`, 'Cone Minor Diameter', 'general', part.geometry.minorDiameter, positiveNumber),
+      field(`${geometryPath}.height`, 'Cone Height', 'general', part.geometry.height, positiveNumber),
+      field(`${geometryPath}.wallThickness`, 'Cone Wall Thickness', 'general', part.geometry.wallThickness, positiveNumber),
+    );
+  } else if (part.geometry.geometryType === 'Complex Casting') {
+    fields.push(
+      field(`${geometryPath}.boundingLength`, 'Casting Bounding Length', 'general', part.geometry.boundingLength, positiveNumber),
+      field(`${geometryPath}.boundingWidth`, 'Casting Bounding Width', 'general', part.geometry.boundingWidth, positiveNumber),
+      field(`${geometryPath}.boundingHeight`, 'Casting Bounding Height', 'general', part.geometry.boundingHeight, positiveNumber),
+      field(`${geometryPath}.inspectionEnvelope`, 'Casting Inspection Envelope', 'general', part.geometry.inspectionEnvelope),
+    );
+  } else if (part.geometry.geometryType === 'Other') {
+    fields.push(field(`${geometryPath}.description`, 'Other Geometry Description', 'general', part.geometry.description));
+  }
+
+  const thicknessPath = 'technique.planning.part.thickness';
+  if (part.thickness.mode === 'Single Thickness') {
+    fields.push(field(`${thicknessPath}.thickness`, 'Single Planned Thickness', 'general', part.thickness.thickness, positiveNumber));
+  } else if (part.thickness.mode === 'Thickness Range') {
+    fields.push(
+      field(`${thicknessPath}.minimum`, 'Planned Thickness Minimum', 'general', part.thickness.minimum, positiveNumber),
+      field(`${thicknessPath}.maximum`, 'Planned Thickness Maximum', 'general', part.thickness.maximum, positiveNumber),
+    );
+  } else if (part.thickness.mode === 'Multiple Thickness Zones') {
+    fields.push(field(`${thicknessPath}.zones`, 'Thickness Zones', 'general', part.thickness.zones, nonEmptyArray, 'Define at least one controlled thickness zone.'));
+    part.thickness.zones.forEach((zone, index) => {
+      const path = `${thicknessPath}.zones[${index}]`;
+      fields.push(
+        field(`${path}.id`, `Thickness Zone ${index + 1} Stable ID`, 'general', zone.id),
+        field(`${path}.zoneId`, `Thickness Zone ${index + 1} Controlled ID`, 'general', zone.zoneId),
+        field(`${path}.description`, `Thickness Zone ${index + 1} Description`, 'general', zone.description),
+        field(`${path}.minimum`, `Thickness Zone ${index + 1} Minimum`, 'general', zone.minimum, positiveNumber),
+        field(`${path}.maximum`, `Thickness Zone ${index + 1} Maximum`, 'general', zone.maximum, positiveNumber),
+        field(`${path}.governing`, `Thickness Zone ${index + 1} Governing Thickness`, 'general', zone.governing, positiveNumber),
+        ...digitalRegionFields(`${path}.position`, `Thickness Zone ${index + 1} Position`, 'general', zone.position),
+      );
+    });
+  }
+
+  if (part.inspectionAreas.mode === 'Defined Area' || part.inspectionAreas.mode === 'Multiple Areas') {
+    fields.push(field(
+      'technique.planning.part.inspectionAreas.areas',
+      'Inspection Areas',
+      'general',
+      part.inspectionAreas.areas,
+      nonEmptyArray,
+      'Define the controlled inspection area dimensions and visual position.',
+    ));
+  }
+  part.inspectionAreas.areas.forEach((area, index) => {
+    const path = `technique.planning.part.inspectionAreas.areas[${index}]`;
+    fields.push(
+      field(`${path}.id`, `Inspection Area ${index + 1} Stable ID`, 'general', area.id),
+      field(`${path}.areaId`, `Inspection Area ${index + 1} Controlled ID`, 'general', area.areaId),
+      field(`${path}.description`, `Inspection Area ${index + 1} Description`, 'general', area.description),
+      field(`${path}.width`, `Inspection Area ${index + 1} Width`, 'general', area.width, positiveNumber),
+      field(`${path}.height`, `Inspection Area ${index + 1} Height`, 'general', area.height, positiveNumber),
+      ...digitalRegionFields(`${path}.position`, `Inspection Area ${index + 1} Position`, 'general', area.position),
+    );
+  });
+
+  fields.push(
+    field('technique.planning.sourceSelection.id', 'Source Selection Stable ID', 'source', sourceSelection.id),
+    field('technique.planning.sourceSelection.catalogRecordId', 'Source Catalog Record', 'source', sourceSelection.catalogRecordId),
+    field('technique.planning.sourceSelection.catalogRevisionId', 'Source Catalog Revision ID', 'source', sourceSelection.catalogRevisionId),
+    field('technique.planning.sourceSelection.catalogRevision', 'Source Catalog Revision', 'source', sourceSelection.catalogRevision, positiveInteger),
+    field('technique.planning.sourceSelection.snapshot', 'Source Catalog Snapshot', 'source', sourceSelection.snapshot),
+    field('technique.planning.sourceSelection.focalSpotOptionId', 'Selected Focal Spot Mode', 'source', sourceSelection.focalSpotOptionId),
+    field(
+      'technique.planning.sourceSelection.filterOptionIds',
+      'Selected Source Filter',
+      'source',
+      sourceSelection.filterOptionIds,
+      (value) => nonEmptyArray(value) || isMeaningfulControlledText(sourceSelection.extraFilter),
+      'Select a catalog filter or enter an explicit additional filter instruction.',
+    ),
+    field('technique.planning.detectorSelection.id', 'Detector Selection Stable ID', 'detector', detectorSelection.id),
+    field('technique.planning.detectorSelection.catalogRecordId', 'Detector Catalog Record', 'detector', detectorSelection.catalogRecordId),
+    field('technique.planning.detectorSelection.catalogRevisionId', 'Detector Catalog Revision ID', 'detector', detectorSelection.catalogRevisionId),
+    field('technique.planning.detectorSelection.catalogRevision', 'Detector Catalog Revision', 'detector', detectorSelection.catalogRevision, positiveInteger),
+    field('technique.planning.detectorSelection.snapshot', 'Detector Catalog Snapshot', 'detector', detectorSelection.snapshot),
+    field('technique.planning.detectorSelection.detectorMode', 'Selected Detector Mode', 'detector', detectorSelection.detectorMode),
+    field('technique.planning.detectorSelection.orientation', 'Detector Orientation', 'detector', detectorSelection.orientation),
+  );
+
+  if (sourceSelection.snapshot) {
+    const snapshot = sourceSelection.snapshot;
+    fields.push(
+      field('technique.planning.sourceSelection.snapshot.manufacturer', 'Snapshot Source Manufacturer', 'source', snapshot.manufacturer),
+      field('technique.planning.sourceSelection.snapshot.model', 'Snapshot Source Model', 'source', snapshot.model),
+      field('technique.planning.sourceSelection.snapshot.serialNumber', 'Snapshot Source Serial Number', 'source', snapshot.serialNumber),
+      field('technique.planning.sourceSelection.snapshot.kvMinimum', 'Snapshot Minimum kV', 'source', snapshot.kvMinimum, positiveNumber),
+      field('technique.planning.sourceSelection.snapshot.kvMaximum', 'Snapshot Maximum kV', 'source', snapshot.kvMaximum, positiveNumber),
+      field('technique.planning.sourceSelection.snapshot.currentMinimum', 'Snapshot Minimum Current', 'source', snapshot.currentMinimum, positiveNumber),
+      field('technique.planning.sourceSelection.snapshot.currentMaximum', 'Snapshot Maximum Current', 'source', snapshot.currentMaximum, positiveNumber),
+      field('technique.planning.sourceSelection.snapshot.maximumPowerKw', 'Snapshot Maximum Power', 'source', snapshot.maximumPowerKw, positiveNumber),
+      field('technique.planning.sourceSelection.snapshot.focalSpots', 'Snapshot Focal Spot Modes', 'source', snapshot.focalSpots, nonEmptyArray),
+      field('technique.planning.sourceSelection.snapshot.filters', 'Snapshot Filters', 'source', snapshot.filters, nonEmptyArray),
+    );
+    (['calibration', 'qualification'] as const).forEach((key) => {
+      const status = snapshot[key];
+      const label = key === 'calibration' ? 'Source Calibration' : 'Source Qualification';
+      fields.push(
+        field(`technique.planning.sourceSelection.snapshot.${key}.reference`, `${label} Reference`, 'source', status.reference),
+        field(`technique.planning.sourceSelection.snapshot.${key}.status`, `${label} Status`, 'source', status.status),
+        field(`technique.planning.sourceSelection.snapshot.${key}.date`, `${label} Date`, 'source', status.date),
+        field(`technique.planning.sourceSelection.snapshot.${key}.dueDate`, `${label} Due Date`, 'source', status.dueDate),
+      );
+    });
+  }
+  if (detectorSelection.snapshot) {
+    const snapshot = detectorSelection.snapshot;
+    fields.push(
+      field('technique.planning.detectorSelection.snapshot.manufacturer', 'Snapshot Detector Manufacturer', 'detector', snapshot.manufacturer),
+      field('technique.planning.detectorSelection.snapshot.model', 'Snapshot Detector Model', 'detector', snapshot.model),
+      field('technique.planning.detectorSelection.snapshot.serialNumber', 'Snapshot Detector Serial Number', 'detector', snapshot.serialNumber),
+      field('technique.planning.detectorSelection.snapshot.activeWidth', 'Snapshot Detector Active Width', 'detector', snapshot.activeWidth, positiveNumber),
+      field('technique.planning.detectorSelection.snapshot.activeHeight', 'Snapshot Detector Active Height', 'detector', snapshot.activeHeight, positiveNumber),
+      field('technique.planning.detectorSelection.snapshot.matrixColumns', 'Snapshot Detector Matrix Columns', 'detector', snapshot.matrixColumns, positiveInteger),
+      field('technique.planning.detectorSelection.snapshot.matrixRows', 'Snapshot Detector Matrix Rows', 'detector', snapshot.matrixRows, positiveInteger),
+      field('technique.planning.detectorSelection.snapshot.pixelSize', 'Snapshot Detector Pixel Size', 'detector', snapshot.pixelSize, positiveNumber),
+      field('technique.planning.detectorSelection.snapshot.bitDepth', 'Snapshot Detector Bit Depth', 'detector', snapshot.bitDepth, positiveInteger),
+      field('technique.planning.detectorSelection.snapshot.detectorSrb', 'Snapshot Detector SRb', 'detector', snapshot.detectorSrb, positiveNumber),
+      field('technique.planning.detectorSelection.snapshot.modes', 'Snapshot Detector Modes', 'detector', snapshot.modes, nonEmptyArray),
+    );
+    (['calibration', 'badPixelMap', 'qualification'] as const).forEach((key) => {
+      const status = snapshot[key];
+      const label = key === 'badPixelMap'
+        ? 'Snapshot Bad-pixel Map'
+        : key === 'calibration'
+          ? 'Snapshot Detector Calibration'
+          : 'Snapshot Detector Qualification';
+      fields.push(
+        field(`technique.planning.detectorSelection.snapshot.${key}.reference`, `${label} Reference`, 'detector', status.reference),
+        field(`technique.planning.detectorSelection.snapshot.${key}.status`, `${label} Status`, 'detector', status.status),
+        field(`technique.planning.detectorSelection.snapshot.${key}.date`, `${label} Date`, 'detector', status.date),
+        field(`technique.planning.detectorSelection.snapshot.${key}.dueDate`, `${label} Due Date`, 'detector', status.dueDate),
+      );
+    });
+  }
+
+  fields.push(
+    field('technique.planning.geometry.id', 'Engineering Geometry Stable ID', 'engineering', geometry.id),
+    field('technique.planning.geometry.distanceBasis', 'Distance Basis', 'engineering', geometry.distanceBasis),
+    field('technique.planning.geometry.availableSourceDistance.value', 'Available Source Distance', 'engineering', geometry.availableSourceDistance.value, positiveNumber),
+    field('technique.planning.geometry.geometryRestrictions', 'Geometry Restrictions', 'engineering', geometry.geometryRestrictions),
+    field('technique.planning.geometry.requiredMaximumUg.value', 'Required Maximum Ug', 'engineering', geometry.requiredMaximumUg.value, positiveNumber),
+    field('technique.planning.geometry.requiredMaximumEffectivePixel.value', 'Required Maximum Effective Pixel', 'engineering', geometry.requiredMaximumEffectivePixel.value, positiveNumber),
+    field(
+      'technique.planning.geometry.inspectionAreaId',
+      'Engineering Inspection Area',
+      'engineering',
+      geometry.inspectionAreaId,
+      (value) => part.inspectionAreas.mode === 'Entire Part' || isPresent(value),
+      'Select the controlled inspection area used for FOV and coverage planning.',
+    ),
+    field('technique.planning.geometry.requiredOverlapPercent', 'Required Coverage Overlap', 'engineering', geometry.requiredOverlapPercent, nonNegativeNumber),
+    field('technique.planning.geometry.excessiveOverlapThresholdPercent', 'Excessive-overlap Threshold', 'engineering', geometry.excessiveOverlapThresholdPercent, nonNegativeNumber),
+  );
+  const distanceFields = geometry.distanceBasis === 'SOD + ODD'
+    ? [['sod', 'SOD'], ['odd', 'ODD']] as const
+    : geometry.distanceBasis === 'SDD - ODD'
+      ? [['sdd', 'SDD'], ['odd', 'ODD']] as const
+      : geometry.distanceBasis === 'SDD - SOD'
+        ? [['sdd', 'SDD'], ['sod', 'SOD']] as const
+        : [];
+  distanceFields.forEach(([key, label]) => fields.push(field(
+    `technique.planning.geometry.${key}.value`,
+    `Controlled ${label}`,
+    'engineering',
+    geometry[key].value,
+    key === 'odd' ? nonNegativeNumber : positiveNumber,
+  )));
+  if (
+    planning.overrides.length > 0
+    || detectorSelection.orientation === 'Auto'
+    || geometry.optimizeExposureCount
+    || geometry.optimizeSodForUg
+    || geometry.optimizeOdd
+  ) {
+    fields.push(field('technique.planning.geometry.levelThreeApprovalReference', 'Level III Planning Approval Reference', 'engineering', geometry.levelThreeApprovalReference));
+  }
+
+  fields.push(
+    field('technique.planning.visual.id', 'Visual Planning Stable ID', 'visual', visual.id),
+    ...digitalPointFields('technique.planning.visual.sourcePosition', 'Planned Source Position', 'visual', visual.sourcePosition),
+    ...digitalPointFields('technique.planning.visual.detectorPosition', 'Planned Detector Position', 'visual', visual.detectorPosition),
+    field('technique.planning.visual.detectorRotationDegrees', 'Planned Detector Rotation', 'visual', visual.detectorRotationDegrees),
+    ...digitalPointFields('technique.planning.visual.beamCenter', 'Planned Beam Center', 'visual', visual.beamCenter),
+    field('technique.planning.visual.beamAngleDegrees', 'Planned Beam Angle', 'visual', visual.beamAngleDegrees),
+    field('technique.planning.visual.inspectionAreaId', 'Visual Inspection Area', 'visual', visual.inspectionAreaId),
+    field('technique.planning.visual.leadMarkers', 'Planned Lead Markers', 'visual', visual.leadMarkers),
+  );
+
+  fields.push(
+    field('technique.planning.iqiRules.id', 'IQI Planning Stable ID', 'iqi', iqiRules.id),
+    field('technique.planning.iqiRules.basis.id', 'IQI Basis Stable ID', 'iqi', iqiRules.basis.id),
+    field('technique.planning.iqiRules.basis.catalogRecordId', 'IQI Rule Catalog Record', 'iqi', iqiRules.basis.catalogRecordId),
+    field('technique.planning.iqiRules.basis.catalogRevisionId', 'IQI Rule Catalog Revision ID', 'iqi', iqiRules.basis.catalogRevisionId),
+    field('technique.planning.iqiRules.basis.catalogRevision', 'IQI Rule Catalog Revision', 'iqi', iqiRules.basis.catalogRevision, positiveInteger),
+    field('technique.planning.iqiRules.basis.snapshot', 'IQI Rule Catalog Snapshot', 'iqi', iqiRules.basis.snapshot),
+    field('technique.planning.iqiRules.basis.standard', 'IQI Rule Standard', 'iqi', iqiRules.basis.standard),
+    field('technique.planning.iqiRules.basis.standardRevision', 'IQI Rule Standard Revision', 'iqi', iqiRules.basis.standardRevision),
+    field('technique.planning.iqiRules.basis.iqiType', 'Structured IQI Type', 'iqi', iqiRules.basis.iqiType),
+    field('technique.planning.iqiRules.basis.material', 'Structured IQI Material', 'iqi', iqiRules.basis.material),
+    field('technique.planning.iqiRules.basis.materialGroup', 'Structured IQI Material Group', 'iqi', iqiRules.basis.materialGroup),
+    field('technique.planning.iqiRules.basis.placementRule', 'Structured IQI Placement Rule', 'iqi', iqiRules.basis.placementRule),
+    field('technique.planning.iqiRules.zoneOutputs', 'Per-zone IQI Outputs', 'iqi', iqiRules.zoneOutputs, nonEmptyArray, 'Define at least one required per-zone IQI output.'),
+  );
+  if (iqiRules.basis.snapshot) {
+    const snapshot = iqiRules.basis.snapshot;
+    fields.push(
+      field('technique.planning.iqiRules.basis.snapshot.standard', 'Snapshot IQI Standard', 'iqi', snapshot.standard),
+      field('technique.planning.iqiRules.basis.snapshot.standardRevision', 'Snapshot IQI Standard Revision', 'iqi', snapshot.standardRevision),
+      field('technique.planning.iqiRules.basis.snapshot.materialGroup', 'Snapshot IQI Material Group', 'iqi', snapshot.materialGroup),
+      field('technique.planning.iqiRules.basis.snapshot.iqiType', 'Snapshot IQI Type', 'iqi', snapshot.iqiType),
+      field('technique.planning.iqiRules.basis.snapshot.wallTechnique', 'Snapshot IQI Wall Technique', 'iqi', snapshot.wallTechnique),
+      field('technique.planning.iqiRules.basis.snapshot.imageTechnique', 'Snapshot IQI Image Technique', 'iqi', snapshot.imageTechnique),
+      field('technique.planning.iqiRules.basis.snapshot.placementRule', 'Snapshot IQI Placement Rule', 'iqi', snapshot.placementRule),
+      field('technique.planning.iqiRules.basis.snapshot.rules', 'Snapshot IQI Rules', 'iqi', snapshot.rules, nonEmptyArray),
+    );
+    snapshot.rules.forEach((rule, index) => {
+      const path = `technique.planning.iqiRules.basis.snapshot.rules[${index}]`;
+      fields.push(
+        field(`${path}.id`, `Snapshot IQI Rule ${index + 1} Stable ID`, 'iqi', rule.id),
+        field(`${path}.minimumThickness`, `Snapshot IQI Rule ${index + 1} Minimum Thickness`, 'iqi', rule.minimumThickness, nonNegativeNumber),
+        field(`${path}.maximumThickness`, `Snapshot IQI Rule ${index + 1} Maximum Thickness`, 'iqi', rule.maximumThickness, positiveNumber),
+        field(`${path}.iqiMaterial`, `Snapshot IQI Rule ${index + 1} Material`, 'iqi', rule.iqiMaterial),
+        field(`${path}.designation`, `Snapshot IQI Rule ${index + 1} Designation`, 'iqi', rule.designation),
+        field(`${path}.requiredSensitivity`, `Snapshot IQI Rule ${index + 1} Required Sensitivity`, 'iqi', rule.requiredSensitivity),
+        field(`${path}.placement`, `Snapshot IQI Rule ${index + 1} Placement`, 'iqi', rule.placement),
+        field(`${path}.shimRequirement`, `Snapshot IQI Rule ${index + 1} Shim Requirement`, 'iqi', rule.shimRequirement),
+      );
+      if (snapshot.iqiType === 'Wire') {
+        fields.push(field(`${path}.requiredWire`, `Snapshot IQI Rule ${index + 1} Required Wire`, 'iqi', rule.requiredWire));
+      } else if (snapshot.iqiType === 'Hole') {
+        fields.push(field(`${path}.requiredHole`, `Snapshot IQI Rule ${index + 1} Required Hole`, 'iqi', rule.requiredHole));
+      }
+    });
+  }
+  iqiRules.zoneOutputs.forEach((output, index) => {
+    const path = `technique.planning.iqiRules.zoneOutputs[${index}]`;
+    fields.push(
+      field(`${path}.id`, `IQI Output ${index + 1} Stable ID`, 'iqi', output.id),
+      field(`${path}.thicknessZoneId`, `IQI Output ${index + 1} Thickness Zone`, 'iqi', output.thicknessZoneId),
+      field(`${path}.governingThickness`, `IQI Output ${index + 1} Governing Thickness`, 'iqi', output.governingThickness, positiveNumber),
+      field(`${path}.iqiMaterial`, `IQI Output ${index + 1} Material`, 'iqi', output.iqiMaterial),
+      field(`${path}.designation`, `IQI Output ${index + 1} Designation`, 'iqi', output.designation),
+      field(`${path}.requiredSensitivity`, `IQI Output ${index + 1} Required Sensitivity`, 'iqi', output.requiredSensitivity),
+      field(`${path}.placement`, `IQI Output ${index + 1} Placement`, 'iqi', output.placement),
+      field(`${path}.shimRequirement`, `IQI Output ${index + 1} Shim Requirement`, 'iqi', output.shimRequirement),
+    );
+    if (iqiRules.basis.iqiType === 'Wire') {
+      fields.push(field(`${path}.requiredWire`, `IQI Output ${index + 1} Required Wire`, 'iqi', output.requiredWire));
+    } else if (iqiRules.basis.iqiType === 'Hole') {
+      fields.push(field(`${path}.requiredHole`, `IQI Output ${index + 1} Required Hole`, 'iqi', output.requiredHole));
+    }
+  });
+
+  fields.push(
+    field('technique.planning.processingPolicy.permittedProcessing', 'Permitted Processing Policy', 'processing', planning.processingPolicy.permittedProcessing),
+    field('technique.planning.processingPolicy.prohibitedProcessing', 'Prohibited Processing Policy', 'processing', planning.processingPolicy.prohibitedProcessing),
+    field('technique.planning.viewingPresets', 'Viewing Preset Library', 'processing', planning.viewingPresets, nonEmptyArray, 'Define at least one controlled viewing preset.'),
+  );
+  planning.viewingPresets.forEach((preset, index) => {
+    const path = `technique.planning.viewingPresets[${index}]`;
+    fields.push(
+      field(`${path}.id`, `Viewing Preset ${index + 1} Stable ID`, 'processing', preset.id),
+      field(`${path}.name`, `Viewing Preset ${index + 1} Name`, 'processing', preset.name),
+      field(`${path}.windowLevel`, `Viewing Preset ${index + 1} Window Level`, 'processing', preset.windowLevel),
+      field(`${path}.windowWidth`, `Viewing Preset ${index + 1} Window Width`, 'processing', preset.windowWidth, positiveNumber),
+      field(`${path}.zoom`, `Viewing Preset ${index + 1} Zoom`, 'processing', preset.zoom, positiveNumber),
+      field(`${path}.sharpness`, `Viewing Preset ${index + 1} Sharpness`, 'processing', preset.sharpness),
+    );
+  });
+
+  fields.push(field('technique.planning.acceptanceProfiles', 'Acceptance Profile Library', 'acceptance', planning.acceptanceProfiles, nonEmptyArray, 'Define at least one controlled acceptance profile.'));
+  planning.acceptanceProfiles.forEach((profile, index) => {
+    const path = `technique.planning.acceptanceProfiles[${index}]`;
+    fields.push(
+      field(`${path}.id`, `Acceptance Profile ${index + 1} Stable ID`, 'acceptance', profile.id),
+      field(`${path}.name`, `Acceptance Profile ${index + 1} Name`, 'acceptance', profile.name),
+      field(`${path}.standard`, `Acceptance Profile ${index + 1} Standard`, 'acceptance', profile.standard),
+      field(`${path}.revision`, `Acceptance Profile ${index + 1} Revision`, 'acceptance', profile.revision),
+      field(
+        `${path}.acceptanceClass`,
+        `Acceptance Profile ${index + 1} Class / Grade / Level`,
+        'acceptance',
+        profile.acceptanceClass,
+        () => [profile.acceptanceClass, profile.grade, profile.level].some(isPresent),
+        'Enter the applicable class, grade, or level requirement.',
+      ),
+      field(`${path}.applicableClause`, `Acceptance Profile ${index + 1} Clause`, 'acceptance', profile.applicableClause),
+      field(`${path}.requirementText`, `Acceptance Profile ${index + 1} Requirement Text`, 'acceptance', profile.requirementText),
+    );
+  });
+
+  planning.overrides.forEach((override, index) => {
+    const path = `technique.planning.overrides[${index}]`;
+    fields.push(
+      field(`${path}.id`, `Override ${index + 1} Stable ID`, 'engineering', override.id),
+      field(`${path}.fieldPath`, `Override ${index + 1} Field Path`, 'engineering', override.fieldPath),
+      field(`${path}.calculatedValue`, `Override ${index + 1} Calculated Value`, 'engineering', override.calculatedValue),
+      field(`${path}.approvedValue`, `Override ${index + 1} Approved Value`, 'engineering', override.approvedValue),
+      field(`${path}.reason`, `Override ${index + 1} Reason`, 'engineering', override.reason),
+      field(`${path}.approvedBy`, `Override ${index + 1} Level III Identity`, 'engineering', override.approvedBy),
+      field(`${path}.approvedAt`, `Override ${index + 1} Approval Date`, 'engineering', override.approvedAt, isIsoCalendarDate, 'Enter a real override approval date in YYYY-MM-DD format.'),
+    );
+  });
+
+  document.technique.acquisitions.forEach((acquisition, acquisitionIndex) => {
+    const path = `technique.acquisitions[${acquisitionIndex}].plan`;
+    const plan = acquisition.plan;
+    fields.push(field(path, `Acquisition ${acquisitionIndex + 1} Structured Plan`, 'interpretation', plan, (value) => Boolean(value), 'Complete the structured exposure plan.'));
+    if (!plan) return;
+    fields.push(
+      field(`${path}.id`, `Acquisition ${acquisitionIndex + 1} Plan Stable ID`, 'interpretation', plan.id),
+      field(`${path}.gridPlacement.id`, `Acquisition ${acquisitionIndex + 1} Grid Stable ID`, 'visual', plan.gridPlacement.id),
+      field(`${path}.gridPlacement.row`, `Acquisition ${acquisitionIndex + 1} Grid Row`, 'visual', plan.gridPlacement.row, positiveInteger),
+      field(`${path}.gridPlacement.column`, `Acquisition ${acquisitionIndex + 1} Grid Column`, 'visual', plan.gridPlacement.column, positiveInteger),
+      field(`${path}.gridPlacement.centerX`, `Acquisition ${acquisitionIndex + 1} Grid Center X`, 'visual', plan.gridPlacement.centerX, nonNegativeNumber),
+      field(`${path}.gridPlacement.centerY`, `Acquisition ${acquisitionIndex + 1} Grid Center Y`, 'visual', plan.gridPlacement.centerY, nonNegativeNumber),
+      field(`${path}.gridPlacement.detectorOrientation`, `Acquisition ${acquisitionIndex + 1} Grid Orientation`, 'visual', plan.gridPlacement.detectorOrientation),
+      field(`${path}.visual.id`, `Acquisition ${acquisitionIndex + 1} Visual Stable ID`, 'visual', plan.visual.id),
+      ...digitalPointFields(`${path}.visual.sourcePosition`, `Acquisition ${acquisitionIndex + 1} Source Position`, 'visual', plan.visual.sourcePosition),
+      ...digitalPointFields(`${path}.visual.detectorPosition`, `Acquisition ${acquisitionIndex + 1} Detector Position`, 'visual', plan.visual.detectorPosition),
+      field(`${path}.visual.detectorRotationDegrees`, `Acquisition ${acquisitionIndex + 1} Detector Rotation`, 'visual', plan.visual.detectorRotationDegrees),
+      ...digitalPointFields(`${path}.visual.beamCenter`, `Acquisition ${acquisitionIndex + 1} Beam Center`, 'visual', plan.visual.beamCenter),
+      field(`${path}.visual.beamAngleDegrees`, `Acquisition ${acquisitionIndex + 1} Beam Angle`, 'visual', plan.visual.beamAngleDegrees),
+      field(`${path}.visual.inspectionAreaId`, `Acquisition ${acquisitionIndex + 1} Visual Inspection Area`, 'visual', plan.visual.inspectionAreaId),
+      field(`${path}.visual.leadMarkers`, `Acquisition ${acquisitionIndex + 1} Lead Markers`, 'visual', plan.visual.leadMarkers),
+      field(`${path}.iqiAssignment.id`, `Acquisition ${acquisitionIndex + 1} IQI Assignment Stable ID`, 'iqi', plan.iqiAssignment.id),
+      field(`${path}.iqiAssignment.zoneOutputId`, `Acquisition ${acquisitionIndex + 1} IQI Output Link`, 'iqi', plan.iqiAssignment.zoneOutputId),
+      field(`${path}.iqiAssignment.designation`, `Acquisition ${acquisitionIndex + 1} IQI Designation`, 'iqi', plan.iqiAssignment.designation),
+      field(`${path}.iqiAssignment.shimRequirement`, `Acquisition ${acquisitionIndex + 1} IQI Shim Requirement`, 'iqi', plan.iqiAssignment.shimRequirement),
+      field(`${path}.iqiAssignment.positionDescription`, `Acquisition ${acquisitionIndex + 1} IQI Position Description`, 'iqi', plan.iqiAssignment.positionDescription),
+      ...digitalPointFields(`${path}.iqiAssignment.position`, `Acquisition ${acquisitionIndex + 1} IQI Position`, 'iqi', plan.iqiAssignment.position),
+      field(`${path}.interpretationAreas`, `Acquisition ${acquisitionIndex + 1} Interpretation Areas`, 'interpretation', plan.interpretationAreas, nonEmptyArray, 'Define at least one interpretation area for the exposure.'),
+    );
+    if (iqiRules.basis.iqiType === 'Wire') {
+      fields.push(field(`${path}.iqiAssignment.requiredWire`, `Acquisition ${acquisitionIndex + 1} Required Wire`, 'iqi', plan.iqiAssignment.requiredWire));
+    } else if (iqiRules.basis.iqiType === 'Hole') {
+      fields.push(field(`${path}.iqiAssignment.requiredHole`, `Acquisition ${acquisitionIndex + 1} Required Hole`, 'iqi', plan.iqiAssignment.requiredHole));
+    }
+    plan.interpretationAreas.forEach((area, areaIndex) => {
+      const areaPath = `${path}.interpretationAreas[${areaIndex}]`;
+      fields.push(
+        field(`${areaPath}.id`, `Interpretation Area ${areaIndex + 1} Stable ID`, 'interpretation', area.id),
+        field(`${areaPath}.areaId`, `Interpretation Area ${areaIndex + 1} Controlled ID`, 'interpretation', area.areaId),
+        field(`${areaPath}.description`, `Interpretation Area ${areaIndex + 1} Description`, 'interpretation', area.description),
+        field(`${areaPath}.inspectionAreaId`, `Interpretation Area ${areaIndex + 1} Inspection Area Link`, 'interpretation', area.inspectionAreaId),
+        field(`${areaPath}.thicknessZoneId`, `Interpretation Area ${areaIndex + 1} Thickness Zone Link`, 'interpretation', area.thicknessZoneId),
+        ...digitalRegionFields(`${areaPath}.position`, `Interpretation Area ${areaIndex + 1} ROI`, 'interpretation', area.position),
+        field(`${areaPath}.thicknessMinimum`, `Interpretation Area ${areaIndex + 1} Thickness Minimum`, 'interpretation', area.thicknessMinimum, positiveNumber),
+        field(`${areaPath}.thicknessMaximum`, `Interpretation Area ${areaIndex + 1} Thickness Maximum`, 'interpretation', area.thicknessMaximum, positiveNumber),
+        field(`${areaPath}.viewingPresetId`, `Interpretation Area ${areaIndex + 1} Viewing Preset`, 'interpretation', area.viewingPresetId),
+        field(`${areaPath}.windowLevel`, `Interpretation Area ${areaIndex + 1} Window Level`, 'interpretation', area.windowLevel),
+        field(`${areaPath}.windowWidth`, `Interpretation Area ${areaIndex + 1} Window Width`, 'interpretation', area.windowWidth, positiveNumber),
+        field(`${areaPath}.zoom`, `Interpretation Area ${areaIndex + 1} Zoom`, 'interpretation', area.zoom, positiveNumber),
+        field(`${areaPath}.acceptanceProfileId`, `Interpretation Area ${areaIndex + 1} Acceptance Profile`, 'interpretation', area.acceptanceProfileId),
+      );
+    });
+  });
+  return fields;
 }
 
 function rtDigitalFields(document: Extract<RtPtDocumentV3, { method: 'RT-Digital' }>): RequiredField[] {
@@ -412,6 +1137,7 @@ function rtDigitalFields(document: Extract<RtPtDocumentV3, { method: 'RT-Digital
     field('technique.iqi.material', 'IQI Material', 'iqi', iqi.material),
     field('technique.iqi.thickness', 'IQI Thickness', 'iqi', iqi.thickness),
     field('technique.iqi.placement', 'IQI Placement', 'iqi', iqi.placement),
+    field('technique.iqi.requiredSensitivity', 'Required IQI Sensitivity', 'iqi', iqi.requiredSensitivity),
     field('technique.iqi.requiredUg', 'Required Geometric Unsharpness', 'iqi', iqi.requiredUg),
     field(
       'technique.iqi.requiredSnrOrNormalizedSnr',
@@ -426,6 +1152,7 @@ function rtDigitalFields(document: Extract<RtPtDocumentV3, { method: 'RT-Digital
       iqi.requiredContrastSensitivityOrCnr,
     ),
     ...acceptanceFields(acceptance),
+    ...digitalPlanningFields(document),
     ...digitalAcquisitionFields(document),
   ];
 }
@@ -701,6 +1428,724 @@ function checkRange(
   if (typeof min === 'number' && typeof max === 'number' && min > max) {
     addIssue(issues, path, label, tab, 'The planned minimum cannot exceed the planned maximum.');
   }
+}
+
+const normalizedKey = (value: string): string => value.trim().toLocaleLowerCase();
+
+function checkUniqueControlledValues(
+  issues: RtPtValidationIssue[],
+  path: string,
+  label: string,
+  tab: string,
+  values: string[],
+): void {
+  const normalized = values.map(normalizedKey);
+  if (normalized.some((value) => value.length < 2) || new Set(normalized).size !== normalized.length) {
+    addIssue(issues, path, label, tab, 'Every entry must have a meaningful, unique controlled identifier.');
+  }
+}
+
+function checkDigitalRegion(
+  issues: RtPtValidationIssue[],
+  path: string,
+  label: string,
+  tab: string,
+  region: RtDigitalVisualRegion,
+): void {
+  if (
+    !normalizedCoordinate(region.x)
+    || !normalizedCoordinate(region.y)
+    || !positiveNumber(region.width)
+    || !positiveNumber(region.height)
+    || (typeof region.width === 'number' && region.width > 1)
+    || (typeof region.height === 'number' && region.height > 1)
+    || (
+      typeof region.x === 'number'
+      && typeof region.width === 'number'
+      && region.x + region.width > 1 + Number.EPSILON * 16
+    )
+    || (
+      typeof region.y === 'number'
+      && typeof region.height === 'number'
+      && region.y + region.height > 1 + Number.EPSILON * 16
+    )
+  ) {
+    addIssue(issues, path, label, tab, 'The normalized visual region must remain entirely inside the 0-to-1 image boundary.');
+  }
+}
+
+const currentStatusText = (value: string): boolean => {
+  const canonicalStatuses = new Set(['current', 'valid', 'qualified', 'active']);
+  return canonicalStatuses.has(value.trim().toLowerCase());
+};
+
+function checkDigitalCatalogStatus(
+  issues: RtPtValidationIssue[],
+  path: string,
+  label: string,
+  tab: string,
+  status: RtDigitalCatalogStatus,
+  requiredOnDate: string,
+): void {
+  if (!isMeaningfulControlledText(status.reference)) {
+    addIssue(issues, `${path}.reference`, `${label} Reference`, tab, 'Enter the controlled status-record reference.');
+  }
+  if (!currentStatusText(status.status)) {
+    addIssue(issues, `${path}.status`, `${label} Status`, tab, 'The selected catalog status must explicitly be current, valid, active, or qualified.');
+  }
+  if (!isIsoCalendarDate(status.date)) {
+    addIssue(issues, `${path}.date`, `${label} Date`, tab, 'Enter a real status-record date in YYYY-MM-DD format.');
+  }
+  if (!isIsoCalendarDate(status.dueDate)) {
+    addIssue(issues, `${path}.dueDate`, `${label} Due Date`, tab, 'Enter a real status due date in YYYY-MM-DD format.');
+  }
+  if (isIsoCalendarDate(status.date) && isIsoCalendarDate(status.dueDate) && status.date > status.dueDate) {
+    addIssue(issues, `${path}.dueDate`, `${label} Date Order`, tab, 'The status due date cannot be earlier than its record date.');
+  }
+  if (isIsoCalendarDate(requiredOnDate) && isIsoCalendarDate(status.dueDate) && status.dueDate < requiredOnDate) {
+    addIssue(issues, `${path}.dueDate`, `${label} Currency`, tab, `The status expires before the planned inspection date ${requiredOnDate}.`);
+  }
+  if (isIsoCalendarDate(requiredOnDate) && isIsoCalendarDate(status.date) && status.date > requiredOnDate) {
+    addIssue(issues, `${path}.date`, `${label} Availability`, tab, `The status record is dated after the planned inspection date ${requiredOnDate}.`);
+  }
+}
+
+const sameDigitalStatus = (
+  left: RtDigitalCatalogStatus,
+  right: RtDigitalCatalogStatus,
+): boolean => (
+  left.reference.trim() === right.reference.trim()
+  && left.status.trim() === right.status.trim()
+  && left.date.trim() === right.date.trim()
+  && left.dueDate.trim() === right.dueDate.trim()
+);
+
+function digitalStructuredCalculation(
+  planning: RtDigitalPlanning,
+  requestedArea?: RtDigitalInspectionArea,
+) {
+  const sourceSnapshot = planning.sourceSelection.snapshot;
+  const detectorSnapshot = planning.detectorSelection.snapshot;
+  const focalSpot = sourceSnapshot?.focalSpots.find((option) => (
+    option.id === planning.sourceSelection.focalSpotOptionId
+  ));
+  const inspectionArea = requestedArea
+    ?? resolveRtDigitalInspectionArea(planning.part, planning.geometry.inspectionAreaId);
+  if (!sourceSnapshot || !detectorSnapshot || !focalSpot || !inspectionArea) return null;
+
+  const calculation = calculateRtDigitalPlanning({
+    geometry: {
+      distanceBasis: planning.geometry.distanceBasis,
+      sod: planning.geometry.sod,
+      sdd: planning.geometry.sdd,
+      odd: planning.geometry.odd,
+      focalSpotSize: { value: focalSpot.size, unit: focalSpot.unit },
+      requiredMaximumUg: planning.geometry.requiredMaximumUg,
+      detectorPixelSize: { value: detectorSnapshot.pixelSize, unit: detectorSnapshot.pixelSizeUnit },
+      detectorActiveWidth: { value: detectorSnapshot.activeWidth, unit: detectorSnapshot.activeAreaUnit },
+      detectorActiveHeight: { value: detectorSnapshot.activeHeight, unit: detectorSnapshot.activeAreaUnit },
+      requiredMaximumEffectivePixel: planning.geometry.requiredMaximumEffectivePixel,
+    },
+    inspectionAreaWidth: { value: inspectionArea.width, unit: inspectionArea.unit },
+    inspectionAreaHeight: { value: inspectionArea.height, unit: inspectionArea.unit },
+    requiredOverlapPercent: planning.geometry.requiredOverlapPercent,
+    excessiveOverlapThresholdPercent: planning.geometry.excessiveOverlapThresholdPercent,
+  });
+  const effectiveOrientation = planning.detectorSelection.orientation === 'Portrait'
+    || planning.detectorSelection.orientation === 'Landscape'
+    ? planning.detectorSelection.orientation
+    : calculation.orientation.preferredOrientation;
+  const orientationOption = effectiveOrientation === 'Portrait'
+    ? calculation.orientation.portrait
+    : effectiveOrientation === 'Landscape'
+      ? calculation.orientation.landscape
+      : null;
+  return { calculation, effectiveOrientation, orientationOption, focalSpot, inspectionArea };
+}
+
+function digitalCoverageAreas(planning: RtDigitalPlanning): RtDigitalInspectionArea[] {
+  if (planning.part.inspectionAreas.mode === 'Multiple Areas') {
+    return planning.part.inspectionAreas.areas;
+  }
+  const area = resolveRtDigitalInspectionArea(planning.part, planning.geometry.inspectionAreaId);
+  return area ? [area] : [];
+}
+
+const digitalAreaMatches = (area: RtDigitalInspectionArea, candidateId: string): boolean => (
+  candidateId === area.id || candidateId === area.areaId
+);
+
+function digitalAcquisitionCalculation(
+  planning: RtDigitalPlanning,
+  acquisition: RtDigitalAcquisition,
+  area: RtDigitalInspectionArea,
+) {
+  const sourceSnapshot = planning.sourceSelection.snapshot;
+  const detectorSnapshot = planning.detectorSelection.snapshot;
+  const focalSpot = sourceSnapshot?.focalSpots.find((option) => (
+    option.id === planning.sourceSelection.focalSpotOptionId
+  ));
+  if (!sourceSnapshot || !detectorSnapshot || !focalSpot) return null;
+  const calculation = calculateRtDigitalPlanning({
+    geometry: {
+      sod: { value: acquisition.sod, unit: acquisition.sodUnit },
+      sdd: { value: acquisition.sdd, unit: acquisition.sddUnit },
+      odd: { value: acquisition.odd, unit: acquisition.oddUnit },
+      focalSpotSize: { value: focalSpot.size, unit: focalSpot.unit },
+      requiredMaximumUg: { value: acquisition.requiredUg, unit: acquisition.requiredUgUnit },
+      detectorPixelSize: { value: detectorSnapshot.pixelSize, unit: detectorSnapshot.pixelSizeUnit },
+      detectorActiveWidth: { value: detectorSnapshot.activeWidth, unit: detectorSnapshot.activeAreaUnit },
+      detectorActiveHeight: { value: detectorSnapshot.activeHeight, unit: detectorSnapshot.activeAreaUnit },
+      requiredMaximumEffectivePixel: planning.geometry.requiredMaximumEffectivePixel,
+    },
+    inspectionAreaWidth: { value: area.width, unit: area.unit },
+    inspectionAreaHeight: { value: area.height, unit: area.unit },
+    requiredOverlapPercent: planning.geometry.requiredOverlapPercent,
+    excessiveOverlapThresholdPercent: planning.geometry.excessiveOverlapThresholdPercent,
+  });
+  const effectiveOrientation = acquisition.orientation === 'Portrait' || acquisition.orientation === 'Landscape'
+    ? acquisition.orientation
+    : acquisition.plan?.gridPlacement.detectorOrientation === 'Portrait'
+      || acquisition.plan?.gridPlacement.detectorOrientation === 'Landscape'
+      ? acquisition.plan.gridPlacement.detectorOrientation
+      : null;
+  const orientationOption = effectiveOrientation === 'Portrait'
+    ? calculation.orientation.portrait
+    : effectiveOrientation === 'Landscape'
+      ? calculation.orientation.landscape
+      : null;
+  return { calculation, effectiveOrientation, orientationOption };
+}
+
+function sameDigitalLength(
+  leftValue: number | '',
+  leftUnit: 'um' | 'mm' | 'inch',
+  rightValue: number | '',
+  rightUnit: 'um' | 'mm' | 'inch',
+): boolean {
+  const left = convertRtDigitalLength(leftValue, leftUnit, 'mm');
+  const right = convertRtDigitalLength(rightValue, rightUnit, 'mm');
+  if (left === null || right === null) return false;
+  const allowance = 1e-9 * Math.max(1, Math.abs(left), Math.abs(right));
+  return Math.abs(left - right) <= allowance;
+}
+
+function addDigitalStructuredIssues(document: RtDigitalDocument, issues: RtPtValidationIssue[]): void {
+  const planning = document.technique.planning;
+  if (!planning) return;
+  const { part, sourceSelection, detectorSelection, geometry, iqiRules } = planning;
+  const inspectionDate = document.technique.general.date;
+
+  const synchronizedIdentity: Array<[string, string, string]> = [
+    ['partName', part.partName, document.technique.general.partName],
+    ['partNumber', part.partNumber, document.technique.general.partNumber],
+    ['vendorCode', part.vendorCode, document.technique.general.vendorCode],
+    ['revisionOrConfiguration', part.revisionOrConfiguration, document.technique.general.partRevisionOrConfiguration],
+    ['drawingOrSpecificationReference', part.drawingOrSpecificationReference, document.technique.general.drawingReference],
+    ['procedureNumber', part.procedureNumber, document.technique.general.procedureNumber],
+    ['material', part.material, document.technique.general.material],
+    ['surfaceFinish', part.surfaceFinish, document.technique.general.surfaceFinish],
+  ];
+  if (synchronizedIdentity.some(([, structured, legacy]) => structured.trim() !== legacy.trim())) {
+    addIssue(
+      issues,
+      'technique.planning.part',
+      'Structured Part Identity Synchronization',
+      'general',
+      'Structured part identity fields must match the corresponding controlled general fields.',
+    );
+  }
+
+  if (part.manufacturingProcess !== 'Other' && isPresent(part.otherManufacturingProcess)) {
+    addIssue(issues, 'technique.planning.part.otherManufacturingProcess', 'Inactive Manufacturing Process', 'general', 'Clear the Other manufacturing-process value when Other is not selected.');
+  }
+  if (part.technique.imageTechnique !== 'Other' && isPresent(part.technique.otherImageTechnique)) {
+    addIssue(issues, 'technique.planning.part.technique.otherImageTechnique', 'Inactive Image Technique', 'general', 'Clear the Other image-technique value when Other is not selected.');
+  }
+  if (
+    (part.geometry.geometryType === 'Pipe / Tube' || part.geometry.geometryType === 'Cylinder' || part.geometry.geometryType === 'Ring')
+    && typeof part.geometry.insideDiameter === 'number'
+    && typeof part.geometry.outsideDiameter === 'number'
+    && part.geometry.insideDiameter >= part.geometry.outsideDiameter
+  ) {
+    addIssue(issues, 'technique.planning.part.geometry.insideDiameter', 'Part Diameter Relationship', 'general', 'The planned inside diameter must be smaller than the outside diameter.');
+  }
+  if (
+    part.geometry.geometryType === 'Cone'
+    && typeof part.geometry.minorDiameter === 'number'
+    && typeof part.geometry.majorDiameter === 'number'
+    && part.geometry.minorDiameter > part.geometry.majorDiameter
+  ) {
+    addIssue(issues, 'technique.planning.part.geometry.minorDiameter', 'Cone Diameter Relationship', 'general', 'The planned minor diameter cannot exceed the major diameter.');
+  }
+
+  if (part.thickness.mode === 'Thickness Range') {
+    checkRange(issues, 'technique.planning.part.thickness.minimum', 'Structured Thickness Range', 'general', part.thickness.minimum, part.thickness.maximum);
+  } else if (part.thickness.mode === 'Multiple Thickness Zones') {
+    if (part.thickness.zones.length < 2) {
+      addIssue(issues, 'technique.planning.part.thickness.zones', 'Multiple Thickness Zones', 'general', 'Multiple Thickness Zones requires at least two controlled zones.');
+    }
+    checkUniqueControlledValues(issues, 'technique.planning.part.thickness.zones', 'Thickness Zone Stable IDs', 'general', part.thickness.zones.map((zone) => zone.id));
+    checkUniqueControlledValues(issues, 'technique.planning.part.thickness.zones', 'Thickness Zone Controlled IDs', 'general', part.thickness.zones.map((zone) => zone.zoneId));
+    part.thickness.zones.forEach((zone, index) => {
+      const path = `technique.planning.part.thickness.zones[${index}]`;
+      checkRange(issues, `${path}.minimum`, `Thickness Zone ${index + 1} Range`, 'general', zone.minimum, zone.maximum);
+      if (
+        typeof zone.minimum === 'number'
+        && typeof zone.maximum === 'number'
+        && typeof zone.governing === 'number'
+        && (zone.governing < zone.minimum || zone.governing > zone.maximum)
+      ) {
+        addIssue(issues, `${path}.governing`, `Thickness Zone ${index + 1} Governing Thickness`, 'general', 'The governing thickness must be inside the planned zone range.');
+      }
+      checkDigitalRegion(issues, `${path}.position`, `Thickness Zone ${index + 1} Position`, 'general', zone.position);
+    });
+  }
+
+  if (part.inspectionAreas.mode === 'Entire Part' && part.inspectionAreas.areas.length !== 0) {
+    addIssue(issues, 'technique.planning.part.inspectionAreas.areas', 'Inactive Inspection Areas', 'general', 'Entire Part mode must not retain inactive defined-area records.');
+  }
+  if (part.inspectionAreas.mode === 'Defined Area' && part.inspectionAreas.areas.length !== 1) {
+    addIssue(issues, 'technique.planning.part.inspectionAreas.areas', 'Defined Inspection Area', 'general', 'Defined Area mode requires exactly one controlled inspection area.');
+  }
+  if (part.inspectionAreas.mode === 'Multiple Areas' && part.inspectionAreas.areas.length < 2) {
+    addIssue(issues, 'technique.planning.part.inspectionAreas.areas', 'Multiple Inspection Areas', 'general', 'Multiple Areas mode requires at least two controlled inspection areas.');
+  }
+  checkUniqueControlledValues(issues, 'technique.planning.part.inspectionAreas.areas', 'Inspection Area Stable IDs', 'general', part.inspectionAreas.areas.map((area) => area.id));
+  checkUniqueControlledValues(issues, 'technique.planning.part.inspectionAreas.areas', 'Inspection Area Controlled IDs', 'general', part.inspectionAreas.areas.map((area) => area.areaId));
+  part.inspectionAreas.areas.forEach((area, index) => checkDigitalRegion(
+    issues,
+    `technique.planning.part.inspectionAreas.areas[${index}].position`,
+    `Inspection Area ${index + 1} Position`,
+    'general',
+    area.position,
+  ));
+
+  checkUniqueControlledValues(issues, 'technique.planning.part.attachments', 'Part Attachment IDs', 'general', part.attachments.map((attachment) => attachment.id));
+  part.attachments.forEach((attachment, index) => {
+    if (!validAttachmentMetadata(attachment)) {
+      addIssue(issues, `technique.planning.part.attachments[${index}]`, `Part Attachment ${index + 1}`, 'general', 'Attachment metadata must contain a stable ID, safe type, positive size, and lowercase SHA-256 hash.');
+    }
+  });
+  if (!part.attachments.some((attachment) => attachment.id === part.referenceAttachmentId)) {
+    addIssue(issues, 'technique.planning.part.referenceAttachmentId', 'Reference Attachment Link', 'general', 'The selected reference attachment must link to part attachment metadata.');
+  }
+
+  const sourceSnapshot = sourceSelection.snapshot;
+  if (sourceSnapshot) {
+    checkRange(issues, 'technique.planning.sourceSelection.snapshot.kvMinimum', 'Source kV Range', 'source', sourceSnapshot.kvMinimum, sourceSnapshot.kvMaximum);
+    checkRange(issues, 'technique.planning.sourceSelection.snapshot.currentMinimum', 'Source Current Range', 'source', sourceSnapshot.currentMinimum, sourceSnapshot.currentMaximum);
+    checkUniqueControlledValues(issues, 'technique.planning.sourceSelection.snapshot.focalSpots', 'Focal Spot Mode IDs', 'source', sourceSnapshot.focalSpots.map((option) => option.id));
+    checkUniqueControlledValues(issues, 'technique.planning.sourceSelection.snapshot.filters', 'Filter IDs', 'source', sourceSnapshot.filters.map((option) => option.id));
+    sourceSnapshot.focalSpots.forEach((option, index) => {
+      if (!isMeaningfulControlledText(option.label) || !positiveNumber(option.size)) {
+        addIssue(issues, `technique.planning.sourceSelection.snapshot.focalSpots[${index}]`, `Focal Spot Mode ${index + 1}`, 'source', 'Every focal-spot mode needs a meaningful label and positive actual size.');
+      }
+    });
+    sourceSnapshot.filters.forEach((option, index) => {
+      if (!isMeaningfulControlledText(option.label) || !isMeaningfulControlledText(option.description)) {
+        addIssue(issues, `technique.planning.sourceSelection.snapshot.filters[${index}]`, `Source Filter ${index + 1}`, 'source', 'Every catalog filter needs a meaningful label and controlled description.');
+      }
+    });
+    const selectedFocal = sourceSnapshot.focalSpots.find((option) => option.id === sourceSelection.focalSpotOptionId);
+    if (!selectedFocal) {
+      addIssue(issues, 'technique.planning.sourceSelection.focalSpotOptionId', 'Selected Focal Spot Mode', 'source', 'The selected focal-spot ID is absent from the immutable source snapshot.');
+    } else if (!sameDigitalLength(selectedFocal.size, selectedFocal.unit, document.technique.source.focalSpotSize, document.technique.source.focalSpotSizeUnit)) {
+      addIssue(issues, 'technique.source.focalSpotSize', 'Selected Focal Spot Synchronization', 'source', 'The source focal-spot value must match the selected catalog mode.');
+    }
+    if (new Set(sourceSelection.filterOptionIds).size !== sourceSelection.filterOptionIds.length
+      || sourceSelection.filterOptionIds.some((id) => !sourceSnapshot.filters.some((option) => option.id === id))) {
+      addIssue(issues, 'technique.planning.sourceSelection.filterOptionIds', 'Selected Source Filters', 'source', 'Every selected filter ID must be unique and present in the immutable source snapshot.');
+    }
+    if ([sourceSnapshot.manufacturer, sourceSnapshot.model, sourceSnapshot.serialNumber].some((value, index) => (
+      value.trim() !== [document.technique.source.manufacturer, document.technique.source.model, document.technique.source.serialNumber][index].trim()
+    ))) {
+      addIssue(issues, 'technique.planning.sourceSelection.snapshot', 'Source Snapshot Identity', 'source', 'The controlled source identity must match its selected catalog snapshot.');
+    }
+    if (!document.technique.source.calibrationRequirement.toLocaleLowerCase().includes(
+      sourceSnapshot.calibration.reference.trim().toLocaleLowerCase(),
+    )) {
+      addIssue(issues, 'technique.source.calibrationRequirement', 'Source Calibration Snapshot Trace', 'source', 'The active source calibration requirement must identify the immutable snapshot calibration reference.');
+    }
+    checkDigitalCatalogStatus(issues, 'technique.planning.sourceSelection.snapshot.calibration', 'Source Calibration', 'source', sourceSnapshot.calibration, inspectionDate);
+    checkDigitalCatalogStatus(issues, 'technique.planning.sourceSelection.snapshot.qualification', 'Source Qualification', 'source', sourceSnapshot.qualification, inspectionDate);
+  }
+
+  const detectorSnapshot = detectorSelection.snapshot;
+  if (detectorSnapshot) {
+    checkUniqueControlledValues(issues, 'technique.planning.detectorSelection.snapshot.modes', 'Detector Modes', 'detector', detectorSnapshot.modes);
+    if (!detectorSnapshot.modes.includes(detectorSelection.detectorMode)) {
+      addIssue(issues, 'technique.planning.detectorSelection.detectorMode', 'Selected Detector Mode', 'detector', 'The selected detector mode is absent from the immutable detector snapshot.');
+    }
+    const system = document.technique.system;
+    if (
+      detectorSnapshot.manufacturer.trim() !== system.manufacturer.trim()
+      || detectorSnapshot.model.trim() !== system.model.trim()
+      || detectorSnapshot.serialNumber.trim() !== system.serialNumber.trim()
+      || detectorSelection.detectorMode.trim() !== system.detectorMode.trim()
+      || !sameDigitalLength(detectorSnapshot.activeWidth, detectorSnapshot.activeAreaUnit, system.activeAreaWidth, system.activeAreaUnit)
+      || !sameDigitalLength(detectorSnapshot.activeHeight, detectorSnapshot.activeAreaUnit, system.activeAreaHeight, system.activeAreaUnit)
+      || !sameDigitalLength(detectorSnapshot.pixelSize, detectorSnapshot.pixelSizeUnit, system.pixelSize, system.pixelSizeUnit)
+      || detectorSnapshot.matrixColumns !== system.matrixColumns
+      || detectorSnapshot.matrixRows !== system.matrixRows
+      || detectorSnapshot.bitDepth !== system.bitDepth
+      || !sameDigitalLength(
+        detectorSnapshot.detectorSrb,
+        detectorSnapshot.detectorSrbUnit,
+        document.technique.detectorPerformance.detectorSrb,
+        document.technique.detectorPerformance.detectorSrbUnit,
+      )
+    ) {
+      addIssue(issues, 'technique.planning.detectorSelection.snapshot', 'Detector Snapshot Synchronization', 'detector', 'The controlled detector identity and characteristics must match the selected catalog snapshot.');
+    }
+    if (
+      !sameDigitalStatus(detectorSnapshot.calibration, document.technique.detectorPerformance.calibration)
+      || !sameDigitalStatus(detectorSnapshot.badPixelMap, document.technique.detectorPerformance.badPixelMap)
+    ) {
+      addIssue(issues, 'technique.detectorPerformance', 'Detector Status Snapshot Synchronization', 'detector', 'Active detector calibration and bad-pixel controls must exactly match the immutable detector snapshot.');
+    }
+    checkDigitalCatalogStatus(issues, 'technique.planning.detectorSelection.snapshot.calibration', 'Detector Calibration', 'detector', detectorSnapshot.calibration, inspectionDate);
+    checkDigitalCatalogStatus(issues, 'technique.planning.detectorSelection.snapshot.badPixelMap', 'Bad-pixel Map', 'detector', detectorSnapshot.badPixelMap, inspectionDate);
+    checkDigitalCatalogStatus(issues, 'technique.planning.detectorSelection.snapshot.qualification', 'Detector Qualification', 'detector', detectorSnapshot.qualification, inspectionDate);
+  }
+  (['badPixelMap', 'calibration', 'stability'] as const).forEach((key) => checkDigitalCatalogStatus(
+    issues,
+    `technique.detectorPerformance.${key}`,
+    key === 'badPixelMap' ? 'Bad-pixel Map' : key[0].toUpperCase() + key.slice(1),
+    'detector',
+    document.technique.detectorPerformance[key],
+    inspectionDate,
+  ));
+
+  const coverageAreas = digitalCoverageAreas(planning);
+  const calculationContexts = coverageAreas.map((area) => digitalStructuredCalculation(planning, area));
+  if (coverageAreas.length === 0 || calculationContexts.some((context) => context === null)) {
+    addIssue(issues, 'technique.planning.geometry', 'Structured Geometry Calculation Inputs', 'engineering', 'Every controlled inspection area requires a focal-spot mode, source/detector snapshots, and dimensions for geometry and coverage calculations.');
+  } else {
+    const contexts = calculationContexts.filter((context) => context !== null);
+    const primaryCalculation = contexts[0].calculation;
+    if (primaryCalculation.geometry.status !== 'complete') {
+      addIssue(issues, 'technique.planning.geometry', 'Structured Geometry Consistency', 'engineering', primaryCalculation.geometry.issues.join(' ') || 'The controlled distance pair is incomplete.');
+    }
+    if (primaryCalculation.geometry.ugStatus !== 'pass') {
+      addIssue(issues, 'technique.planning.geometry.requiredMaximumUg', 'Required Maximum Ug', 'engineering', 'Calculated geometric unsharpness must satisfy the controlled maximum Ug.');
+    }
+    if (primaryCalculation.geometry.resolutionStatus !== 'pass') {
+      addIssue(issues, 'technique.planning.geometry.requiredMaximumEffectivePixel', 'Required Effective Pixel Resolution', 'engineering', 'Calculated effective object pixel size must satisfy the controlled maximum.');
+    }
+    const availableMm = convertRtDigitalLength(geometry.availableSourceDistance.value, geometry.availableSourceDistance.unit, 'mm');
+    if (availableMm !== null && primaryCalculation.geometry.sddMm !== null && primaryCalculation.geometry.sddMm > availableMm + 1e-9) {
+      addIssue(issues, 'technique.planning.geometry.availableSourceDistance', 'Available Source Distance', 'engineering', 'The calculated SDD exceeds the controlled available source distance.');
+    }
+
+    const expectedPlacements: Array<{
+      area: RtDigitalInspectionArea;
+      descriptor: RtDigitalExposureGridDescriptor;
+      orientation: 'Portrait' | 'Landscape';
+    }> = [];
+    contexts.forEach(({ calculation, effectiveOrientation, orientationOption, inspectionArea }) => {
+      const areaLabel = inspectionArea.areaId || inspectionArea.id;
+      if (!effectiveOrientation || !orientationOption || calculation.orientation.status !== 'complete') {
+        addIssue(issues, 'technique.planning.detectorSelection.orientation', `Detector Orientation Calculation - ${areaLabel}`, 'engineering', 'A complete Portrait/Landscape coverage orientation must be selected or automatically resolved.');
+        return;
+      }
+      if (
+        geometry.optimizeExposureCount
+        && calculation.orientation.preferredOrientation
+        && effectiveOrientation !== calculation.orientation.preferredOrientation
+      ) {
+        addIssue(issues, 'technique.planning.detectorSelection.orientation', `Optimized Detector Orientation - ${areaLabel}`, 'engineering', 'Exposure-count optimization requires the calculated preferred detector orientation for every inspection area.');
+      }
+      if (orientationOption.coverage.status !== 'complete') {
+        addIssue(issues, 'technique.planning.geometry.requiredOverlapPercent', `FOV Coverage Plan - ${areaLabel}`, 'engineering', orientationOption.coverage.issues.join(' ') || 'The selected orientation has incomplete coverage.');
+      }
+      if (orientationOption.coverage.warnings.includes('underlap')) {
+        addIssue(issues, 'technique.planning.geometry.requiredOverlapPercent', `Coverage Underlap - ${areaLabel}`, 'engineering', 'The planned exposure grid does not meet the required overlap.');
+      }
+      if (orientationOption.coverage.warnings.includes('excessive-overlap')) {
+        addIssue(issues, 'technique.planning.geometry.excessiveOverlapThresholdPercent', `Excessive Coverage Overlap - ${areaLabel}`, 'engineering', 'The calculated grid exceeds the controlled excessive-overlap threshold.');
+      }
+      orientationOption.coverage.grid.forEach((descriptor) => expectedPlacements.push({
+        area: inspectionArea,
+        descriptor,
+        orientation: effectiveOrientation,
+      }));
+    });
+
+    const acquisitions = document.technique.acquisitions;
+    let completeAggregateGrid = expectedPlacements.length === acquisitions.length;
+    expectedPlacements.forEach(({ area, descriptor }) => {
+      const matchingCount = acquisitions.filter((acquisition) => (
+        acquisition.plan
+        && digitalAreaMatches(area, acquisition.plan.visual.inspectionAreaId)
+        && acquisition.plan.gridPlacement.row === descriptor.row
+        && acquisition.plan.gridPlacement.column === descriptor.column
+      )).length;
+      if (matchingCount !== 1) completeAggregateGrid = false;
+    });
+    if (!completeAggregateGrid) {
+      addIssue(issues, 'technique.acquisitions', 'Calculated Exposure Grid', 'visual', `The aggregate FOV plan requires ${expectedPlacements.length} unique area/row/column exposures with no missing or duplicate footprints.`);
+    }
+
+    acquisitions.forEach((acquisition, index) => {
+      const plan = acquisition.plan;
+      if (!plan) return;
+      const area = coverageAreas.find((candidate) => digitalAreaMatches(candidate, plan.visual.inspectionAreaId));
+      const baseline = area ? expectedPlacements.find((candidate) => (
+        digitalAreaMatches(candidate.area, plan.visual.inspectionAreaId)
+        && candidate.descriptor.row === plan.gridPlacement.row
+        && candidate.descriptor.column === plan.gridPlacement.column
+      )) : undefined;
+      const centerX = convertRtDigitalLength(plan.gridPlacement.centerX, plan.gridPlacement.unit, 'mm');
+      const centerY = convertRtDigitalLength(plan.gridPlacement.centerY, plan.gridPlacement.unit, 'mm');
+      if (
+        !baseline
+        || centerX === null
+        || centerY === null
+        || Math.abs(centerX - baseline.descriptor.centerXmm) > 1e-6
+        || Math.abs(centerY - baseline.descriptor.centerYmm) > 1e-6
+        || plan.gridPlacement.detectorOrientation !== baseline.orientation
+        || acquisition.orientation !== baseline.orientation
+      ) {
+        addIssue(issues, `technique.acquisitions[${index}].plan.gridPlacement`, `Acquisition ${index + 1} Grid Placement`, 'visual', 'The structured exposure area, placement, and orientation must match its aggregate calculated grid descriptor.');
+      }
+
+      const acquisitionCalculation = area ? digitalAcquisitionCalculation(planning, acquisition, area) : null;
+      if (!acquisitionCalculation
+        || acquisitionCalculation.calculation.geometry.status !== 'complete'
+        || acquisitionCalculation.calculation.geometry.ugStatus !== 'pass'
+        || acquisitionCalculation.calculation.geometry.resolutionStatus !== 'pass'
+        || !acquisitionCalculation.orientationOption
+        || acquisitionCalculation.orientationOption.coverage.status !== 'complete'
+        || acquisitionCalculation.orientationOption.coverage.warnings.length > 0) {
+        addIssue(issues, `technique.acquisitions[${index}]`, `Acquisition ${index + 1} Effective Pixel / FOV`, 'acquisitions', 'The acquisition-specific geometry must pass Ug and effective-pixel requirements and produce complete overlap-controlled FOV coverage.');
+        return;
+      }
+      const acquisitionDescriptor = acquisitionCalculation.orientationOption.coverage.grid.find((descriptor) => (
+        descriptor.row === plan.gridPlacement.row && descriptor.column === plan.gridPlacement.column
+      ));
+      if (
+        !acquisitionDescriptor
+        || centerX === null
+        || centerY === null
+        || Math.abs(centerX - acquisitionDescriptor.centerXmm) > 1e-6
+        || Math.abs(centerY - acquisitionDescriptor.centerYmm) > 1e-6
+        || acquisitionCalculation.effectiveOrientation !== plan.gridPlacement.detectorOrientation
+      ) {
+        addIssue(issues, `technique.acquisitions[${index}].plan.gridPlacement`, `Acquisition ${index + 1} Acquisition-specific Footprint`, 'visual', 'The committed footprint must remain consistent with the acquisition-specific effective pixel, FOV, and overlap calculation.');
+      }
+    });
+  }
+
+  const normalizedViewIds = document.technique.acquisitions.map((acquisition) => acquisition.viewId.trim().toUpperCase());
+  if (
+    normalizedViewIds.some((id) => !/^EXP-\d{3,}$/.test(id))
+    || new Set(normalizedViewIds).size !== normalizedViewIds.length
+  ) {
+    addIssue(issues, 'technique.acquisitions', 'Unique EXP IDs', 'acquisitions', 'Every controlled exposure requires a unique EXP-nnn identifier.');
+  }
+  const expDigits = Math.max(3, String(normalizedViewIds.length).length);
+  if (normalizedViewIds.some((id, index) => id !== `EXP-${String(index + 1).padStart(expDigits, '0')}`)) {
+    addIssue(issues, 'technique.acquisitions', 'Calculated EXP Identifiers', 'visual', 'Controlled EXP identifiers must form one ordered global sequence across every inspection area.');
+  }
+
+  const sourceKvMin = sourceSelection.snapshot?.kvMinimum;
+  const sourceKvMax = sourceSelection.snapshot?.kvMaximum;
+  const sourceCurrentMin = sourceSelection.snapshot?.currentMinimum;
+  const sourceCurrentMax = sourceSelection.snapshot?.currentMaximum;
+  const sourcePower = sourceSelection.snapshot?.maximumPowerKw;
+  const zoneOutputIds = new Set(iqiRules.zoneOutputs.map((output) => output.id));
+  const resolvedInspectionArea = resolveRtDigitalInspectionArea(part, geometry.inspectionAreaId);
+  const inspectionAreaIds = new Set([
+    part.inspectionAreas.id,
+    ...(resolvedInspectionArea ? [resolvedInspectionArea.id, resolvedInspectionArea.areaId] : []),
+    ...part.inspectionAreas.areas.flatMap((area) => [area.id, area.areaId]),
+  ]);
+  const thicknessZoneIds = new Set(part.thickness.mode === 'Multiple Thickness Zones'
+    ? part.thickness.zones.flatMap((zone) => [zone.id, zone.zoneId])
+    : [part.thickness.id]);
+  const viewingPresetIds = new Set(planning.viewingPresets.map((preset) => preset.id));
+  const acceptanceProfileIds = new Set(planning.acceptanceProfiles.map((profile) => profile.id));
+  const overrideIds = new Set(planning.overrides.map((override) => override.id));
+
+  if (!resolvedInspectionArea || (
+    part.inspectionAreas.mode !== 'Entire Part'
+    && !inspectionAreaIds.has(geometry.inspectionAreaId)
+  )) {
+    addIssue(issues, 'technique.planning.geometry.inspectionAreaId', 'Engineering Inspection-area Link', 'engineering', 'The FOV calculation must link to a controlled or derived inspection area.');
+  }
+  if (!inspectionAreaIds.has(planning.visual.inspectionAreaId)) {
+    addIssue(issues, 'technique.planning.visual.inspectionAreaId', 'Visual Planning Inspection-area Link', 'visual', 'The visual template must link to a controlled or derived inspection area.');
+  }
+
+  checkUniqueControlledValues(issues, 'technique.planning.iqiRules.zoneOutputs', 'IQI Output Stable IDs', 'iqi', iqiRules.zoneOutputs.map((output) => output.id));
+  if (iqiRules.zoneOutputs.filter((output) => output.governing).length !== 1) {
+    addIssue(issues, 'technique.planning.iqiRules.zoneOutputs', 'Governing IQI Output', 'iqi', 'Exactly one per-zone IQI output must be identified as governing.');
+  }
+  if (part.thickness.mode === 'Multiple Thickness Zones') {
+    const representedZones = new Set(iqiRules.zoneOutputs.map((output) => output.thicknessZoneId));
+    if (part.thickness.zones.some((zone) => !representedZones.has(zone.id) && !representedZones.has(zone.zoneId))) {
+      addIssue(issues, 'technique.planning.iqiRules.zoneOutputs', 'IQI Zone Coverage', 'iqi', 'Every controlled thickness zone requires a structured IQI output.');
+    }
+  }
+  iqiRules.zoneOutputs.forEach((output, index) => {
+    if (!thicknessZoneIds.has(output.thicknessZoneId)) {
+      addIssue(issues, `technique.planning.iqiRules.zoneOutputs[${index}].thicknessZoneId`, `IQI Output ${index + 1} Thickness Zone`, 'iqi', 'The IQI output must link to a controlled thickness zone.');
+    }
+    if (output.overrideId && (!overrideIds.has(output.overrideId) || !resolveDigitalIqiOverrideControl(planning, output))) {
+      addIssue(
+        issues,
+        `technique.planning.iqiRules.zoneOutputs[${index}].overrideId`,
+        `IQI Output ${index + 1} Override`,
+        'iqi',
+        `The linked override must be complete and use iqiRules.zoneOutputs.${output.id}.<designation|requiredWire|requiredHole|shimRequirement>; its calculated value must equal the unchanged rule output and its approved value controls only that assigned field.`,
+      );
+    }
+  });
+  const basisSnapshot = iqiRules.basis.snapshot;
+  if (basisSnapshot) {
+    checkUniqueControlledValues(issues, 'technique.planning.iqiRules.basis.snapshot.rules', 'IQI Rule Stable IDs', 'iqi', basisSnapshot.rules.map((rule) => rule.id));
+    basisSnapshot.rules.forEach((rule, index) => checkRange(
+      issues,
+      `technique.planning.iqiRules.basis.snapshot.rules[${index}].minimumThickness`,
+      `IQI Rule ${index + 1} Thickness Range`,
+      'iqi',
+      rule.minimumThickness,
+      rule.maximumThickness,
+    ));
+    if (
+      basisSnapshot.standard.trim() !== iqiRules.basis.standard.trim()
+      || basisSnapshot.standardRevision.trim() !== iqiRules.basis.standardRevision.trim()
+      || basisSnapshot.materialGroup.trim() !== iqiRules.basis.materialGroup.trim()
+      || basisSnapshot.iqiType !== iqiRules.basis.iqiType
+      || basisSnapshot.wallTechnique !== part.technique.wallTechnique
+      || basisSnapshot.imageTechnique !== part.technique.imageTechnique
+      || basisSnapshot.placementRule.trim() !== iqiRules.basis.placementRule.trim()
+    ) {
+      addIssue(issues, 'technique.planning.iqiRules.basis.snapshot', 'IQI Rule Snapshot Synchronization', 'iqi', 'The structured IQI basis and part technique must match the immutable rule snapshot.');
+    }
+    const expectedOutputs = expectedDigitalIqiZoneOutputs(part.thickness, basisSnapshot);
+    const matchedOutputIndexes = expectedOutputs.map((expected) => iqiRules.zoneOutputs
+      .map((output, outputIndex) => ({ output, outputIndex }))
+      .filter(({ output }) => expected.zone.aliases.includes(output.thicknessZoneId)));
+    if (
+      expectedOutputs.length !== iqiRules.zoneOutputs.length
+      || matchedOutputIndexes.some((matches) => matches.length !== 1)
+    ) {
+      addIssue(
+        issues,
+        'technique.planning.iqiRules.zoneOutputs',
+        'IQI Rule Output Cardinality',
+        'iqi',
+        'The immutable IQI rule snapshot must produce exactly one output for every controlled thickness zone and no additional outputs.',
+      );
+    }
+    expectedOutputs.forEach((expected, expectedIndex) => {
+      const match = matchedOutputIndexes[expectedIndex];
+      if (match.length !== 1) return;
+      const { output, outputIndex } = match[0];
+      if (!expected.matchedRule) {
+        addIssue(
+          issues,
+          `technique.planning.iqiRules.zoneOutputs[${outputIndex}]`,
+          `IQI Output ${outputIndex + 1} Rule Match`,
+          'iqi',
+          'No immutable IQI rule covers the recalculated governing thickness for this zone.',
+        );
+      } else if (!digitalIqiOutputMatchesRule(output, expected)) {
+        addIssue(
+          issues,
+          `technique.planning.iqiRules.zoneOutputs[${outputIndex}]`,
+          `IQI Output ${outputIndex + 1} Rule Synchronization`,
+          'iqi',
+          `The persisted IQI material, designation, wire/hole, sensitivity, placement, shim, thickness, unit, and governing flag must match immutable rule ${expected.matchedRule.id}.`,
+        );
+      }
+    });
+  }
+
+  checkUniqueControlledValues(issues, 'technique.planning.viewingPresets', 'Viewing Preset IDs', 'processing', planning.viewingPresets.map((preset) => preset.id));
+  checkUniqueControlledValues(issues, 'technique.planning.acceptanceProfiles', 'Acceptance Profile IDs', 'acceptance', planning.acceptanceProfiles.map((profile) => profile.id));
+  checkUniqueControlledValues(issues, 'technique.planning.overrides', 'Override IDs', 'engineering', planning.overrides.map((override) => override.id));
+  const levelThreeApprovals = document.approvals.filter((approval) => approval.role === 'ndt-level-3');
+  planning.overrides.forEach((override, index) => {
+    if (override.calculatedValue.trim() === override.approvedValue.trim()) {
+      addIssue(issues, `technique.planning.overrides[${index}].approvedValue`, `Override ${index + 1} Approved Value`, 'engineering', 'An override must record a deliberate approved value that differs from the calculated value.');
+    }
+    if (!levelThreeApprovals.some((approval) => {
+      const identity = override.approvedBy.trim().toLocaleLowerCase();
+      const approvalName = approval.name.trim().toLocaleLowerCase();
+      const personnelId = approval.personnelId.trim().toLocaleLowerCase();
+      return isMeaningfulControlledText(identity)
+        && ((isMeaningfulControlledText(approvalName) && identity.includes(approvalName))
+          || (isMeaningfulControlledText(personnelId) && identity.includes(personnelId)));
+    })) {
+      addIssue(issues, `technique.planning.overrides[${index}].approvedBy`, `Override ${index + 1} Level III Traceability`, 'engineering', 'The override approver must trace to a controlled NDT Level III approval identity.');
+    }
+  });
+  if (geometry.levelThreeApprovalReference && !levelThreeApprovals.some((approval) => (
+    (isMeaningfulControlledText(approval.personnelId)
+      && geometry.levelThreeApprovalReference.toLocaleLowerCase().includes(approval.personnelId.trim().toLocaleLowerCase()))
+    || (isMeaningfulControlledText(approval.name)
+      && geometry.levelThreeApprovalReference.toLocaleLowerCase().includes(approval.name.trim().toLocaleLowerCase()))
+  ))) {
+    addIssue(issues, 'technique.planning.geometry.levelThreeApprovalReference', 'Level III Planning Approval Traceability', 'engineering', 'The optimization/override approval reference must identify a controlled NDT Level III approval entry.');
+  }
+
+  const allInterpretationIds: string[] = [];
+  document.technique.acquisitions.forEach((acquisition: RtDigitalAcquisition, acquisitionIndex) => {
+    const path = `technique.acquisitions[${acquisitionIndex}]`;
+    if (typeof acquisition.tubeVoltage === 'number' && typeof sourceKvMin === 'number' && typeof sourceKvMax === 'number'
+      && (acquisition.tubeVoltage < sourceKvMin || acquisition.tubeVoltage > sourceKvMax)) {
+      addIssue(issues, `${path}.tubeVoltage`, `Acquisition ${acquisitionIndex + 1} Source kV Range`, 'acquisitions', `Planned tube voltage must remain within ${sourceKvMin}-${sourceKvMax} kV.`);
+    }
+    if (typeof acquisition.tubeCurrent === 'number' && typeof sourceCurrentMin === 'number' && typeof sourceCurrentMax === 'number'
+      && (acquisition.tubeCurrent < sourceCurrentMin || acquisition.tubeCurrent > sourceCurrentMax)) {
+      addIssue(issues, `${path}.tubeCurrent`, `Acquisition ${acquisitionIndex + 1} Source Current Range`, 'acquisitions', `Planned tube current must remain within ${sourceCurrentMin}-${sourceCurrentMax} mA.`);
+    }
+    if (
+      typeof acquisition.tubeVoltage === 'number'
+      && typeof acquisition.tubeCurrent === 'number'
+      && typeof sourcePower === 'number'
+      && acquisition.tubeVoltage * acquisition.tubeCurrent / 1000 > sourcePower + 1e-9
+    ) {
+      addIssue(issues, `${path}.tubeCurrent`, `Acquisition ${acquisitionIndex + 1} Source Power`, 'acquisitions', `Planned kV/mA exceeds the ${sourcePower} kW catalog limit.`);
+    }
+    if (acquisition.referenceAttachmentId && !part.attachments.some((attachment) => attachment.id === acquisition.referenceAttachmentId)) {
+      addIssue(issues, `${path}.referenceAttachmentId`, `Acquisition ${acquisitionIndex + 1} Reference Attachment`, 'acquisitions', 'The exposure reference attachment must link to controlled part attachment metadata.');
+    }
+    const plan = acquisition.plan;
+    if (!plan) return;
+    if (plan.representativeImage !== null && !validAttachmentMetadata(plan.representativeImage)) {
+      addIssue(issues, `${path}.plan.representativeImage`, `Acquisition ${acquisitionIndex + 1} Representative Image`, 'interpretation', 'Representative-image metadata is incomplete or invalid.');
+    }
+    if (!zoneOutputIds.has(plan.iqiAssignment.zoneOutputId) || !completeDigitalIqiAssignment(plan.iqiAssignment, planning)) {
+      addIssue(issues, `${path}.plan.iqiAssignment`, `Acquisition ${acquisitionIndex + 1} Structured IQI`, 'iqi', 'The exposure requires a complete IQI assignment linked to a per-zone output.');
+    }
+    if (!inspectionAreaIds.has(plan.visual.inspectionAreaId)) {
+      addIssue(issues, `${path}.plan.visual.inspectionAreaId`, `Acquisition ${acquisitionIndex + 1} Visual Area Link`, 'visual', 'The visual plan must link to a controlled inspection area.');
+    }
+    checkUniqueControlledValues(issues, `${path}.plan.interpretationAreas`, `Acquisition ${acquisitionIndex + 1} Interpretation Area IDs`, 'interpretation', plan.interpretationAreas.map((area) => area.areaId));
+    plan.interpretationAreas.forEach((area, areaIndex) => {
+      const areaPath = `${path}.plan.interpretationAreas[${areaIndex}]`;
+      allInterpretationIds.push(area.id);
+      checkDigitalRegion(issues, `${areaPath}.position`, `Interpretation Area ${area.areaId || areaIndex + 1} ROI`, 'interpretation', area.position);
+      checkRange(issues, `${areaPath}.thicknessMinimum`, `Interpretation Area ${area.areaId || areaIndex + 1} Thickness Range`, 'interpretation', area.thicknessMinimum, area.thicknessMaximum);
+      if (!inspectionAreaIds.has(area.inspectionAreaId)) {
+        addIssue(issues, `${areaPath}.inspectionAreaId`, `Interpretation Area ${area.areaId || areaIndex + 1} Inspection Link`, 'interpretation', 'The interpretation area must link to a controlled inspection area.');
+      }
+      if (!thicknessZoneIds.has(area.thicknessZoneId)) {
+        addIssue(issues, `${areaPath}.thicknessZoneId`, `Interpretation Area ${area.areaId || areaIndex + 1} Thickness Link`, 'interpretation', 'The interpretation area must link to a controlled thickness zone.');
+      }
+      if (!viewingPresetIds.has(area.viewingPresetId)) {
+        addIssue(issues, `${areaPath}.viewingPresetId`, `Interpretation Area ${area.areaId || areaIndex + 1} Viewing Preset`, 'interpretation', 'The interpretation area viewing-preset link is invalid.');
+      }
+      if (!acceptanceProfileIds.has(area.acceptanceProfileId)) {
+        addIssue(issues, `${areaPath}.acceptanceProfileId`, `Interpretation Area ${area.areaId || areaIndex + 1} Acceptance Profile`, 'interpretation', 'The interpretation area acceptance-profile link is invalid.');
+      }
+    });
+  });
+  checkUniqueControlledValues(issues, 'technique.acquisitions', 'Interpretation Area Stable IDs', 'interpretation', allInterpretationIds);
 }
 
 function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIssue[]): void {
@@ -1258,6 +2703,7 @@ function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIss
         );
       }
     });
+    addDigitalStructuredIssues(document, issues);
   } else {
     const { materials, application, removal } = document.technique;
     checkPositive(issues, 'technique.general.thickness', 'Nominal Thickness', 'general', document.technique.general.thickness);
@@ -1381,6 +2827,20 @@ function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIss
   }
 }
 
+function hasCompleteApprovalRole(
+  document: RtPtDocumentV3,
+  role: RtPtDocumentV3['approvals'][number]['role'],
+): boolean {
+  return document.approvals.some((approval) => (
+    approval.role === role
+    && isMeaningfulControlledText(approval.name)
+    && isMeaningfulControlledText(approval.personnelId)
+    && isMeaningfulControlledText(approval.certificationBasis)
+    && isPresent(approval.certificationRevision)
+    && isIsoCalendarDate(approval.date)
+  ));
+}
+
 function approvalReadiness(
   document: RtPtDocumentV3,
   draftCompleteness: RtPtCompletenessResult,
@@ -1482,14 +2942,7 @@ function approvalReadiness(
       path: 'approvals',
       label: 'NDT Level III Approval',
       tab: 'control',
-      complete: document.approvals.some((approval) => (
-        approval.role === 'ndt-level-3'
-        && isMeaningfulControlledText(approval.name)
-        && isMeaningfulControlledText(approval.personnelId)
-        && isMeaningfulControlledText(approval.certificationBasis)
-        && isPresent(approval.certificationRevision)
-        && isIsoCalendarDate(approval.date)
-      )),
+      complete: hasCompleteApprovalRole(document, 'ndt-level-3'),
       message: 'Approval requires a dated NDT Level III entry with identity and certification basis/revision.',
     },
     {
@@ -1520,6 +2973,13 @@ function approvalReadiness(
     const normalizedViewIds = document.technique.acquisitions.map((item) => item.viewId.trim()).filter(Boolean);
     requirements.push(
       {
+        path: 'technique.planning',
+        label: 'Structured Digital Planning',
+        tab: 'general',
+        complete: Boolean(document.technique.planning),
+        message: 'Controlled Digital RT approval requires a complete structured planning model.',
+      },
+      {
         path: 'technique.acquisitions',
         label: 'DDA Acquisitions',
         tab: 'acquisitions',
@@ -1539,6 +2999,27 @@ function approvalReadiness(
         tab: 'system',
         complete: isPresent(document.technique.system.performanceBaselineReference),
         message: 'A controlled DDA performance baseline reference is required before approval.',
+      },
+      {
+        path: 'approvals',
+        label: 'Prepared Approval',
+        tab: 'control',
+        complete: hasCompleteApprovalRole(document, 'prepared'),
+        message: 'Digital RT approval requires a complete dated Prepared entry.',
+      },
+      {
+        path: 'approvals',
+        label: 'Quality Approval',
+        tab: 'control',
+        complete: hasCompleteApprovalRole(document, 'quality'),
+        message: 'Digital RT approval requires a complete dated Quality entry.',
+      },
+      {
+        path: 'approvals',
+        label: 'Customer Approval',
+        tab: 'control',
+        complete: hasCompleteApprovalRole(document, 'customer'),
+        message: 'Digital RT approval requires a complete dated Customer entry.',
       },
     );
     if (/diconde/i.test(document.technique.displayAndStorage.storageFormat)) {

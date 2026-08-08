@@ -12,6 +12,7 @@ describe('RT/PT build surface', () => {
   const gitignore = read('.gitignore');
   const serverEntry = read('server/index.ts');
   const electronMain = read('electron/main.cjs');
+  const unifiedStorage = read('src/services/unifiedStorage.ts');
   const builder = JSON.parse(read('electron-builder.json')) as {
     files: string[];
     asarUnpack: string[];
@@ -24,6 +25,16 @@ describe('RT/PT build surface', () => {
     expect(viteConfig).not.toContain('host: "0.0.0.0"');
     expect(viteConfig).not.toContain("'three-vendor'");
     expect(viteConfig).not.toContain("'drawing-vendor'");
+  });
+
+  it('keeps local development and storage on the dedicated RT/PT port', () => {
+    expect(viteConfig).toContain('const RT_PT_DEV_PORT = 5199;');
+    expect(viteConfig).not.toMatch(/\b5000\b/);
+    expect(viteConfig).toContain('strictPort: true');
+    expect(serverEntry).toContain(': 5199;');
+    expect(electronMain).toContain("const EMBEDDED_SERVER_PORT = 5199;");
+    expect(unifiedStorage).toContain("fetch(`${STORAGE_API_PATH}/health`");
+    expect(unifiedStorage).not.toMatch(/https?:\/\/(?:127\.0\.0\.1|localhost):5000/i);
   });
 
   it('uses only the dedicated RT/PT production renderer output', () => {

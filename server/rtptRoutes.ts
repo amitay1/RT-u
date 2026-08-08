@@ -17,7 +17,10 @@ import logger from "./utils/logger";
 import {
   decodeRtPtDocument,
   fingerprintRtPtApprovedContent,
+  hasValidRtPtApprovalFingerprint,
 } from "../src/lib/rtPtDocumentCodec";
+import { validateRtPtDocument } from "../src/lib/rtPtValidation";
+import type { RtPtDocumentV3 } from "../src/types/rtPtDocument";
 
 const RT_PT_DOCUMENT_KIND = "rtpt-document";
 const LOCAL_OWNER_ROLE = "owner";
@@ -347,21 +350,19 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null && !Array.isArray(value)
 );
 
-function hasExactControlledShape(input: unknown, parsed: unknown): boolean {
+function hasOnlyCanonicalFields(input: unknown, parsed: unknown): boolean {
   if (Array.isArray(input) || Array.isArray(parsed)) {
     return Array.isArray(input)
       && Array.isArray(parsed)
       && input.length === parsed.length
-      && input.every((item, index) => hasExactControlledShape(item, parsed[index]));
+      && input.every((item, index) => hasOnlyCanonicalFields(item, parsed[index]));
   }
   if (isRecord(input) || isRecord(parsed)) {
     if (!isRecord(input) || !isRecord(parsed)) return false;
-    const inputKeys = Object.keys(input).sort();
-    const parsedKeys = Object.keys(parsed).sort();
-    return inputKeys.length === parsedKeys.length
-      && inputKeys.every((key, index) => (
-        key === parsedKeys[index] && hasExactControlledShape(input[key], parsed[key])
-      ));
+    return Object.keys(input).every((key) => (
+      Object.prototype.hasOwnProperty.call(parsed, key)
+      && hasOnlyCanonicalFields(input[key], parsed[key])
+    ));
   }
   return Object.is(input, parsed);
 }
@@ -408,7 +409,7 @@ export function validateSupportedRtPtDocument(value: unknown): SupportedDocument
         message: "RT/PT document version 3 is structurally invalid.",
       };
     }
-    if (!hasExactControlledShape(value, decoded.document)) {
+    if (!hasOnlyCanonicalFields(value, decoded.document)) {
       return {
         success: false,
         kind: "invalid",
@@ -449,6 +450,24 @@ export function validateWritableRtPtDocument(value: unknown): SupportedDocumentV
       kind: "unsupported-version",
       message: "RT/PT document writes require native schema version 3. Load and review the migrated draft before saving.",
     };
+  }
+  const document = validation.data as RtPtDocumentV3;
+  if (document.status === "approved") {
+    if (!hasValidRtPtApprovalFingerprint(document)) {
+      return {
+        success: false,
+        kind: "invalid",
+        message: "Approved RT/PT documents require a valid approval fingerprint for their current controlled content.",
+      };
+    }
+    const summary = validateRtPtDocument(document);
+    if (!summary.isComplete || !summary.isApprovalReady) {
+      return {
+        success: false,
+        kind: "invalid",
+        message: "Approved RT/PT documents must independently pass current completeness and approval-readiness validation.",
+      };
+    }
   }
   return validation;
 }
@@ -766,9 +785,18 @@ export function registerRtPtRoutes(app: Express, dependencies: RtPtRouteDependen
     requireOrganizationIdentity,
     asyncRoute(async (req, res) => {
       const sheets = await storage.getTechniqueSheetsByUserId(req.userId!, req.orgId!);
-      const supportedSheets = sheets.filter(
-        (sheet) => validateSupportedRtPtDocument(sheet.data).success,
-      );
+      const supportedSheets = sheets.flatMap((sheet) => {
+        const validation = validateSupportedRtPtDocument(sheet.data);
+        return validation.success
+          ? [{
+              ...sheet,
+              data: validation.version === 3 ? validation.data : sheet.data,
+              ...(validation.version === 3
+                ? { status: (validation.data as { status: string }).status }
+                : {}),
+            }]
+          : [];
+      });
 
       if (supportedSheets.length !== sheets.length) {
         logger.warn("Filtered incompatible technique sheets at the RT/PT API boundary", {
@@ -801,7 +829,13 @@ export function registerRtPtRoutes(app: Express, dependencies: RtPtRouteDependen
         sendDocumentError(res, validation, 409);
         return;
       }
-      res.json(sheet);
+      res.json({
+        ...sheet,
+        data: validation.version === 3 ? validation.data : sheet.data,
+        ...(validation.version === 3
+          ? { status: (validation.data as { status: string }).status }
+          : {}),
+      });
     }),
   );
 
@@ -827,7 +861,7 @@ export function registerRtPtRoutes(app: Express, dependencies: RtPtRouteDependen
         data: documentValidation.data,
         userId: req.userId!,
         orgId: req.orgId!,
-        status: parsed.data.status || "draft",
+        status: (documentValidation.data as { status: string }).status,
       };
       const sheet = await storage.createTechniqueSheet(insert, req.orgId!);
       res.status(201).json(sheet);
@@ -887,6 +921,7 @@ export function registerRtPtRoutes(app: Express, dependencies: RtPtRouteDependen
         ...(Object.prototype.hasOwnProperty.call(parsed.data, "data")
           ? { data: documentValidation.data }
           : {}),
+        status: (documentValidation.data as { status: string }).status,
       };
       const sheet = await storage.updateTechniqueSheet(sheetId, updates, req.orgId!);
       res.json(sheet);

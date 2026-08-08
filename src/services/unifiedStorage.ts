@@ -6,12 +6,15 @@
  * ensuring the same data is available regardless of how the app is opened.
  *
  * Priority:
- * 1. Local server API (file-based storage) - shared across all browsers/Electron
+ * 1. Same-origin RT Inspector API (file-based storage) - shared across this product's browsers/Electron
  * 2. localStorage fallback - browser-specific (only if server unavailable)
  */
 
-const LOCAL_SERVER_URL = 'http://127.0.0.1:5000';
 const STORAGE_API_PATH = '/api/unified-storage';
+
+const getStorageServerUrl = (): string => (
+  typeof window === 'undefined' ? '' : window.location.origin
+);
 
 // Storage keys
 export const STORAGE_KEYS = {
@@ -43,7 +46,7 @@ async function checkServerAvailability(): Promise<boolean> {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2000);
 
-      const response = await fetch(`${LOCAL_SERVER_URL}${STORAGE_API_PATH}/health`, {
+      const response = await fetch(`${STORAGE_API_PATH}/health`, {
         method: 'GET',
         signal: controller.signal,
       });
@@ -74,7 +77,7 @@ export async function getStorageData<T>(key: StorageKey, defaultValue: T): Promi
 
   if (isServerAvailable) {
     try {
-      const response = await fetch(`${LOCAL_SERVER_URL}${STORAGE_API_PATH}/${key}`);
+      const response = await fetch(`${STORAGE_API_PATH}/${key}`);
       if (response.ok) {
         const result = await response.json();
         if (result.data !== null && result.data !== undefined) {
@@ -112,7 +115,7 @@ export async function setStorageData<T>(key: StorageKey, data: T): Promise<boole
 
   if (isServerAvailable) {
     try {
-      const response = await fetch(`${LOCAL_SERVER_URL}${STORAGE_API_PATH}/${key}`, {
+      const response = await fetch(`${STORAGE_API_PATH}/${key}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +147,7 @@ export async function deleteStorageData(key: StorageKey): Promise<boolean> {
 
   if (isServerAvailable) {
     try {
-      const response = await fetch(`${LOCAL_SERVER_URL}${STORAGE_API_PATH}/${key}`, {
+      const response = await fetch(`${STORAGE_API_PATH}/${key}`, {
         method: 'DELETE',
       });
 
@@ -176,7 +179,7 @@ export async function syncLocalStorageToServer(): Promise<{ synced: string[]; fa
         const parsed = JSON.parse(localData);
 
         // Check if server already has data
-        const serverResponse = await fetch(`${LOCAL_SERVER_URL}${STORAGE_API_PATH}/${key}`);
+        const serverResponse = await fetch(`${STORAGE_API_PATH}/${key}`);
         const serverResult = await serverResponse.json();
 
         // Only sync if server has no data or local data is newer/different
@@ -210,7 +213,7 @@ export async function getStorageStatus(): Promise<{
 
   return {
     serverAvailable: isServerAvailable,
-    serverUrl: LOCAL_SERVER_URL,
+    serverUrl: getStorageServerUrl(),
     keys: Object.values(STORAGE_KEYS),
   };
 }
