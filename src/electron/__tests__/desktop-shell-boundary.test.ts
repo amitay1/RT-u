@@ -44,6 +44,7 @@ describe('RT/PT desktop shell boundary', () => {
     expect(main).toContain("'/api/technique-sheets'");
     expect(main).toContain("'/api/organizations'");
     expect(main).toContain("'/api/inspector-profiles'");
+    expect(main).toContain("'/api/unified-storage'");
     expect(main).toContain("expressApp.post('/api/logs'");
     expect(preload).toContain('rtPtLicenseBridge');
     expect(preload).toContain('rtptLicense: rtPtLicenseBridge');
@@ -78,6 +79,16 @@ describe('RT/PT desktop shell boundary', () => {
     expect(main).not.toContain("appendSwitch('disable-gpu-sandbox')");
     expect(main).not.toContain("connect-src 'self' https:");
     expect(main).not.toContain("img-src 'self' data: blob: https:");
+  });
+
+  it('persists renderer storage independently of the random embedded-server port', () => {
+    expect(main).toContain("path.join(dataDir, 'unified-storage')");
+    expect(main).toContain("expressApp.get('/api/unified-storage/health'");
+    expect(main).toContain("expressApp.get('/api/unified-storage/:key'");
+    expect(main).toContain("expressApp.post('/api/unified-storage/:key'");
+    expect(main).toContain("expressApp.delete('/api/unified-storage/:key'");
+    expect(main).toContain("'rtpt_inspector_profiles'");
+    expect(main).toContain('validUnifiedStorageKeys.has(key)');
   });
 
   it('allows the inactive activation gate to quit without bypassing active-workspace confirmation', () => {

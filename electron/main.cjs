@@ -1357,6 +1357,7 @@ function startEmbeddedServer() {
         '/api/technique-sheets',
         '/api/organizations',
         '/api/inspector-profiles',
+        '/api/unified-storage',
       ], (req, res, next) => {
         const licenseStatus = getRtPtLicenseStatus();
         if (licenseStatus.active !== true) {
@@ -1374,6 +1375,15 @@ function startEmbeddedServer() {
       const sheetsFile = path.join(dataDir, 'technique-sheets.json');
       const orgsFile = path.join(dataDir, 'organizations.json');
       const profilesFile = path.join(dataDir, 'inspector-profiles.json');
+      const unifiedStorageDir = path.join(dataDir, 'unified-storage');
+      const validUnifiedStorageKeys = new Set([
+        'rtpt_inspector_saved_cards',
+        'rtpt_inspector_settings',
+        'rtpt_inspector_profiles',
+        'rtpt_inspector_first_run_completed',
+        'rtpt_inspector_first_run_data',
+        'rtpt_inspector_user_id',
+      ]);
 
       // Default organization for Electron (offline) mode
       const DEFAULT_ELECTRON_ORG = [{
@@ -1388,6 +1398,27 @@ function startEmbeddedServer() {
       // Initialize files if they don't exist
       if (!fs.existsSync(sheetsFile)) fs.writeFileSync(sheetsFile, '[]');
       if (!fs.existsSync(profilesFile)) fs.writeFileSync(profilesFile, '[]');
+      if (!fs.existsSync(unifiedStorageDir)) fs.mkdirSync(unifiedStorageDir, { recursive: true });
+
+      const inspectorProfileStorageFile = path.join(
+        unifiedStorageDir,
+        'rtpt_inspector_profiles.json',
+      );
+      if (!fs.existsSync(inspectorProfileStorageFile)) {
+        try {
+          const existingProfiles = JSON.parse(fs.readFileSync(profilesFile, 'utf8'));
+          if (Array.isArray(existingProfiles) && existingProfiles.length > 0) {
+            fs.writeFileSync(inspectorProfileStorageFile, JSON.stringify({
+              profiles: existingProfiles,
+              currentProfileId: null,
+              rememberSelection: false,
+              lastUsedProfileId: null,
+            }, null, 2));
+          }
+        } catch (error) {
+          console.warn('Could not migrate existing inspector profiles:', error.message);
+        }
+      }
       // Initialize orgs with default org (valid UUID) for Electron mode
       if (!fs.existsSync(orgsFile)) {
         fs.writeFileSync(orgsFile, JSON.stringify(DEFAULT_ELECTRON_ORG, null, 2));
@@ -1515,6 +1546,63 @@ function startEmbeddedServer() {
       expressApp.post('/api/logs', (req, res) => {
         // Just acknowledge logs without saving
         res.json({ success: true });
+      });
+
+      const getUnifiedStorageFile = (key) => (
+        path.join(unifiedStorageDir, `${key}.json`)
+      );
+
+      expressApp.get('/api/unified-storage/health', (req, res) => {
+        res.json({ status: 'ok' });
+      });
+
+      expressApp.get('/api/unified-storage/:key', (req, res) => {
+        const { key } = req.params;
+        if (!validUnifiedStorageKeys.has(key)) {
+          return res.status(400).json({ error: 'Invalid storage key' });
+        }
+
+        const filePath = getUnifiedStorageFile(key);
+        try {
+          const data = fs.existsSync(filePath)
+            ? JSON.parse(fs.readFileSync(filePath, 'utf8'))
+            : null;
+          return res.json({ data });
+        } catch (error) {
+          return res.status(500).json({ error: error.message });
+        }
+      });
+
+      expressApp.post('/api/unified-storage/:key', (req, res) => {
+        const { key } = req.params;
+        if (!validUnifiedStorageKeys.has(key)) {
+          return res.status(400).json({ error: 'Invalid storage key' });
+        }
+
+        try {
+          fs.writeFileSync(
+            getUnifiedStorageFile(key),
+            JSON.stringify(req.body?.data ?? null, null, 2),
+          );
+          return res.json({ success: true });
+        } catch (error) {
+          return res.status(500).json({ error: error.message });
+        }
+      });
+
+      expressApp.delete('/api/unified-storage/:key', (req, res) => {
+        const { key } = req.params;
+        if (!validUnifiedStorageKeys.has(key)) {
+          return res.status(400).json({ error: 'Invalid storage key' });
+        }
+
+        try {
+          const filePath = getUnifiedStorageFile(key);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          return res.json({ success: true });
+        } catch (error) {
+          return res.status(500).json({ error: error.message });
+        }
       });
 
       // Inspector Profiles API Routes

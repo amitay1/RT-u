@@ -887,24 +887,18 @@ async function readActiveDocumentId(page) {
       return /RT Film|RT Digital|Export|Validate/i.test(text);
     }, { timeout: 20_000 });
 
-    // ── Complete the blocking session-profile selection ──
-    // The first-launch dialog intentionally cannot be dismissed without an
-    // inspector selection, so confirm the seeded smoke-test profile via the
-    // current CTA while retaining compatibility with the legacy label.
+    // The seeded active workstation profile must be restored without prompting.
     const profileDialog = page.getByRole("dialog", { name: /^Select Working Inspector$/i });
-    await profileDialog.waitFor({ state: "visible", timeout: 20_000 });
-    const profileConfirmation = profileDialog.getByRole("button", { name: /^Use Inspector$/i });
-    if (await profileConfirmation.isDisabled().catch(() => false)) {
-      await profileDialog.getByRole("button", { name: /Use Smoke Tester/i }).click();
-    }
-    await profileConfirmation.click();
-    await profileDialog.waitFor({ state: "hidden", timeout: 10_000 });
+    assertRelease(
+      await profileDialog.count() === 0,
+      "The stored active inspector was not restored automatically.",
+    );
     const unexpectedDialogs = await page.locator('[role="dialog"]:visible').allInnerTexts();
     assertRelease(
       unexpectedDialogs.length === 0,
       `Unexpected modal blocked the workspace: ${unexpectedDialogs.join(" | ").slice(0, 500)}`,
     );
-    await assertNoCrash(page, errors, "confirming profile selection");
+    await assertNoCrash(page, errors, "restoring the active inspector profile");
 
     try {
       await page.locator('[role="tab"][title^="Control & Approval"]').click({ timeout: 10_000 });

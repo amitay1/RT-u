@@ -5,6 +5,7 @@ import {
   InspectorProfileStorage,
   generateInitials,
 } from '@/types/inspectorProfile';
+import { resolveStoredInspectorProfileId } from '@/lib/rtPtInspectorProfileSelection';
 import { getStorageData, setStorageData, STORAGE_KEYS } from '@/services/unifiedStorage';
 
 const STORAGE_KEY = STORAGE_KEYS.INSPECTOR_PROFILES;
@@ -155,24 +156,19 @@ export function InspectorProfileProvider({ children }: InspectorProfileProviderP
           // Successfully loaded from server
           setProfiles(serverProfiles);
 
-          // Load remember selection from unified storage
+          // Restore the workstation identity only when it still exists on the server.
           const stored = await loadFromStorage();
           setRememberSelectionState(stored.rememberSelection);
-          const suggestedId = stored.rememberSelection
-            ? (stored.lastUsedProfileId || stored.currentProfileId)
-            : null;
-          const suggestedExists = suggestedId
-            ? serverProfiles.some((p: InspectorProfile) => p.id === suggestedId)
-            : false;
-          setCurrentProfileId(null);
-          setLastUsedProfileId(suggestedExists ? suggestedId : null);
+          const restoredProfileId = resolveStoredInspectorProfileId(serverProfiles, stored);
+          setCurrentProfileId(restoredProfileId);
+          setLastUsedProfileId(restoredProfileId);
 
           // Also save to unified storage as backup
           await saveToStorage({
             profiles: serverProfiles,
-            currentProfileId: null,
+            currentProfileId: restoredProfileId,
             rememberSelection: stored.rememberSelection,
-            lastUsedProfileId: suggestedExists ? suggestedId : null,
+            lastUsedProfileId: restoredProfileId,
           });
         } else {
           // Fallback to unified storage if server fails
@@ -180,28 +176,18 @@ export function InspectorProfileProvider({ children }: InspectorProfileProviderP
           const stored = await loadFromStorage();
           setProfiles(stored.profiles);
           setRememberSelectionState(stored.rememberSelection);
-          const suggestedId = stored.rememberSelection
-            ? (stored.lastUsedProfileId || stored.currentProfileId)
-            : null;
-          const suggestedExists = suggestedId
-            ? stored.profiles.some(p => p.id === suggestedId)
-            : false;
-          setCurrentProfileId(null);
-          setLastUsedProfileId(suggestedExists ? suggestedId : null);
+          const restoredProfileId = resolveStoredInspectorProfileId(stored.profiles, stored);
+          setCurrentProfileId(restoredProfileId);
+          setLastUsedProfileId(restoredProfileId);
         }
       } else {
         // Use unified storage only
         const stored = await loadFromStorage();
         setProfiles(stored.profiles);
         setRememberSelectionState(stored.rememberSelection);
-        const suggestedId = stored.rememberSelection
-          ? (stored.lastUsedProfileId || stored.currentProfileId)
-          : null;
-        const suggestedExists = suggestedId
-          ? stored.profiles.some(p => p.id === suggestedId)
-          : false;
-        setCurrentProfileId(null);
-        setLastUsedProfileId(suggestedExists ? suggestedId : null);
+        const restoredProfileId = resolveStoredInspectorProfileId(stored.profiles, stored);
+        setCurrentProfileId(restoredProfileId);
+        setLastUsedProfileId(restoredProfileId);
       }
 
       setIsLoading(false);
