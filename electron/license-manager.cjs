@@ -468,7 +468,7 @@ class LicenseManager {
   getStatusMessage(reason) {
     const messages = {
       'NOT_ACTIVATED': 'This application is not activated. Please enter your license key.',
-      'EXPIRED': 'Your license has expired. Please contact Scan Master to renew.',
+      'EXPIRED': 'Your license has expired. Please contact support to renew.',
       'CORRUPTED': 'License file is corrupted. Please contact support.',
       'INVALID': 'Invalid license. Please check your license key.'
     };

@@ -8,7 +8,7 @@ UI appearance does not change that fact.
 
 Only work inside:
 
-`C:\Users\Amita\Documents\Scan-Master-RT-PT`
+`C:\Users\Amita\Documents\RT-PT-Inspector`
 
 Do not read, inspect, search, execute, copy, modify, delete, build, test, or run
 Git commands in the separate Scan-Master repository:

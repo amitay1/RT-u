@@ -11,7 +11,7 @@ organizational, or data relationship.
 
 Work in this repository is limited to:
 
-`C:\Users\Amita\Documents\Scan-Master-RT-PT`
+`C:\Users\Amita\Documents\RT-PT-Inspector`
 
 The separate Scan-Master application and repository are outside the permitted
 scope. In particular, never read, inspect, search, execute, copy from, write to,

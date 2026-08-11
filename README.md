@@ -12,7 +12,7 @@ The signed Electron desktop package is the supported production enforcement boun
 
 These suggestions are not an automatic claim of compliance. The controlled reference, applicable revision, and customer/procedure requirements must be entered, reviewed, and approved for each document.
 
-RT-PT Inspector is a separate product from Scan-Master. It has its own application identity, data namespace, repository, installers, releases, and update channel.
+RT-PT Inspector is a standalone product. It has its own application identity, data namespace, repository, installers, releases, and update channel.
 
 ## Development
 
@@ -58,7 +58,7 @@ npm run release:dry
 npm run release
 ```
 
-`release:dry` does not change `package.json`, `package-lock.json`, Git state, build directories, or GitHub. The production command validates the project and packaged contents, verifies the final Authenticode signature, stages only the two version files, and publishes RT-PT artifacts to `amitay1/RT-u` without overwriting existing assets. It does not access or publish Scan-Master releases.
+`release:dry` does not change `package.json`, `package-lock.json`, Git state, build directories, or GitHub. The production command validates the project and packaged contents, verifies the final Authenticode signature, stages only the two version files, and publishes RT-PT artifacts to `amitay1/RT-u` without overwriting existing assets. It does not access or publish any other product's releases.
 
 For an unsigned local development package that can never commit, tag, push, or publish:
 
@@ -72,4 +72,4 @@ Signed USB update folders are built separately beneath `release-workspace/offlin
 
 ## Data isolation
 
-Browser data uses only the `rtpt_inspector_*` namespace, and Electron data is isolated by the application ID. There is no automatic legacy-data migration. V1 or V2 RT/PT documents can be imported explicitly and migrated to the V3 controlled model; only V3 documents are written. UT and Scan-Master data are never copied into this product.
+Browser data uses only the `rtpt_inspector_*` namespace, and Electron data is isolated by the application ID. There is no automatic legacy-data migration. V1 or V2 RT/PT documents can be imported explicitly and migrated to the V3 controlled model; only V3 documents are written. No data from any other product is ever copied into this product.

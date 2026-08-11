@@ -60,8 +60,8 @@ output/
 # Root-level support/export artifacts should stay under docs/archive, logs, or vendor
 /build.log
 /tmpclaude-*-cwd
-/scanmaster_diagnostics_*.json
-/scanmaster-cards-*.json
+/rtpt_inspector_diagnostics_*.json
+/rtpt-cards-*.json
 /generated-icon.png
 /pdf-parse-*.tgz
 /licenses/*.json
