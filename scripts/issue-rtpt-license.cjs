@@ -22,17 +22,22 @@ RT Inspector offline license issuer
 Usage:
   node scripts/issue-rtpt-license.cjs \\
     --private-key C:\\secure\\rtpt-license-private-key.pem \\
-    --installation-id 00000000-0000-4000-8000-000000000000 \\
+    (--installation-id 00000000-0000-4000-8000-000000000000 | --any-installation) \\
     --customer "Customer name" \\
     (--expires 2027-12-31 | --perpetual) \\
     [--license-id <uuid>] [--output <file>]
 
 Required:
   --private-key       Path to an externally controlled Ed25519 private key.
-  --installation-id  Installation code shown by RT Inspector.
+  --installation-id  Installation code shown by RT Inspector, or
+  --any-installation Issue a site license that activates on any installation.
   --customer         Licensed customer or organization name.
   --expires          Expiry date (YYYY-MM-DD or ISO timestamp), or
   --perpetual        Issue a license without an expiry date.
+
+A site license is not bound to one machine: the same activation code activates
+every installation it is given to, and an offline license cannot be revoked
+after issuance. Prefer --installation-id whenever the installation is known.
 
 Optional:
   --license-id       Existing license UUID; generated when omitted.
@@ -55,6 +60,10 @@ function parseArguments(argv) {
     }
     if (argument === '--perpetual') {
       result.perpetual = true;
+      continue;
+    }
+    if (argument === '--any-installation') {
+      result['any-installation'] = true;
       continue;
     }
     if (!argument.startsWith('--')) {
@@ -125,6 +134,12 @@ function issueLicense(options) {
   if (!options.perpetual && !options.expires) {
     throw new Error('Choose --perpetual or provide --expires.');
   }
+  if (options['any-installation'] && options['installation-id']) {
+    throw new Error('Choose either --any-installation or --installation-id, not both.');
+  }
+  if (!options['any-installation'] && !options['installation-id']) {
+    throw new Error('Choose --any-installation or provide --installation-id.');
+  }
 
   const { key: privateKey, resolved: privateKeyPath } = loadPrivateKey(options['private-key']);
   const issuedAt = options['issued-at']
@@ -144,7 +159,9 @@ function issueLicense(options) {
       ? requireUuid(options['license-id'], 'License ID')
       : crypto.randomUUID(),
     customer: requireCustomer(options.customer),
-    installationId: requireUuid(options['installation-id'], 'Installation ID'),
+    installationId: options['any-installation']
+      ? null
+      : requireUuid(options['installation-id'], 'Installation ID'),
     issuedAt,
     expiresAt,
     edition: 'professional',
@@ -186,7 +203,7 @@ function main() {
     console.log('RT Inspector license issued.');
     console.log(`License ID: ${result.payload.licenseId}`);
     console.log(`Customer: ${result.payload.customer}`);
-    console.log(`Installation ID: ${result.payload.installationId}`);
+    console.log(`Installation ID: ${result.payload.installationId || 'Any installation (site license)'}`);
     console.log(`Expires: ${result.payload.expiresAt || 'Perpetual'}`);
     console.log(`Public key SHA-256: ${result.publicKeyFingerprint}`);
     if (outputPath) {

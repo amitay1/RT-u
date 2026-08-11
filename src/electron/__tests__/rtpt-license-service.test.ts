@@ -24,7 +24,7 @@ type LicensePayload = {
   appId: string;
   licenseId: string;
   customer: string;
-  installationId: string;
+  installationId: string | null;
   issuedAt: string;
   expiresAt: string | null;
   edition: 'professional';
@@ -245,6 +245,62 @@ describe('RT-PT offline license service', () => {
       status: 'installation-mismatch',
       active: false,
       reason: 'installation-id-mismatch',
+    });
+  });
+
+  it('activates a site license with no installation binding on any installation', () => {
+    const fixture = createFixture();
+    const token = signToken(fixture.payload({ installationId: null }), fixture.privateKey);
+
+    expect(fixture.service.activate(token)).toMatchObject({
+      status: 'active',
+      active: true,
+      installationId: fixture.installationId,
+    });
+
+    // A second, unrelated installation under the same trust root: different
+    // installation id, same public key. The one activation code must work there
+    // too - that is the entire point of a site license.
+    const secondUserDataDir = path.join(fixture.root, 'second-user-data');
+    const secondService = createRtPtLicenseService({
+      fs,
+      path,
+      crypto,
+      secureStorage: createSecureStorage(0x5c),
+      userDataDir: secondUserDataDir,
+      publicKeyPath: fixture.publicKeyPath,
+      now: () => new Date('2026-07-20T10:00:00.000Z'),
+    });
+
+    expect(secondService.getInstallationId()).not.toBe(fixture.installationId);
+    expect(secondService.activate(token)).toMatchObject({
+      status: 'active',
+      active: true,
+      installationId: secondService.getInstallationId(),
+    });
+  });
+
+  it('still enforces expiry and signature on a site license', () => {
+    const fixture = createFixture('2026-07-20T10:00:00.000Z');
+    const token = signToken(
+      fixture.payload({ installationId: null, expiresAt: '2026-07-21T10:00:00.000Z' }),
+      fixture.privateKey,
+    );
+    expect(fixture.service.activate(token).status).toBe('active');
+
+    fixture.setTime('2026-07-21T10:00:00.000Z');
+    expect(fixture.service.status()).toMatchObject({
+      status: 'expired',
+      active: false,
+    });
+
+    const forged = signToken(
+      fixture.payload({ installationId: null }),
+      crypto.generateKeyPairSync('ed25519').privateKey,
+    );
+    expect(fixture.service.activate(forged)).toMatchObject({
+      status: 'invalid',
+      reason: 'license-signature-invalid',
     });
   });
 

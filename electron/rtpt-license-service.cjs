@@ -105,7 +105,10 @@ const validatePayload = (payload) => {
   if (!hasExactKeys(payload, PAYLOAD_KEYS)) return false;
   if (payload.schemaVersion !== LICENSE_SCHEMA_VERSION) return false;
   if (payload.product !== PRODUCT || payload.appId !== APP_ID) return false;
-  if (!isUuid(payload.licenseId) || !isUuid(payload.installationId)) return false;
+  if (!isUuid(payload.licenseId)) return false;
+  // A null installationId is a site license: the signed token is not bound to a
+  // single installation and activates on any installation of this product.
+  if (payload.installationId !== null && !isUuid(payload.installationId)) return false;
   if (
     typeof payload.customer !== 'string'
     || payload.customer.length < 1
@@ -468,7 +471,10 @@ const createRtPtLicenseService = ({
         license: payload,
       };
     }
-    if (payload.installationId !== installationId) {
+    // Installation-bound tokens must match this installation. A site license
+    // (installationId === null) skips the binding check by design; every other
+    // control - signature, product/app identity, clock, expiry - still applies.
+    if (payload.installationId !== null && payload.installationId !== installationId) {
       return {
         ok: false,
         status: 'installation-mismatch',

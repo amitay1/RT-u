@@ -47,7 +47,7 @@ const STATUS_PRESENTATIONS: Record<Exclude<RtPtLicenseStatusCode, "active">, Sta
   missing: {
     label: "License required",
     title: "Activate this workstation",
-    description: "Enter the license issued for the installation code below.",
+    description: "Enter the activation code supplied with your license.",
     tone: "neutral",
     icon: KeyRound,
   },
@@ -247,17 +247,17 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
               Activate RT Inspector
             </h1>
             <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">
-              Unlock the RT Film and RT Digital/DDA technique workspaces with a license issued specifically for this installation.
+              Unlock the RT Film and RT Digital/DDA technique workspaces. Enter the activation code supplied with your license.
             </p>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <div className="rounded-xl border border-border/75 bg-card/65 p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-                  Installation-bound
+                  Signature verified
                 </div>
                 <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-                  Each signed license is verified against this installation code.
+                  Every license is checked against the publisher signature before access is granted.
                 </p>
               </div>
               <div className="rounded-xl border border-border/75 bg-card/65 p-4 shadow-sm">
@@ -298,7 +298,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
                 <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold">Installation code</div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Send this code when requesting a license.</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Only needed if support asks for it.</p>
                   </div>
                   <Button
                     type="button"

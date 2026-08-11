@@ -104,6 +104,29 @@ Use `--perpetual` instead of `--expires` only when the commercial license is
 explicitly perpetual. Output files are created with exclusive-create semantics
 so an existing activation package is not silently overwritten.
 
+### Site licenses (no installation binding)
+
+`--any-installation` replaces `--installation-id` and issues a license whose
+payload carries `installationId: null`. The desktop app then skips only the
+installation check; the Ed25519 signature, the `rt-pt-inspector` /
+`com.amitay.rtptinspector` identity, the clock-rollback check, and expiry are
+all still enforced, and an unsigned or altered token is still rejected.
+
+```powershell
+npm run license:issue -- `
+  --private-key C:\secure\rtpt-license-private-key.pem `
+  --any-installation `
+  --customer "Customer name" `
+  --expires 2027-12-31
+```
+
+The commercial trade-off is deliberate and must be understood before use: one
+site-license code activates an unlimited number of installations, it can be
+forwarded by the recipient, and — like every offline license here — it cannot
+be revoked after issuance. Prefer `--installation-id` whenever the target
+installation code is known. Installation-bound licenses issued earlier keep
+working unchanged.
+
 ## Offline limitation
 
 An offline signed license cannot be revoked immediately after issuance. Early
