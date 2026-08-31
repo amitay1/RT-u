@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { RtFilmGeneralInfo } from '@/types/rtFilm';
 import { DateField, NumberField, SelectField, TextField } from '@/components/tabs/shared/FieldRow';
+import { MaterialCatalogCard } from '@/components/tabs/shared/MaterialCatalogCard';
 import processImage from '@/assets/rtpt/rt-process-overview.png';
 
 interface Props {
@@ -11,7 +12,15 @@ interface Props {
   onChange: (data: RtFilmGeneralInfo) => void;
   ps811000Applicable: boolean;
   onPs811000ApplicableChange: (applicable: boolean) => void;
+  iso17636TestClass?: 'A' | 'B';
+  onIso17636TestClassChange: (testClass: 'A' | 'B' | '') => void;
 }
+
+const ISO_17636_OPTIONS = [
+  { label: 'Not governed by ISO 17636-1', value: 'none' },
+  { label: 'Class A (basic techniques)', value: 'A' },
+  { label: 'Class B (improved techniques)', value: 'B' },
+] as const;
 
 const LENGTH_UNITS = [
   { label: 'mm', value: 'mm' },
@@ -23,6 +32,8 @@ export const RtFilmGeneralTab = ({
   onChange,
   ps811000Applicable,
   onPs811000ApplicableChange,
+  iso17636TestClass,
+  onIso17636TestClassChange,
 }: Props) => {
   const ps811000Id = useId();
   const set = <K extends keyof RtFilmGeneralInfo>(key: K, value: RtFilmGeneralInfo[K]) => (
@@ -30,6 +41,7 @@ export const RtFilmGeneralTab = ({
   );
 
   return (
+    <div className="space-y-4">
     <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle>1. General &amp; Part Definition</CardTitle>
@@ -92,6 +104,23 @@ export const RtFilmGeneralTab = ({
           </div>
         </div>
 
+        <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+          <div className="md:max-w-md">
+            <SelectField
+              label="ISO 17636-1 Test Class"
+              value={iso17636TestClass ?? 'none'}
+              onChange={(value) => onIso17636TestClassChange(value === 'none' ? '' : value as 'A' | 'B')}
+              options={ISO_17636_OPTIONS}
+              hint="optional"
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Selecting a class enforces the ISO 17636-1 minimum source-to-object distance
+            (f &gt;= 7.5/15 &middot; d &middot; b^(2/3)) per view and the class minimum optical density.
+            Class IQI and viewing tables remain governed by the controlled standard text.
+          </p>
+        </div>
+
         <figure className="mx-auto w-fit max-w-full overflow-hidden rounded-md border border-border/80 bg-[#071421] shadow-[0_16px_36px_rgba(2,6,23,0.24)]">
           <img
             src={processImage}
@@ -102,5 +131,7 @@ export const RtFilmGeneralTab = ({
         </figure>
       </CardContent>
     </Card>
+    <MaterialCatalogCard />
+    </div>
   );
 };

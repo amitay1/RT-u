@@ -15,6 +15,7 @@ import {
   Film,
   Camera,
   Droplets,
+  ScanLine,
   FilePlus2,
   KeyRound,
   Loader2,
@@ -30,6 +31,7 @@ import { RT_PT_METHOD_LABEL, type RtPtMethod, type RtPtWorkspaceMode } from "@/t
 import { RtPtLicenseCenterDialog } from "@/components/rtpt/RtPtLicenseCenterDialog";
 import { RonexBrandMark } from "@/components/rtpt/RonexBrandMark";
 import { useRtPtLicense } from "@/contexts/RtPtLicenseContext";
+import { cn } from "@/lib/utils";
 
 type ElectronBridge = {
   minimize?: () => Promise<unknown> | void;
@@ -58,6 +60,7 @@ interface ToolbarProps {
   onSave: () => void;
   onExportTechnique: () => void;
   onExportInspectionReport: () => void;
+  onExportExposureSheet?: () => void;
   isExportingTechnique?: boolean;
   isExportingInspectionReport?: boolean;
   onValidate: () => void;
@@ -71,6 +74,7 @@ interface ToolbarProps {
 const METHOD_ICONS: Record<RtPtMethod, typeof Film> = {
   "RT-Film": Film,
   "RT-Digital": Camera,
+  "RT-CR": ScanLine,
   PT: Droplets,
 };
 
@@ -82,6 +86,7 @@ export const Toolbar = ({
   onSave,
   onExportTechnique,
   onExportInspectionReport,
+  onExportExposureSheet,
   isExportingTechnique = false,
   isExportingInspectionReport = false,
   onValidate,
@@ -119,7 +124,7 @@ export const Toolbar = ({
   return (
     <>
       <header className="workbench-toolbar z-30 flex min-h-16 flex-shrink-0 items-center gap-2 overflow-x-auto px-2 py-2 md:gap-3 md:px-3 xl:px-4">
-        <RonexBrandMark className="hidden md:flex" />
+        <RonexBrandMark className="hidden md:flex md:mr-1 md:border-r md:border-border/60 md:pr-3 xl:pr-4" />
 
         {/* The active method is always named in the workspace header below, so this
             reminder only appears once the toolbar has room to spare. */}
@@ -131,37 +136,37 @@ export const Toolbar = ({
           </div>
         </div>
 
-        <div className="workbench-group flex min-w-fit items-center gap-1 p-1" aria-label="Workspace mode">
+        <div className="workbench-segmented flex min-w-fit items-center gap-0.5 p-1" aria-label="Workspace mode">
           <Button
-            variant={workspaceMode === "technique" ? "secondary" : "ghost"}
+            variant="ghost"
             size="sm"
             onClick={() => onWorkspaceModeChange("technique")}
             aria-pressed={workspaceMode === "technique"}
             title="Technique planning workspace"
-            className="h-10 px-3"
+            className={cn("h-10 px-3 text-muted-foreground hover:text-foreground", workspaceMode === "technique" && "workbench-segment-active")}
           >
             <FileText className="h-4 w-4" />
             <span className="hidden 2xl:inline">Technique</span>
           </Button>
           <Button
-            variant={workspaceMode === "inspection" ? "secondary" : "ghost"}
+            variant="ghost"
             size="sm"
             onClick={() => onWorkspaceModeChange("inspection")}
             aria-pressed={workspaceMode === "inspection"}
             title="Performed inspection record workspace"
-            className="h-10 px-3"
+            className={cn("h-10 px-3 text-muted-foreground hover:text-foreground", workspaceMode === "inspection" && "workbench-segment-active")}
           >
             <ClipboardList className="h-4 w-4" />
             <span className="hidden 2xl:inline">Inspection Record</span>
           </Button>
           {ndtMethod !== "PT" && (
             <Button
-              variant={workspaceMode === "process" ? "secondary" : "ghost"}
+              variant="ghost"
               size="sm"
               onClick={() => onWorkspaceModeChange("process")}
               aria-pressed={workspaceMode === "process"}
               title="Radiographic process overview"
-              className="h-10 px-3"
+              className={cn("h-10 px-3 text-muted-foreground hover:text-foreground", workspaceMode === "process" && "workbench-segment-active")}
             >
               <Workflow className="h-4 w-4" />
               <span className="hidden 2xl:inline">Process</span>
@@ -172,7 +177,7 @@ export const Toolbar = ({
         <div className="workbench-group flex min-w-fit items-center gap-1 p-1">
           <Button variant="ghost" size="sm" onClick={onNew} title="Start a new technique (Ctrl+N)" aria-label="Start a new technique" className="h-10 px-3">
             <FilePlus2 className="h-4 w-4" />
-            <span className="hidden wide:inline">New</span>
+            <span className="hidden xl:inline">New</span>
           </Button>
           <Button variant="ghost" size="sm" onClick={onSave} title="Save card" aria-label="Save card" className="h-10 px-3">
             <Save className="h-4 w-4" />
@@ -183,19 +188,33 @@ export const Toolbar = ({
             <span className="hidden md:inline">Validate</span>
           </Button>
           <Button
-            variant={workspaceMode === "technique" ? "default" : "outline"}
+            variant={workspaceMode === "technique" ? "default" : "ghost"}
             size="sm"
             onClick={onExportTechnique}
             disabled={isExportingTechnique || isExportingInspectionReport}
             title={isExportingTechnique ? "Exporting technique PDF" : "Export technique PDF"}
             aria-label={isExportingTechnique ? "Exporting technique PDF" : "Export technique PDF"}
-            className="h-10 px-3.5"
+            className={cn("h-10 px-3.5", workspaceMode === "technique" && "font-semibold shadow-md")}
           >
             {isExportingTechnique ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             <span className="hidden xl:inline">{isExportingTechnique ? "Exporting…" : "Technique PDF"}</span>
           </Button>
+          {onExportExposureSheet && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onExportExposureSheet}
+              disabled={isExportingTechnique || isExportingInspectionReport}
+              title="Export the standalone film exposure sheet PDF"
+              aria-label="Export the standalone film exposure sheet PDF"
+              className="h-10 px-3.5"
+            >
+              <FileDown className="h-4 w-4" />
+              <span className="hidden xl:inline">Exposure Sheet</span>
+            </Button>
+          )}
           <Button
-            variant={workspaceMode === "inspection" ? "default" : "outline"}
+            variant={workspaceMode === "inspection" ? "default" : "ghost"}
             size="sm"
             onClick={onExportInspectionReport}
             disabled={isExportingTechnique || isExportingInspectionReport}
@@ -205,7 +224,7 @@ export const Toolbar = ({
             aria-label={isExportingInspectionReport
               ? "Exporting inspection report PDF"
               : workspaceMode === "inspection" ? "Export inspection report PDF" : "Open inspection record before report export"}
-            className="h-10 px-3.5"
+            className={cn("h-10 px-3.5", workspaceMode === "inspection" && "font-semibold shadow-md")}
           >
             {isExportingInspectionReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
             <span className="hidden xl:inline">{isExportingInspectionReport ? "Exporting…" : workspaceMode === "inspection" ? "Report PDF" : "Open Report"}</span>

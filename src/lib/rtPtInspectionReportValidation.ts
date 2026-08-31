@@ -536,6 +536,159 @@ function filmRequirements(report: Extract<RtPtInspectionReportV1, { method: 'RT-
   return requirements;
 }
 
+function crRequirements(report: Extract<RtPtInspectionReportV1, { method: 'RT-CR' }>): Requirement[] {
+  const hasDeviation = documentedDeviation(report.equipment.deviations);
+  const internalResultIds = report.results.map((result) => normalizedIdentifier(result.id));
+  const imageIds = report.results.map((result) => result.plateOrImageId.trim().toLocaleLowerCase());
+  const retakeRecords = report.results.map((result) => ({
+    recordIdentifier: result.plateOrImageId,
+    originalIdentifier: result.retakeOfImageId,
+    performedDate: result.exposureDate,
+  }));
+  const requirements: Requirement[] = [
+    requirement('results', 'CR Result Rows', 'results', report.results.length > 0, 'At least one linked CR result is required.'),
+    requirement('results', 'Unique CR Internal Result IDs', 'results', internalResultIds.every((id) => meaningful(id)) && internalResultIds.length === new Set(internalResultIds).size, 'Every CR result record must retain one unique internal ID.'),
+    requirement('results', 'Unique Plate / Image IDs', 'results', imageIds.length === new Set(imageIds).size, 'Every performed CR record must use a unique plate/image ID.'),
+    requirement('results', 'CR Retake Chain', 'results', !hasRetakeCycle(retakeRecords), 'CR retake links must not reference the same record or form a cycle.'),
+  ];
+  report.results.forEach((result, index) => {
+    const path = `results[${index}]`;
+    const accepted = result.result === 'accepted';
+    const geometryMatches = sameConvertedMeasuredValue(result.planned.sfd, result.planned.sfdUnit, result.actualSfd, result.actualSfdUnit, 'length')
+      && sameConvertedMeasuredValue(result.planned.sod, result.planned.sodUnit, result.actualSod, result.actualSodUnit, 'length')
+      && sameConvertedMeasuredValue(result.planned.ofd, result.planned.ofdUnit, result.actualOfd, result.actualOfdUnit, 'length');
+    const exposureMatches = sameConvertedMeasuredValue(
+      result.planned.exposureTime,
+      result.planned.exposureTimeUnit,
+      result.actualExposureTime,
+      result.actualExposureTimeUnit,
+      'time',
+    );
+    const greyWithinPlan = numberValue(result.greyValueMin) !== null
+      && numberValue(result.greyValueMax) !== null
+      && numberValue(result.planned.greyValueMin) !== null
+      && numberValue(result.planned.greyValueMax) !== null
+      && Number(result.greyValueMin) >= Number(result.planned.greyValueMin)
+      && Number(result.greyValueMax) <= Number(result.planned.greyValueMax);
+    const snrMeetsPlan = numberValue(result.achievedSnr) !== null
+      && numberValue(result.planned.requiredSnrMin) !== null
+      && Number(result.achievedSnr) >= Number(result.planned.requiredSnrMin);
+    requirements.push(
+      requirement(`${path}.plannedItemId`, `View ${index + 1} Link`, 'results', meaningful(result.plannedItemId), 'The result must retain its stable planned-view link.'),
+      requirement(`${path}.plateOrImageId`, `View ${index + 1} Plate / Image ID`, 'results', meaningful(result.plateOrImageId), 'Record the actual plate or scanned-image identifier.'),
+      requirement(`${path}.exposureDate`, `View ${index + 1} Exposure Date`, 'results', isoDate(result.exposureDate), 'Record a real exposure date.'),
+      requirement(
+        `${path}.exposureDate`,
+        `View ${index + 1} Exposure Period`,
+        'results',
+        isoDate(result.exposureDate)
+          && isoDate(report.reportControl.inspectionStart)
+          && isoDate(report.reportControl.inspectionEnd)
+          && result.exposureDate >= report.reportControl.inspectionStart
+          && result.exposureDate <= report.reportControl.inspectionEnd,
+        'Exposure date must fall within the recorded inspection period.',
+      ),
+      requirement(`${path}.scanDate`, `View ${index + 1} Scan Date`, 'results', isoDate(result.scanDate), 'Record the real date the imaging plate was scanned.'),
+      requirement(
+        `${path}.scanDate`,
+        `View ${index + 1} Scan Chronology`,
+        'results',
+        !isoDate(result.scanDate) || !isoDate(result.exposureDate) || result.scanDate >= result.exposureDate,
+        'The plate scan date cannot precede the exposure date.',
+      ),
+      requirement(`${path}.actualSfd`, `View ${index + 1} Actual SFD`, 'results', positive(result.actualSfd), 'Record the achieved source-to-plate distance.'),
+      requirement(`${path}.actualSod`, `View ${index + 1} Actual SOD`, 'results', positive(result.actualSod), 'Record the achieved source-to-object distance.'),
+      requirement(`${path}.actualOfd`, `View ${index + 1} Actual OFD`, 'results', typeof result.actualOfd === 'number' && result.actualOfd >= 0, 'Record the achieved object-to-plate distance.'),
+      requirement(`${path}.actualExposureTime`, `View ${index + 1} Actual Exposure Time`, 'results', positive(result.actualExposureTime), 'Record the actual exposure time.'),
+      requirement(`${path}.actualExposureTimeUnit`, `View ${index + 1} Exposure Time Unit`, 'results', present(result.actualExposureTimeUnit), 'Select the actual exposure-time unit.'),
+      requirement(`${path}.greyValueMin`, `View ${index + 1} Achieved Grey-Value Minimum`, 'results', positive(result.greyValueMin), 'Record the achieved minimum grey value in the area of interest.'),
+      requirement(`${path}.greyValueMax`, `View ${index + 1} Achieved Grey-Value Maximum`, 'results', positive(result.greyValueMax), 'Record the achieved maximum grey value in the area of interest.'),
+      requirement(
+        `${path}.greyValueMax`,
+        `View ${index + 1} Grey-Value Order`,
+        'results',
+        positive(result.greyValueMin) && positive(result.greyValueMax) && result.greyValueMin <= result.greyValueMax,
+        'Maximum grey value must be greater than or equal to minimum grey value.',
+      ),
+      requirement(`${path}.achievedSnr`, `View ${index + 1} Achieved SNR`, 'results', positive(result.achievedSnr), 'Record the achieved signal-to-noise ratio.'),
+      requirement(`${path}.achievedSrb`, `View ${index + 1} Achieved SRb`, 'results', positive(result.achievedSrb), 'Record the achieved basic spatial resolution.'),
+      requirement(`${path}.snrRequirementMet`, `View ${index + 1} SNR Requirement Confirmation`, 'results', typeof result.snrRequirementMet === 'boolean', 'Explicitly confirm whether the planned minimum SNR was met.'),
+      requirement(`${path}.iqiObserved`, `View ${index + 1} IQI Observation`, 'results', meaningful(result.iqiObserved), 'Record the achieved IQI observation.'),
+      requirement(`${path}.iqiRequirementMet`, `View ${index + 1} IQI Requirement Confirmation`, 'results', typeof result.iqiRequirementMet === 'boolean', 'Explicitly confirm whether the planned IQI requirement was met.'),
+      requirement(`${path}.coverageConfirmed`, `View ${index + 1} Coverage`, 'results', typeof result.coverageConfirmed === 'boolean', 'Confirm whether the planned coverage was achieved.'),
+      requirement(`${path}.result`, `View ${index + 1} Result`, 'results', present(result.result), 'Enter an explicit result.'),
+      requirement(
+        `${path}.retakeOfImageId`,
+        `View ${index + 1} Retake Link`,
+        'results',
+        result.retakeOfImageId.trim() === ''
+          || imageIds.some((imageId, imageIndex) => imageIndex !== index && imageId === result.retakeOfImageId.trim().toLocaleLowerCase()),
+        'A retake link must reference another plate/image ID in this report.',
+      ),
+      requirement(
+        `${path}.exposureDate`,
+        `View ${index + 1} Retake Chronology`,
+        'results',
+        retakeChronologyIsValid(retakeRecords[index], retakeRecords),
+        'A retake exposure date must be on or after the referenced original exposure date.',
+      ),
+      requirement(`${path}.coverageConfirmed`, `View ${index + 1} Accepted Coverage`, 'results', !accepted || result.coverageConfirmed === true || hasDeviation, 'An accepted view requires confirmed planned coverage or a documented controlled deviation.'),
+      requirement(`${path}.actualSfd`, `View ${index + 1} Accepted Geometry`, 'results', !accepted || geometryMatches || hasDeviation, 'Accepted geometry must match the approved plan or be supported by a documented controlled deviation.'),
+      requirement(`${path}.actualExposureTime`, `View ${index + 1} Accepted Exposure`, 'results', !accepted || exposureMatches || hasDeviation, 'Accepted exposure time must match the approved plan or be supported by a documented controlled deviation.'),
+      requirement(`${path}.greyValueMin`, `View ${index + 1} Accepted Grey-Value Window`, 'results', !accepted || greyWithinPlan || hasDeviation, 'Accepted grey values must remain within the approved window or be supported by a documented controlled deviation.'),
+      requirement(`${path}.achievedSnr`, `View ${index + 1} Accepted SNR Achievement`, 'results', !accepted || snrMeetsPlan || hasDeviation, 'An accepted view requires the achieved SNR to meet the planned minimum or a documented controlled deviation.'),
+      requirement(`${path}.snrRequirementMet`, `View ${index + 1} Accepted SNR Conformance`, 'results', !accepted || result.snrRequirementMet === true || hasDeviation, 'An accepted view requires explicit confirmation that the planned minimum SNR was met or a documented controlled deviation.'),
+      requirement(`${path}.iqiRequirementMet`, `View ${index + 1} Accepted IQI Conformance`, 'results', !accepted || result.iqiRequirementMet === true || hasDeviation, 'An accepted view requires explicit confirmation that the planned IQI requirement was met or a documented controlled deviation.'),
+    );
+    if (result.planned.sourceType === 'X-ray') {
+      const sourceMatches = sameMeasuredValue(result.planned.tubeVoltage, result.planned.tubeVoltageUnit, result.actualTubeVoltage, result.actualTubeVoltageUnit)
+        && sameMeasuredValue(result.planned.tubeCurrent, result.planned.tubeCurrentUnit, result.actualTubeCurrent, result.actualTubeCurrentUnit);
+      requirements.push(
+        requirement(`${path}.actualTubeVoltage`, `View ${index + 1} Actual Tube Voltage`, 'results', positive(result.actualTubeVoltage), 'Record actual tube voltage.'),
+        requirement(`${path}.actualTubeCurrent`, `View ${index + 1} Actual Tube Current`, 'results', positive(result.actualTubeCurrent), 'Record actual tube current.'),
+        requirement(`${path}.actualTubeVoltage`, `View ${index + 1} Accepted X-ray Settings`, 'results', !accepted || sourceMatches || hasDeviation, 'Accepted X-ray settings must match the approved plan or be supported by a documented controlled deviation.'),
+        requirement(
+          `${path}.actualSourceActivity`,
+          `View ${index + 1} Inactive Gamma Fields`,
+          'results',
+          emptyPerformedValue(result.actualSourceActivity) && emptyPerformedValue(result.actualSourceActivityUnit),
+          'X-ray result records must not retain inactive Gamma activity values or units.',
+        ),
+      );
+    } else if (result.planned.sourceType === 'Gamma') {
+      requirements.push(
+        requirement(`${path}.actualSourceActivity`, `View ${index + 1} Actual Source Activity`, 'results', positive(result.actualSourceActivity), 'Record referenced source activity.'),
+        requirement(`${path}.actualSourceActivityUnit`, `View ${index + 1} Activity Unit`, 'results', present(result.actualSourceActivityUnit), 'Record the source-activity unit.'),
+        requirement(
+          `${path}.actualTubeVoltage`,
+          `View ${index + 1} Inactive X-ray Fields`,
+          'results',
+          emptyPerformedValue(result.actualTubeVoltage)
+            && emptyPerformedValue(result.actualTubeVoltageUnit)
+            && emptyPerformedValue(result.actualTubeCurrent)
+            && emptyPerformedValue(result.actualTubeCurrentUnit),
+          'Gamma result records must not retain inactive X-ray tube voltage/current values or units.',
+        ),
+      );
+    }
+  });
+  const unresolved = report.results.some((result) => (
+    (result.result === 'rejected' || result.result === 'retake-required')
+    && !report.results.some((candidate) => (
+      candidate.result === 'accepted'
+      && candidate.retakeOfImageId.trim().toLocaleLowerCase() === result.plateOrImageId.trim().toLocaleLowerCase()
+    ))
+  ));
+  requirements.push(requirement(
+    'overallDisposition',
+    'Accepted CR Disposition Resolution',
+    'disposition',
+    report.overallDisposition !== 'accepted' || !unresolved || hasDeviation,
+    'An accepted overall disposition must resolve rejected/retake-required plates or document a controlled deviation.',
+  ));
+  return requirements;
+}
+
 function digitalRequirements(report: Extract<RtPtInspectionReportV1, { method: 'RT-Digital' }>): Requirement[] {
   const hasDeviation = documentedDeviation(report.equipment.deviations);
   const internalResultIds = report.results.map((result) => normalizedIdentifier(result.id));
@@ -1023,6 +1176,15 @@ function frozenPlannedBasisMatches(
         && JSON.stringify(result.planned) === JSON.stringify(expectedById.get(result.plannedItemId))
       ));
   }
+  if (report.method === 'RT-CR' && expected.method === 'RT-CR') {
+    if (report.results.length !== expected.results.length) return false;
+    const expectedById = new Map(expected.results.map((result) => [result.plannedItemId, result.planned]));
+    return new Set(report.results.map((result) => result.plannedItemId)).size === report.results.length
+      && report.results.every((result) => (
+        expectedById.has(result.plannedItemId)
+        && JSON.stringify(result.planned) === JSON.stringify(expectedById.get(result.plannedItemId))
+      ));
+  }
   return false;
 }
 
@@ -1082,7 +1244,9 @@ export function validateRtPtInspectionReport(
       ? filmRequirements(report)
       : report.method === 'RT-Digital'
         ? digitalRequirements(report)
-        : ptRequirements(report)),
+        : report.method === 'RT-CR'
+          ? crRequirements(report)
+          : ptRequirements(report)),
     ...indicationRequirements(report),
   ];
   const link = linkRequirements(report, technique);

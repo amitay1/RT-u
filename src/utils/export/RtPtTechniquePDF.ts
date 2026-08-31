@@ -27,6 +27,67 @@ import {
   buildPs811000ExposureChart,
   calculatePs811000EquivalentThickness,
 } from '@/lib/ps811000ExposureChart';
+import { calculateDecayedActivity, resolveRtIsotope } from '@/lib/rtIsotopeDecay';
+import { ISO_17636_1_MINIMUM_DENSITY } from '@/lib/rtIso17636';
+import { calculateCircumferentialExposureCount } from '@/lib/rtCircumferential';
+import type { RtCircumferentialPlan } from '@/types/rtFilm';
+
+const performanceTrendRows = (
+  entries: ReadonlyArray<{
+    date: string;
+    measuredSrb: number | '';
+    measuredSrbUnit: string;
+    measuredSnr: number | '';
+    reference: string;
+    notes: string;
+  }> | undefined,
+): PdfRow[] => (entries ?? []).map((entry, index) => [
+  `Measurement ${index + 1} (${formatValue(entry.date)})`,
+  formatIdentity(
+    entry.measuredSrb === '' ? '' : `SRb ${entry.measuredSrb} ${entry.measuredSrbUnit}`,
+    entry.measuredSnr === '' ? '' : `SNR ${entry.measuredSnr}`,
+    entry.reference,
+    entry.notes,
+  ),
+]);
+
+const circumferentialPlanRow = (
+  plan: RtCircumferentialPlan,
+  testClass: 'A' | 'B' | undefined,
+  wallThickness: number | '',
+  wallThicknessUnit: 'mm' | 'inch',
+  sfd: number | '',
+  sfdUnit: 'mm' | 'inch',
+): PdfRow => {
+  const setupLabel = plan.setup === 'internal-panoramic'
+    ? 'internal centred panoramic'
+    : 'external source, double wall';
+  const coverage = testClass
+    ? calculateCircumferentialExposureCount({
+      setup: plan.setup,
+      testClass,
+      outerDiameter: plan.pipeOuterDiameter,
+      outerDiameterUnit: plan.pipeOuterDiameterUnit,
+      wallThickness,
+      wallThicknessUnit,
+      sfd,
+      sfdUnit,
+    })
+    : null;
+  return [
+    'Circumferential Coverage Plan',
+    `OD ${plan.pipeOuterDiameter} ${plan.pipeOuterDiameterUnit}; ${setupLabel}`
+      + (coverage
+        ? `; minimum ${coverage.minimumExposureCount} exposures at class ${coverage.testClass}`
+          + ` (coverage half-angle ${coverage.coverageHalfAngleDeg} deg)`
+        : ''),
+  ];
+};
+import {
+  collectRtPtTechniqueImageAttachments,
+  type RtPtPdfAttachmentImage,
+  type RtPtPdfAttachmentImageMap,
+} from '@/utils/export/rtPtPdfAttachments';
 import {
   validateRtPtDocument,
   type RtPtValidationSummary,
@@ -55,6 +116,7 @@ export interface RtPtPdfReleaseState {
 const METHOD_TITLE = {
   'RT-Film': 'Radiographic Testing - Film',
   'RT-Digital': 'Radiographic Testing - Digital Detector Array',
+  'RT-CR': 'Radiographic Testing - Computed Radiography',
   PT: 'Liquid Penetrant Testing',
 } as const;
 
@@ -308,6 +370,30 @@ const filmSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>):
       ['Activity Reference Date', formatValue(source.gamma.activityReferenceDate)],
       ['Effective Source Size', formatValue(source.gamma.effectiveSourceSize, source.gamma.effectiveSourceSizeUnit)],
     );
+    const isotope = resolveRtIsotope(source.gamma.isotope);
+    if (isotope) {
+      sourceRows.push(['Isotope Half-Life Basis', `${isotope.halfLifeDays} days (${isotope.displayName}, ${isotope.id})`]);
+      const decay = calculateDecayedActivity(
+        source.gamma.activity,
+        source.gamma.activityReferenceDate,
+        general.date,
+        isotope.halfLifeDays,
+      );
+      if (decay && decay.elapsedDays >= 0) {
+        const activityUnitSuffix = source.gamma.activityUnit ? ` ${source.gamma.activityUnit}` : '';
+        sourceRows.push(
+          [
+            'Computed Activity at Planned Inspection Date',
+            `${decay.decayedActivity}${activityUnitSuffix} on ${general.date}`
+              + ` (decay factor ${decay.decayFactor}; A = A0 x 2^(-t/T1/2))`,
+          ],
+          [
+            'Exposure-Time Correction Factor',
+            `x${decay.exposureTimeMultiplier} relative to the referenced activity`,
+          ],
+        );
+      }
+    }
   }
 
   const sections: RtPtPdfSection[] = [
@@ -316,6 +402,22 @@ const filmSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>):
       rows: [
         ...commonGeneralRows(general),
         ['PS811000E C1 Applicability', formatValue(ps811000Applicable)],
+        ...(document.technique.iso17636TestClass
+          ? [[
+              'ISO 17636-1 Test Class',
+              `Class ${document.technique.iso17636TestClass} (minimum density ${ISO_17636_1_MINIMUM_DENSITY[document.technique.iso17636TestClass]} H&D; f >= ${document.technique.iso17636TestClass === 'A' ? 7.5 : 15} x d x b^(2/3))`,
+            ] as PdfRow]
+          : []),
+        ...(document.technique.circumferentialPlan
+          ? [circumferentialPlanRow(
+              document.technique.circumferentialPlan,
+              document.technique.iso17636TestClass,
+              general.thickness,
+              general.thicknessUnit,
+              exposureDefaults.sfd,
+              exposureDefaults.sfdUnit,
+            )]
+          : []),
       ],
     },
     { title: 'Radiation Source Plan', rows: sourceRows },
@@ -413,6 +515,228 @@ const filmSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>):
       ['Film Size', formatValue(view.filmSize)],
       ['Maximum Parts', formatValue(view.maxParts)],
       ['Maximum Cassettes', formatValue(view.maxCassettes)],
+      ['Planned Beam Angle', formatValue(view.beamAngle, view.beamAngleUnit)],
+      ['Screen Override', formatValue(view.screenOverride)],
+      ['Required Overlap', formatValue(view.overlap)],
+      ['Identification Plan', formatValue(view.identification)],
+      ['Planned Notes', formatValue(view.notes)],
+    );
+    sections.push({ title: `Exposure View ${view.viewId || index + 1}`, rows });
+  });
+  sections.push(
+    { title: 'Required Acceptance Criteria', rows: acceptanceRows(acceptance) },
+    { title: 'Technique Notes', rows: [['Planned Technique Notes', formatValue(techniqueNotes)]] },
+  );
+  return sections;
+};
+
+const crDefaultRows = (
+  defaults: Extract<RtPtDocumentV3, { method: 'RT-CR' }>['technique']['exposureDefaults'],
+  source: Extract<RtPtDocumentV3, { method: 'RT-CR' }>['technique']['source'],
+): PdfRow[] => [
+  ['Default Planned Wall Technique', formatValue(defaults.wallTechnique)],
+  ['Default Planned SFD', formatValue(defaults.sfd, defaults.sfdUnit)],
+  ['Default Planned SOD', formatValue(defaults.sod, defaults.sodUnit)],
+  ['Default Planned OFD', formatValue(defaults.ofd, defaults.ofdUnit)],
+  ['Default Planned Magnification', formatValue(defaults.geometricMagnification, 'x')],
+  ['Default Thickness Description', formatValue(defaults.thicknessDescription)],
+  ['Default Planned Thickness Range', formatRange(defaults.thicknessMin, defaults.thicknessMax, defaults.thicknessUnit)],
+  ['Default Required Ug', formatValue(defaults.requiredUg, defaults.requiredUgUnit)],
+  ['Default Calculated Ug', formatValue(calculateFilmGeometricUnsharpness(defaults, source), defaults.requiredUgUnit)],
+  ['Default Planned Tube Voltage', formatValue(defaults.tubeVoltage, defaults.tubeVoltageUnit)],
+  ['Default Planned Tube Current', formatValue(defaults.tubeCurrent, defaults.tubeCurrentUnit)],
+  ['Default Planned Exposure Time', formatValue(defaults.exposureTime, defaults.exposureTimeUnit)],
+  ['Default Filter', formatValue(defaults.filter)],
+  ['Default Collimation', formatValue(defaults.collimation)],
+  ['Default Imaging Plate Size', formatValue(defaults.plateSize)],
+  ['Default Planned Beam Angle', formatValue(defaults.beamAngle, defaults.beamAngleUnit)],
+  ['Default Screen Override', formatValue(defaults.screenOverride)],
+  ['Default Required Overlap', formatValue(defaults.overlap)],
+  ['Default Identification Plan', formatValue(defaults.identification)],
+  ['Default IQI Requirement / Override', formatValue(defaults.iqiOverride)],
+  ['Default Notes', formatValue(defaults.notes)],
+];
+
+const crSections = (document: Extract<RtPtDocumentV3, { method: 'RT-CR' }>): RtPtPdfSection[] => {
+  const {
+    general,
+    exposureDefaults,
+    source,
+    plateSystem,
+    scanner,
+    imageQuality,
+    iqi,
+    acceptance,
+    exposureViews,
+    techniqueNotes,
+  } = document.technique;
+  const calculatedIqiSensitivity = calculateIqiSensitivityPercent(
+    iqi.thickness,
+    iqi.thicknessUnit,
+    general.thickness,
+    general.thicknessUnit,
+  );
+  const sourceRows: PdfRow[] = [
+    ['Planned Radiation Source Type', formatValue(source.sourceType)],
+    ['Source Manufacturer', formatValue(source.manufacturer)],
+    ['Source Model', formatValue(source.model)],
+    ['Source Serial Number', formatValue(source.serialNumber)],
+    ['Source Calibration Requirement', formatValue(source.calibrationRequirement)],
+  ];
+  if (source.sourceType === 'X-ray') {
+    sourceRows.push(['Planned Focal Spot Size', formatValue(source.xRay.focalSpotSize, source.xRay.focalSpotSizeUnit)]);
+  } else if (source.sourceType === 'Gamma') {
+    sourceRows.push(
+      ['Gamma Isotope', formatValue(source.gamma.isotope)],
+      ['Gamma Source ID', formatValue(source.gamma.sourceId)],
+      ['Referenced Activity', formatValue(source.gamma.activity, source.gamma.activityUnit)],
+      ['Activity Reference Date', formatValue(source.gamma.activityReferenceDate)],
+      ['Effective Source Size', formatValue(source.gamma.effectiveSourceSize, source.gamma.effectiveSourceSizeUnit)],
+    );
+    const isotope = resolveRtIsotope(source.gamma.isotope);
+    if (isotope) {
+      sourceRows.push(['Isotope Half-Life Basis', `${isotope.halfLifeDays} days (${isotope.displayName}, ${isotope.id})`]);
+      const decay = calculateDecayedActivity(
+        source.gamma.activity,
+        source.gamma.activityReferenceDate,
+        general.date,
+        isotope.halfLifeDays,
+      );
+      if (decay && decay.elapsedDays >= 0) {
+        const activityUnitSuffix = source.gamma.activityUnit ? ` ${source.gamma.activityUnit}` : '';
+        sourceRows.push(
+          [
+            'Computed Activity at Planned Inspection Date',
+            `${decay.decayedActivity}${activityUnitSuffix} on ${general.date}`
+              + ` (decay factor ${decay.decayFactor}; A = A0 x 2^(-t/T1/2))`,
+          ],
+          [
+            'Exposure-Time Correction Factor',
+            `x${decay.exposureTimeMultiplier} relative to the referenced activity`,
+          ],
+        );
+      }
+    }
+  }
+
+  const sections: RtPtPdfSection[] = [
+    {
+      title: 'Part and Technique Basis',
+      rows: [
+        ...commonGeneralRows(general),
+        ...(document.technique.iso17636TestClass
+          ? [[
+              'ISO 17636-2 Test Class',
+              `Class ${document.technique.iso17636TestClass} (f >= ${document.technique.iso17636TestClass === 'A' ? 7.5 : 15} x d x b^(2/3))`,
+            ] as PdfRow]
+          : []),
+        ...(document.technique.circumferentialPlan
+          ? [circumferentialPlanRow(
+              document.technique.circumferentialPlan,
+              document.technique.iso17636TestClass,
+              general.thickness,
+              general.thicknessUnit,
+              exposureDefaults.sfd,
+              exposureDefaults.sfdUnit,
+            )]
+          : []),
+      ],
+    },
+    { title: 'Radiation Source Plan', rows: sourceRows },
+    {
+      title: 'Required Imaging Plate System',
+      rows: [
+        ['Plate Manufacturer', formatValue(plateSystem.manufacturer)],
+        ['Plate Designation', formatValue(plateSystem.plateDesignation)],
+        ['Plate System Class', formatValue(plateSystem.plateClass)],
+        ['Cassette Type', formatValue(plateSystem.cassetteType)],
+        ['Front Screen Material', formatValue(plateSystem.frontScreen.material)],
+        ['Front Screen Thickness', formatValue(plateSystem.frontScreen.thickness, plateSystem.frontScreen.thicknessUnit)],
+        ['Back Screen Material', formatValue(plateSystem.backScreen.material)],
+        ['Back Screen Thickness', formatValue(plateSystem.backScreen.thickness, plateSystem.backScreen.thicknessUnit)],
+        ['Plate Erasure Requirement', formatValue(plateSystem.erasureRequirement)],
+        ['Plate Condition Requirement', formatValue(plateSystem.plateConditionRequirement)],
+      ],
+    },
+    {
+      title: 'CR Scanner and Readout Plan',
+      rows: [
+        ['Scanner Manufacturer', formatValue(scanner.manufacturer)],
+        ['Scanner Model', formatValue(scanner.model)],
+        ['Scanner Serial Number', formatValue(scanner.serialNumber)],
+        ['Pixel Pitch', formatValue(scanner.pixelPitch, scanner.pixelPitchUnit)],
+        ['Laser Spot Size', formatValue(scanner.laserSpotSize, scanner.laserSpotSizeUnit)],
+        ['Planned Scan Resolution', formatValue(scanner.scanResolutionPixelsPerMm, 'px/mm')],
+        ['PMT Gain / Voltage Setting', formatValue(scanner.pmtGainOrVoltage)],
+        ['Scanner Calibration Requirement', formatValue(scanner.calibrationRequirement)],
+        ['Scanner Qualification', digitalStatus(scanner.qualification)],
+      ],
+    },
+    ...(scanner.performanceTrend?.length
+      ? [{
+          title: 'Scanner Performance Trend (E2737-style)',
+          rows: performanceTrendRows(scanner.performanceTrend),
+        }]
+      : []),
+    {
+      title: 'Required Scanned-Image Quality',
+      rows: [
+        ['Required Basic Spatial Resolution (SRb)', formatValue(imageQuality.requiredSrb, imageQuality.requiredSrbUnit)],
+        ['Required Grey-Value Window', formatRange(imageQuality.greyValueMin, imageQuality.greyValueMax, '')],
+        ['Required Minimum SNR', formatValue(imageQuality.requiredSnrMin)],
+        ['Spatial-Resolution Verification', formatValue(imageQuality.duplexWireRequirement)],
+        ['Maximum Exposure-to-Scan Delay', formatValue(imageQuality.maxScanDelay, imageQuality.maxScanDelayUnit)],
+      ],
+    },
+    {
+      title: 'Required Image Quality Indicator',
+      rows: [
+        ['IQI Type', formatValue(iqi.type)],
+        ['IQI Standard', formatValue(iqi.standard)],
+        ['IQI Designation', formatValue(iqi.designation)],
+        ['IQI Shim', formatValue(iqi.shim)],
+        ['IQI Block', formatValue(iqi.block)],
+        ['IQI Material', formatValue(iqi.material)],
+        ['IQI Thickness', formatValue(iqi.thickness, iqi.thicknessUnit)],
+        ['IQI Placement', formatValue(iqi.placement)],
+        ['Required Sensitivity', formatValue(iqi.requiredSensitivity)],
+        ['Required Image Quality Level', formatValue(iqi.imageQualityLevel)],
+        ['Required Ug', formatValue(iqi.requiredUg, iqi.requiredUgUnit)],
+        ['Calculated IQI Sensitivity', formatValue(calculatedIqiSensitivity, '%')],
+      ],
+    },
+    { title: 'Exposure Defaults - Planning Aid Only', rows: crDefaultRows(exposureDefaults, source) },
+  ];
+
+  exposureViews.forEach((view, index) => {
+    const rows: PdfRow[] = [
+      ['Controlled View ID', formatValue(view.viewId)],
+      ['Description', formatValue(view.description)],
+      ['Orientation', formatValue(view.orientation)],
+      ['Inspection Zone', formatValue(view.inspectionZone)],
+      ['Reference Attachment ID', formatValue(view.referenceAttachmentId)],
+      ['Planned Wall Technique', formatValue(view.wallTechnique)],
+      ['Planned SFD', formatValue(view.sfd, view.sfdUnit)],
+      ['Planned SOD', formatValue(view.sod, view.sodUnit)],
+      ['Planned OFD', formatValue(view.ofd, view.ofdUnit)],
+      ['Planned Magnification', formatValue(view.geometricMagnification, 'x')],
+      ['Thickness Description', formatValue(view.thicknessDescription)],
+      ['Planned Thickness Range', formatRange(view.thicknessMin, view.thicknessMax, view.thicknessUnit)],
+      ['Required Ug', formatValue(view.requiredUg, view.requiredUgUnit)],
+      ['Calculated Ug', formatValue(calculateFilmGeometricUnsharpness(view, source), view.requiredUgUnit)],
+      ['IQI Requirement / Override', formatValue(view.iqiOverride)],
+    ];
+    if (source.sourceType === 'X-ray') {
+      rows.push(
+        ['Planned Tube Voltage', formatValue(view.tubeVoltage, view.tubeVoltageUnit)],
+        ['Planned Tube Current', formatValue(view.tubeCurrent, view.tubeCurrentUnit)],
+      );
+    }
+    rows.push(
+      ['Planned Exposure Time', formatValue(view.exposureTime, view.exposureTimeUnit)],
+      ['Filter', formatValue(view.filter)],
+      ['Collimation', formatValue(view.collimation)],
+      ['Imaging Plate Size', formatValue(view.plateSize)],
       ['Planned Beam Angle', formatValue(view.beamAngle, view.beamAngleUnit)],
       ['Screen Override', formatValue(view.screenOverride)],
       ['Required Overlap', formatValue(view.overlap)],
@@ -810,6 +1134,12 @@ const digitalSections = (document: Extract<RtPtDocumentV3, { method: 'RT-Digital
         ['Stability Status', formatValue(detectorPerformance.stability.status)],
       ],
     },
+    ...(detectorPerformance.performanceTrend?.length
+      ? [{
+          title: 'Detector Performance Trend (E2737-style)',
+          rows: performanceTrendRows(detectorPerformance.performanceTrend),
+        }]
+      : []),
     {
       title: 'Planned Image Processing',
       rows: [
@@ -1062,7 +1392,9 @@ export function getRtPtExportSections(document: RtPtDocumentV3): RtPtPdfSection[
     ? filmSections(document)
     : document.method === 'RT-Digital'
       ? digitalSections(document)
-      : ptSections(document);
+      : document.method === 'RT-CR'
+        ? crSections(document)
+        : ptSections(document);
   return [...controlSections(document), ...techniqueSections];
 }
 
@@ -1156,6 +1488,7 @@ const formatDocumentId = (value: string): string => {
 const methodCode = (document: RtPtDocumentV3): string => {
   if (document.method === 'RT-Film') return 'FILM RT';
   if (document.method === 'RT-Digital') return 'DDA RT';
+  if (document.method === 'RT-CR') return 'CR RT';
   return 'PT';
 };
 
@@ -1640,6 +1973,29 @@ const techniqueOverviewRows = (document: RtPtDocumentV3): PdfRow[] => {
       ['Workflow', formatValue(document.technique.workflow)],
     ];
   }
+  if (document.method === 'RT-CR') {
+    const { source, plateSystem, scanner, imageQuality, iqi, exposureViews } = document.technique;
+    let sourceDetail = formatIdentity(source.manufacturer, source.model);
+    if (source.sourceType === 'X-ray') {
+      sourceDetail = formatIdentity(
+        source.manufacturer,
+        source.model,
+        `${formatValue(source.xRay.focalSpotSize, source.xRay.focalSpotSizeUnit)} focal spot`,
+      );
+    } else if (source.sourceType === 'Gamma') {
+      sourceDetail = formatIdentity(source.manufacturer, source.model, source.gamma.isotope, source.gamma.sourceId);
+    }
+    return [
+      ['Method', RT_PT_METHOD_LABEL[document.method]],
+      ['Exposure Views', String(exposureViews.length)],
+      ['Radiation Source', formatIdentity(source.sourceType, sourceDetail)],
+      ['Imaging Plate', formatIdentity(plateSystem.manufacturer, plateSystem.plateDesignation, plateSystem.plateClass)],
+      ['CR Scanner', formatIdentity(scanner.manufacturer, scanner.model, formatValue(scanner.scanResolutionPixelsPerMm, 'px/mm'))],
+      ['Required Grey-Value Window', formatRange(imageQuality.greyValueMin, imageQuality.greyValueMax, '')],
+      ['Required SRb / SNR', formatIdentity(formatValue(imageQuality.requiredSrb, imageQuality.requiredSrbUnit), formatValue(imageQuality.requiredSnrMin))],
+      ['IQI Plan', formatIdentity(iqi.type, iqi.designation, iqi.placement)],
+    ];
+  }
   const { materials, application, development, conditions } = document.technique;
   let viewing = 'Not specified';
   if (materials.penetrantType === 'Type I') {
@@ -1677,6 +2033,27 @@ const filmExposureSchedule = (
     `SFD ${formatValue(view.sfd, view.sfdUnit)}\nSOD ${formatValue(view.sod, view.sodUnit)}\nOFD ${formatValue(view.ofd, view.ofdUnit)}`,
     exposure,
     formatIdentity(view.iqiOverride, view.referenceAttachmentId),
+  ];
+});
+
+const crExposureSchedule = (
+  document: Extract<RtPtDocumentV3, { method: 'RT-CR' }>,
+): RowInput[] => document.technique.exposureViews.map((view, index) => {
+  const source = document.technique.source;
+  let exposure = 'Not specified';
+  if (source.sourceType === 'X-ray') {
+    exposure = `${formatValue(view.tubeVoltage, view.tubeVoltageUnit)} / ${formatValue(view.tubeCurrent, view.tubeCurrentUnit)}\n${formatValue(view.exposureTime, view.exposureTimeUnit)}`;
+  } else if (source.sourceType === 'Gamma') {
+    exposure = `${formatValue(source.gamma.isotope)}\n${formatValue(view.exposureTime, view.exposureTimeUnit)}`;
+  }
+  return [
+    formatValue(view.viewId || index + 1),
+    formatIdentity(view.inspectionZone, view.orientation),
+    formatValue(view.wallTechnique),
+    formatRange(view.thicknessMin, view.thicknessMax, view.thicknessUnit),
+    `SFD ${formatValue(view.sfd, view.sfdUnit)}\nSOD ${formatValue(view.sod, view.sodUnit)}\nOFD ${formatValue(view.ofd, view.ofdUnit)}`,
+    exposure,
+    `${formatValue(view.plateSize)}\n${formatIdentity(view.iqiOverride, view.referenceAttachmentId)}`,
   ];
 });
 
@@ -1851,6 +2228,25 @@ const renderTechniqueSchedule = (
       },
     );
   }
+  if (document.method === 'RT-CR') {
+    return renderDataTableSection(
+      pdf,
+      sectionNumber,
+      'CR exposure plan overview',
+      ['VIEW', 'ZONE / ORIENTATION', 'WALL', 'THICKNESS', 'GEOMETRY', 'PLANNED EXPOSURE', 'PLATE / IQI REF'],
+      crExposureSchedule(document),
+      startY,
+      {
+        0: { cellWidth: 13, fontStyle: 'bold', halign: 'center' },
+        1: { cellWidth: 29 },
+        2: { cellWidth: 16 },
+        3: { cellWidth: 26 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 28 },
+        6: { cellWidth: 40 },
+      },
+    );
+  }
   if (document.method === 'RT-Digital') {
     return renderDataTableSection(
       pdf,
@@ -1932,7 +2328,16 @@ const drawSetupDiagram = (
   pdf.setTextColor(...PDF_THEME.white);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(6.7);
-  pdf.text(setup.mode === 'film' ? 'FILM EXPOSURE SETUP' : 'DDA ACQUISITION SETUP', x + 29, startY + 8.7, { align: 'center' });
+  pdf.text(
+    setup.mode === 'film'
+      ? 'FILM EXPOSURE SETUP'
+      : setup.mode === 'cr'
+        ? 'CR EXPOSURE SETUP'
+        : 'DDA ACQUISITION SETUP',
+    x + 29,
+    startY + 8.7,
+    { align: 'center' },
+  );
   pdf.setTextColor(...PDF_THEME.muted);
   pdf.setFontSize(6.1);
   pdf.text('SCHEMATIC / NOT TO SCALE', x + width - 4, startY + 8.6, { align: 'right' });
@@ -1968,7 +2373,7 @@ const drawSetupDiagram = (
   pdf.text('INSPECTION', partX, centerY - 0.5, { align: 'center' });
   pdf.text('ZONE', partX, centerY + 3.3, { align: 'center' });
 
-  pdf.setFillColor(...(setup.mode === 'film' ? PDF_THEME.panel : PDF_THEME.greenSoft));
+  pdf.setFillColor(...(setup.mode === 'dda' ? PDF_THEME.greenSoft : PDF_THEME.panel));
   pdf.setDrawColor(...PDF_THEME.ink);
   pdf.roundedRect(receptorX - 3, centerY - 25, 7, 50, 1, 1, 'FD');
   if (setup.mode === 'dda') {
@@ -2058,10 +2463,60 @@ const renderSetupMapContent = (
 
 const renderSetupMapPage = (
   pdf: jsPDF,
-  document: Extract<RtPtDocumentV3, { method: 'RT-Film' | 'RT-Digital' }>,
+  document: Extract<RtPtDocumentV3, { method: 'RT-Film' | 'RT-Digital' | 'RT-CR' }>,
   itemIndex: number,
   sectionNumber: number,
 ): void => {
+  if (document.method === 'RT-CR') {
+    const item = document.technique.exposureViews[itemIndex];
+    if (!item) return;
+    const sourceLabel = document.technique.source.sourceType === 'Gamma'
+      ? formatIdentity(document.technique.source.gamma.isotope, document.technique.source.gamma.sourceId)
+      : formatIdentity(document.technique.source.manufacturer, document.technique.source.model);
+    const receptorLabel = formatIdentity(
+      document.technique.plateSystem.plateDesignation,
+      item.plateSize,
+    );
+    const heading = `Exposure setup map - ${item.viewId || itemIndex + 1}`;
+    renderSetupMapContent(
+      pdf,
+      sectionNumber,
+      heading,
+      [
+        ['View / Callout', formatIdentity(item.viewId, item.referenceAttachmentId)],
+        ['Zone / Orientation', formatIdentity(item.inspectionZone, item.orientation)],
+        ['Source', sourceLabel],
+        ['Imaging Plate / Cassette', receptorLabel],
+        ['Wall Technique', formatValue(item.wallTechnique)],
+        ['Drawing Basis', 'Schematic / NTS - numeric controlled values govern'],
+      ],
+      {
+        mode: 'cr',
+        title: heading,
+        sourceLabel,
+        partLabel: item.description,
+        receptorLabel,
+        viewId: item.viewId,
+        callout: item.referenceAttachmentId,
+        orientation: item.orientation,
+        inspectionZone: item.inspectionZone,
+        iqiPlacement: item.iqiOverride || document.technique.iqi.placement,
+        markerPlacement: item.identification,
+        distances: {
+          sourceToReceptor: { value: item.sfd, unit: item.sfdUnit },
+          sourceToObject: { value: item.sod, unit: item.sodUnit },
+          objectToReceptor: { value: item.ofd, unit: item.ofdUnit },
+        },
+      },
+      [
+        ['BEAM / COLLIMATION', formatIdentity(item.beamAngle ? `${item.beamAngle} ${item.beamAngleUnit}` : '', item.collimation)],
+        ['IQI / IDENTIFICATION', formatIdentity(item.iqiOverride || document.technique.iqi.placement, item.identification)],
+        ['PLATE / COVERAGE', formatIdentity(item.plateSize, item.overlap)],
+        ['SETUP REFERENCE', formatValue(item.referenceAttachmentId)],
+      ],
+    );
+    return;
+  }
   if (document.method === 'RT-Film') {
     const item = document.technique.exposureViews[itemIndex];
     if (!item) return;
@@ -2160,9 +2615,9 @@ const renderSetupMaps = (
   startSectionNumber: number,
 ): { nextSectionNumber: number; y: number } => {
   if (document.method === 'PT') return { nextSectionNumber: startSectionNumber, y: getLastTableY(pdf) + 6 };
-  const itemCount = document.method === 'RT-Film'
-    ? document.technique.exposureViews.length
-    : document.technique.acquisitions.length;
+  const itemCount = document.method === 'RT-Digital'
+    ? document.technique.acquisitions.length
+    : document.technique.exposureViews.length;
   for (let index = 0; index < itemCount; index += 1) {
     renderSetupMapPage(pdf, document, index, startSectionNumber + index);
   }
@@ -2353,9 +2808,84 @@ const drawPageFurniture = (
   }
 };
 
+const renderAttachmentImages = (
+  pdf: jsPDF,
+  document: RtPtDocumentV3,
+  images: RtPtPdfAttachmentImageMap,
+  sectionNumber: number,
+  startY: number,
+): { y: number; nextSectionNumber: number } => {
+  const referenced = collectRtPtTechniqueImageAttachments(document)
+    .map((metadata) => images.get(metadata.id))
+    .filter((image): image is RtPtPdfAttachmentImage => Boolean(image));
+  if (referenced.length === 0) {
+    return { y: startY, nextSectionNumber: sectionNumber };
+  }
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - PDF_MARGIN * 2;
+  let y = ensureContentSpace(pdf, startY, 34);
+
+  pdf.setFillColor(...PDF_THEME.steel);
+  pdf.roundedRect(PDF_MARGIN, y, contentWidth, 8, 1.2, 1.2, 'F');
+  pdf.setTextColor(...PDF_THEME.white);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+  pdf.text(`${String(sectionNumber).padStart(2, '0')}  ATTACHED REFERENCE IMAGES`, PDF_MARGIN + 3, y + 5.3);
+  y += 11;
+
+  const maximumImageHeight = 110;
+  referenced.forEach((image, index) => {
+    const aspect = image.heightPx / image.widthPx;
+    const width = Math.min(contentWidth, maximumImageHeight / aspect);
+    const height = width * aspect;
+    const captionHeight = 9;
+    y = ensureContentSpace(pdf, y, captionHeight + height + 6);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.4);
+    pdf.setTextColor(...PDF_THEME.ink);
+    pdf.text(
+      truncateToWidth(pdf, `Attachment ${index + 1}: ${image.metadata.name} (${image.metadata.id})`, contentWidth),
+      PDF_MARGIN,
+      y + 3,
+    );
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(6.4);
+    pdf.setTextColor(...PDF_THEME.muted);
+    pdf.text(
+      truncateToWidth(
+        pdf,
+        `SHA-256 ${image.metadata.sha256} - stored content integrity-verified against the controlled document`,
+        contentWidth,
+      ),
+      PDF_MARGIN,
+      y + 6.6,
+    );
+
+    const imageY = y + captionHeight;
+    pdf.addImage(image.dataUrl, image.metadata.mimeType === 'image/png' ? 'PNG' : 'JPEG', PDF_MARGIN, imageY, width, height);
+    pdf.setDrawColor(...PDF_THEME.line);
+    pdf.setLineWidth(0.25);
+    pdf.rect(PDF_MARGIN, imageY, width, height, 'S');
+    y = imageY + height + 6;
+  });
+
+  return { y, nextSectionNumber: sectionNumber + 1 };
+};
+
+export interface RtPtTechniquePdfBuildOptions {
+  /**
+   * Pre-loaded, integrity-verified attachment images (see rtPtPdfAttachments).
+   * Attachments without an entry keep their metadata rows only.
+   */
+  attachmentImages?: RtPtPdfAttachmentImageMap;
+}
+
 export function buildRtPtTechniquePdf(
   document: RtPtDocumentV3,
   callerValidation?: RtPtValidationSummary,
+  options?: RtPtTechniquePdfBuildOptions,
 ): jsPDF {
   void callerValidation;
   const validation = validateRtPtDocument(document);
@@ -2395,7 +2925,9 @@ export function buildRtPtTechniquePdf(
     ? filmSections(document)
     : document.method === 'RT-Digital'
       ? digitalSections(document)
-      : ptSections(document);
+      : document.method === 'RT-CR'
+        ? crSections(document)
+        : ptSections(document);
   for (const section of techniqueSections) {
     const rows = section.title.includes('Planning Aid Only')
       ? section.rows.filter(([, value]) => value !== 'Not specified')
@@ -2403,6 +2935,12 @@ export function buildRtPtTechniquePdf(
     if (rows.length === 0) continue;
     y = renderPairedSection(pdf, sectionNumber, section.title, rows, y);
     sectionNumber += 1;
+  }
+
+  if (options?.attachmentImages && options.attachmentImages.size > 0) {
+    const attachmentBlock = renderAttachmentImages(pdf, document, options.attachmentImages, sectionNumber, y);
+    y = attachmentBlock.y;
+    sectionNumber = attachmentBlock.nextSectionNumber;
   }
 
   const controlledBasis = renderControlledBasis(pdf, document, sectionNumber, y);
@@ -2417,10 +2955,147 @@ export function buildRtPtTechniquePdf(
 export function exportRtPtTechniquePdf(
   document: RtPtDocumentV3,
   callerValidation?: RtPtValidationSummary,
+  options?: RtPtTechniquePdfBuildOptions,
 ): string {
   void callerValidation;
   const validation = validateRtPtDocument(document);
   const filename = getRtPtTechniquePdfFilename(document, validation);
-  buildRtPtTechniquePdf(document, validation).save(filename);
+  buildRtPtTechniquePdf(document, validation, options).save(filename);
+  return filename;
+}
+
+/**
+ * Standalone exposure sheet (RT-Film and RT-CR): the operator-facing shot list
+ * — plus the machine exposure chart on film — released under the same
+ * watermark and fingerprint rules as the technique card it derives from.
+ * Planned values govern per the technique card; this sheet adds no data of
+ * its own.
+ */
+export function buildRtPtFilmExposureSheetPdf(
+  document: RtPtDocumentV3,
+  callerValidation?: RtPtValidationSummary,
+): jsPDF {
+  void callerValidation;
+  if (document.method !== 'RT-Film' && document.method !== 'RT-CR') {
+    throw new Error('The exposure sheet export applies to RT-Film and RT-CR techniques only.');
+  }
+  const isFilm = document.method === 'RT-Film';
+  const sheetLabel = isFilm ? 'FILM EXPOSURE SHEET' : 'CR EXPOSURE SHEET';
+  const release = getRtPtPdfReleaseState(document);
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+
+  pdf.setProperties({
+    title: `${document.documentControl.title || METHOD_TITLE[document.method]} - Exposure Sheet`,
+    subject: `${METHOD_TITLE[document.method]} Exposure Sheet - ${release.controlledRelease
+      ? 'Controlled'
+      : document.status === 'superseded' ? 'Superseded / Uncontrolled' : 'Draft / Uncontrolled'}`,
+    author: document.organization.name || 'RT Inspector',
+    creator: 'RT Inspector',
+    keywords: release.watermark || 'CONTROLLED TECHNIQUE',
+  });
+
+  // Standalone page-one band, mirroring the continuation-page furniture.
+  const docNumber = document.documentControl.number || 'UNNUMBERED';
+  const revision = document.documentControl.revision || '-';
+  pdf.setFillColor(...PDF_THEME.navy);
+  pdf.rect(0, 0, pageWidth, 23, 'F');
+  pdf.setFillColor(...PDF_THEME.steel);
+  pdf.rect(0, 23, pageWidth, 1.2, 'F');
+  pdf.setTextColor(...PDF_THEME.white);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9.2);
+  pdf.text(`RT-PT / ${methodCode(document)}`, PDF_MARGIN, 10.2);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(6.8);
+  pdf.text(`${sheetLabel} - PLANNED EXPOSURES ONLY`, PDF_MARGIN, 16.2);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7.2);
+  pdf.text(`DOC ${docNumber}  \\  REV ${revision}`, pageWidth - PDF_MARGIN, 9.8, { align: 'right' });
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(6.6);
+  pdf.text('VALUES GOVERNED BY THE TECHNIQUE CARD', pageWidth - PDF_MARGIN, 16.2, { align: 'right' });
+
+  const { general, source, exposureDefaults } = document.technique;
+  const basisRows: PdfRow[] = [
+    ['Governing Technique', `DOC ${docNumber} REV ${revision}`],
+    ['Part', formatIdentity(general.partName, general.partNumber)],
+    ['Planned Inspection Date', formatValue(general.date)],
+    ['Procedure Number', formatValue(general.procedureNumber)],
+    ['Planned Radiation Source', formatIdentity(source.sourceType, source.manufacturer, source.model, source.serialNumber)],
+  ];
+  if (document.method === 'RT-Film') {
+    const { filmSystem } = document.technique;
+    basisRows.push(
+      ['Film System', formatIdentity(filmSystem.filmDesignation, filmSystem.filmClass)],
+      ['Required Density Range', formatRange(filmSystem.requiredDensityMin, filmSystem.requiredDensityMax, '')],
+    );
+  } else {
+    const { plateSystem, scanner, imageQuality } = document.technique;
+    basisRows.push(
+      ['Imaging Plate System', formatIdentity(plateSystem.plateDesignation, plateSystem.plateClass)],
+      ['Planned Scan Resolution', formatValue(scanner.scanResolutionPixelsPerMm, 'px/mm')],
+      ['Required Grey-Value Window', formatRange(imageQuality.greyValueMin, imageQuality.greyValueMax, '')],
+      ['Maximum Exposure-to-Scan Delay', formatValue(imageQuality.maxScanDelay, imageQuality.maxScanDelayUnit)],
+    );
+  }
+  basisRows.push(['Default SFD', formatValue(exposureDefaults.sfd, exposureDefaults.sfdUnit)]);
+  if (source.sourceType === 'Gamma') {
+    basisRows.push(
+      ['Gamma Source', formatIdentity(source.gamma.isotope, source.gamma.sourceId)],
+      ['Referenced Activity', `${formatValue(source.gamma.activity, source.gamma.activityUnit)} on ${formatValue(source.gamma.activityReferenceDate)}`],
+    );
+    const isotope = resolveRtIsotope(source.gamma.isotope);
+    if (isotope) {
+      const decay = calculateDecayedActivity(
+        source.gamma.activity,
+        source.gamma.activityReferenceDate,
+        general.date,
+        isotope.halfLifeDays,
+      );
+      if (decay && decay.elapsedDays >= 0) {
+        const activityUnitSuffix = source.gamma.activityUnit ? ` ${source.gamma.activityUnit}` : '';
+        basisRows.push([
+          'Computed Activity at Planned Inspection Date',
+          `${decay.decayedActivity}${activityUnitSuffix} (decay factor ${decay.decayFactor}; exposure time x${decay.exposureTimeMultiplier})`,
+        ]);
+      }
+    }
+  }
+
+  let sectionNumber = 1;
+  let y = renderPairedSection(pdf, sectionNumber, 'Exposure sheet basis', basisRows, PDF_CONTENT_TOP);
+  sectionNumber += 1;
+  y = renderTechniqueSchedule(pdf, document, sectionNumber, y);
+  sectionNumber += 1;
+  if (document.method === 'RT-Film') {
+    renderFilmExposureChart(pdf, document, sectionNumber, y);
+  }
+
+  drawPageFurniture(pdf, document, release);
+  return pdf;
+}
+
+export function getRtPtFilmExposureSheetPdfFilename(
+  document: RtPtDocumentV3,
+  callerValidation?: RtPtValidationSummary,
+): string {
+  void callerValidation;
+  const release = getRtPtPdfReleaseState(document);
+  const identity = document.documentControl.number || activePartToken(document);
+  const revision = document.documentControl.revision
+    ? `-REV-${safeFileToken(document.documentControl.revision)}`
+    : '';
+  const methodToken = document.method === 'RT-CR' ? 'CR' : 'FILM';
+  return `${release.filenamePrefix}RTPT-${methodToken}-EXPOSURE-SHEET-${safeFileToken(identity)}${revision}.pdf`;
+}
+
+export function exportRtPtFilmExposureSheetPdf(
+  document: RtPtDocumentV3,
+  callerValidation?: RtPtValidationSummary,
+): string {
+  void callerValidation;
+  const filename = getRtPtFilmExposureSheetPdfFilename(document);
+  buildRtPtFilmExposureSheetPdf(document).save(filename);
   return filename;
 }

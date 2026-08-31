@@ -160,6 +160,67 @@ export interface RtFilmPerformedResult {
   remarks: string;
 }
 
+export interface RtCrPlannedResultBasis {
+  viewId: string;
+  description: string;
+  orientation: string;
+  inspectionZone: string;
+  referenceAttachmentId: string;
+  wallTechnique: string;
+  sourceType: 'X-ray' | 'Gamma' | '';
+  sfd: NumberOrEmpty;
+  sfdUnit: LengthUnit;
+  sod: NumberOrEmpty;
+  sodUnit: LengthUnit;
+  ofd: NumberOrEmpty;
+  ofdUnit: LengthUnit;
+  tubeVoltage: NumberOrEmpty;
+  tubeVoltageUnit: VoltageUnit;
+  tubeCurrent: NumberOrEmpty;
+  tubeCurrentUnit: CurrentUnit;
+  exposureTime: NumberOrEmpty;
+  exposureTimeUnit: TimeUnit;
+  plateDesignation: string;
+  iqiRequirement: string;
+  greyValueMin: NumberOrEmpty;
+  greyValueMax: NumberOrEmpty;
+  requiredSnrMin: NumberOrEmpty;
+}
+
+export interface RtCrPerformedResult {
+  id: string;
+  plannedItemId: string;
+  planned: RtCrPlannedResultBasis;
+  plateOrImageId: string;
+  retakeOfImageId: string;
+  exposureDate: string;
+  scanDate: string;
+  actualSfd: NumberOrEmpty;
+  actualSfdUnit: LengthUnit;
+  actualSod: NumberOrEmpty;
+  actualSodUnit: LengthUnit;
+  actualOfd: NumberOrEmpty;
+  actualOfdUnit: LengthUnit;
+  actualTubeVoltage: NumberOrEmpty;
+  actualTubeVoltageUnit: VoltageUnit | '';
+  actualTubeCurrent: NumberOrEmpty;
+  actualTubeCurrentUnit: CurrentUnit | '';
+  actualSourceActivity: NumberOrEmpty;
+  actualSourceActivityUnit: string;
+  actualExposureTime: NumberOrEmpty;
+  actualExposureTimeUnit: TimeUnit;
+  greyValueMin: NumberOrEmpty;
+  greyValueMax: NumberOrEmpty;
+  achievedSnr: NumberOrEmpty;
+  achievedSrb: NumberOrEmpty;
+  snrRequirementMet: RtPtBooleanOrEmpty;
+  iqiObserved: string;
+  iqiRequirementMet: RtPtBooleanOrEmpty;
+  coverageConfirmed: RtPtBooleanOrEmpty;
+  result: RtPtInspectionResult;
+  remarks: string;
+}
+
 export interface RtDigitalPlannedResultBasis {
   viewId: string;
   description: string;
@@ -330,6 +391,7 @@ export interface PtPerformedResults {
 export type RtPtInspectionReportV1 = RtPtInspectionReportBase & (
   | { method: 'RT-Film'; results: RtFilmPerformedResult[] }
   | { method: 'RT-Digital'; results: RtDigitalPerformedResult[] }
+  | { method: 'RT-CR'; results: RtCrPerformedResult[] }
   | { method: 'PT'; results: PtPerformedResults }
 );
 

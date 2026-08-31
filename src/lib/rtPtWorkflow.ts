@@ -33,7 +33,12 @@ export interface RtPtWorkflowSnapshot {
 }
 
 export function resolveRtPtWorkflowTab(method: RtPtMethod, issueTab: string): string {
-  if (issueTab === 'source') return method === 'RT-Film' ? 'equipment' : 'source';
+  if (issueTab === 'source') return method === 'RT-Film' || method === 'RT-CR' ? 'equipment' : 'source';
+  if (method === 'RT-CR') {
+    if (issueTab === 'iqi') return 'iqc';
+    if (issueTab === 'image') return 'image';
+    if (issueTab === 'plate') return 'plate';
+  }
   if (method === 'RT-Digital') {
     if (issueTab === 'system' || issueTab === 'detector') return 'detector';
     if (issueTab === 'geometry' || issueTab === 'engineering') return 'engineering';

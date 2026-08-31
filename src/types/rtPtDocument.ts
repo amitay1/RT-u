@@ -1,4 +1,5 @@
 import type { PtSheet, PtTechnique } from '@/types/penetrant';
+import type { RtCrSheet, RtCrTechnique } from '@/types/rtCr';
 import type { RtDigitalSheet, RtDigitalTechnique } from '@/types/rtDigital';
 import type { RtFilmSheet, RtFilmTechnique } from '@/types/rtFilm';
 
@@ -6,7 +7,7 @@ export const RT_PT_DOCUMENT_KIND = 'rtpt-document' as const;
 export const RT_PT_DOCUMENT_VERSION = 3 as const;
 export const RT_PT_DOCUMENT_TYPE = 'technique' as const;
 
-export type RtPtMethod = 'RT-Film' | 'RT-Digital' | 'PT';
+export type RtPtMethod = 'RT-Film' | 'RT-Digital' | 'RT-CR' | 'PT';
 export type RtPtDocumentStatus = 'draft' | 'in-review' | 'approved' | 'superseded';
 export type RtPtUnitSystem = 'SI' | 'US-customary';
 export type RtPtApprovalRole =
@@ -20,6 +21,7 @@ export type RtPtApprovalRole =
 export interface RtPtActiveTabs {
   rtFilm: string;
   rtDigital: string;
+  rtCr: string;
   pt: string;
 }
 
@@ -123,6 +125,7 @@ interface RtPtDocumentV3Base {
 export type RtPtDocumentV3 = RtPtDocumentV3Base & (
   | { method: 'RT-Film'; technique: RtFilmTechnique }
   | { method: 'RT-Digital'; technique: RtDigitalTechnique }
+  | { method: 'RT-CR'; technique: RtCrTechnique }
   | { method: 'PT'; technique: PtTechnique }
 );
 
@@ -170,6 +173,7 @@ export type RtPtDocumentV1 = RtPtLegacyDocumentV1;
 export const DEFAULT_RT_PT_ACTIVE_TABS: RtPtActiveTabs = {
   rtFilm: 'general',
   rtDigital: 'general',
+  rtCr: 'general',
   pt: 'general',
 };
 
@@ -194,6 +198,7 @@ export const EMPTY_RT_PT_JOB: RtPtJob = {
 export const RT_PT_METHOD_LABEL: Record<RtPtMethod, string> = {
   'RT-Film': 'Film radiographic testing',
   'RT-Digital': 'Digital radiographic testing (DDA)',
+  'RT-CR': 'Computed radiographic testing (CR)',
   PT: 'Liquid penetrant testing',
 };
 
@@ -201,6 +206,7 @@ export const RT_PT_METHOD_LABEL: Record<RtPtMethod, string> = {
 export const RT_PT_REFERENCE_SUGGESTIONS: Record<RtPtMethod, string> = {
   'RT-Film': 'Suggested reference to verify: ASTM E1742/E1742M (select the contractually applicable revision)',
   'RT-Digital': 'Suggested reference to verify: ASTM E2698 (select the contractually applicable revision)',
+  'RT-CR': 'Suggested reference to verify: ASTM E2033 (select the contractually applicable revision)',
   PT: 'Suggested reference to verify: ASTM E1417/E1417M (select the contractually applicable revision)',
 };
 
@@ -208,6 +214,7 @@ export const RT_PT_REFERENCE_SUGGESTIONS: Record<RtPtMethod, string> = {
 export const RT_PT_STANDARD_LABEL: Record<RtPtMethod, string> = {
   'RT-Film': 'Film RT - controlled reference not selected',
   'RT-Digital': 'Digital RT - controlled reference not selected',
+  'RT-CR': 'CR RT - controlled reference not selected',
   PT: 'PT - controlled reference not selected',
 };
 
@@ -217,4 +224,4 @@ export type RtPtDecodeResult =
   | { status: 'unsupported-version'; version: number; message: string }
   | { status: 'invalid'; message: string };
 
-export type { PtSheet, PtTechnique, RtDigitalSheet, RtDigitalTechnique, RtFilmSheet, RtFilmTechnique };
+export type { PtSheet, PtTechnique, RtCrSheet, RtCrTechnique, RtDigitalSheet, RtDigitalTechnique, RtFilmSheet, RtFilmTechnique };

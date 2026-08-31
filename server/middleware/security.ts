@@ -55,9 +55,10 @@ export const corsOptions = {
 
     // The supported standalone browser/PWA is hard-bound to loopback. Allow
     // its own origin in production without broadening access to remote sites.
-    const localPort = /^\d{1,5}$/u.test(String(process.env.PORT || '5000'))
-      ? String(process.env.PORT || '5000')
-      : '5000';
+    // The fallback must match the server's default PORT in server/index.ts.
+    const localPort = /^\d{1,5}$/u.test(String(process.env.PORT || '5199'))
+      ? String(process.env.PORT || '5199')
+      : '5199';
     [
       `http://127.0.0.1:${localPort}`,
       `http://localhost:${localPort}`,

@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { BookOpenCheck, Camera, Droplets, FilePlus2, Film, Layers3 } from 'lucide-react';
+import { BookOpenCheck, Camera, ChevronRight, Droplets, FilePlus2, Film, ScanLine } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProfileIndicator } from '@/components/inspector';
 import {
@@ -39,6 +39,13 @@ const METHOD_META: MethodMeta[] = [
     tabCount: 9,
   },
   {
+    id: 'RT-CR',
+    label: 'RT Computed Radiography',
+    summary: 'Controlled CR technique planning for exposure geometry, imaging-plate system, scanner readout and scanned-image quality requirements.',
+    Icon: ScanLine,
+    tabCount: 9,
+  },
+  {
     id: 'PT',
     label: 'Penetrant Testing',
     summary: 'Controlled liquid-penetrant technique planning for approved materials, surface preparation, application, removal, development and viewing conditions.',
@@ -71,7 +78,11 @@ export const RtPtSidebar = ({ method, onMethodChange, compact = false }: RtPtSid
           <div className="flex flex-wrap items-center justify-end gap-1.5" aria-label="Start another technique">
             {METHOD_META.filter(m => m.id !== method).map(m => {
               const Icon = m.Icon;
-              const shortLabel = m.id === 'RT-Digital' ? 'Digital / DDA' : m.id === 'PT' ? 'PT' : 'Film';
+              const shortLabel = m.id === 'RT-Digital'
+                ? 'Digital / DDA'
+                : m.id === 'RT-CR'
+                  ? 'CR'
+                  : m.id === 'PT' ? 'PT' : 'Film';
               return (
                 <button
                   key={m.id}
@@ -104,7 +115,7 @@ export const RtPtSidebar = ({ method, onMethodChange, compact = false }: RtPtSid
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="workbench-group overflow-hidden p-4" aria-labelledby={activeTitleId}>
+      <section className="workbench-group workbench-group-active overflow-hidden p-4" aria-labelledby={activeTitleId}>
         <div className="flex items-center gap-3">
           <div className="workbench-brand-mark h-10 w-10 flex-none">
             <ActiveIcon className="h-5 w-5" />
@@ -120,20 +131,20 @@ export const RtPtSidebar = ({ method, onMethodChange, compact = false }: RtPtSid
         </div>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{active.summary}</p>
         <div className="mt-3 rounded-lg border border-border/70 bg-background/40 p-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-foreground/80">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             <BookOpenCheck className="h-4 w-4 text-primary" />
             Reference guidance
           </div>
           <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{RT_PT_REFERENCE_SUGGESTIONS[active.id]}</p>
-          <p className="mt-2 text-[11px] font-medium text-warning">Confirm the applicable revision and customer requirements.</p>
+          <p className="mt-2 border-l-2 border-warning/60 pl-2 text-[11px] font-medium leading-relaxed text-warning/90">Confirm the applicable revision and customer requirements.</p>
         </div>
       </section>
 
-      <section aria-labelledby={newTechniqueTitleId}>
+      <section className="border-t border-border/60 pt-4" aria-labelledby={newTechniqueTitleId}>
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
           <div>
-            <h4 id={newTechniqueTitleId} className="text-sm font-semibold">New technique</h4>
-            <p className="text-xs text-muted-foreground">Creates a separate controlled document</p>
+            <h4 id={newTechniqueTitleId} className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">New technique</h4>
+            <p className="mt-0.5 text-xs text-muted-foreground/80">Creates a separate controlled document</p>
           </div>
           <FilePlus2 className="h-4 w-4 flex-none text-muted-foreground" />
         </div>
@@ -145,25 +156,29 @@ export const RtPtSidebar = ({ method, onMethodChange, compact = false }: RtPtSid
                 key={m.id}
                 type="button"
                 onClick={() => onMethodChange?.(m.id)}
-                aria-label={m.id === 'RT-Digital' ? 'RT Digital' : m.id === 'PT' ? 'PT' : 'RT Film'}
+                aria-label={m.id === 'RT-Digital'
+                  ? 'RT Digital'
+                  : m.id === 'RT-CR'
+                    ? 'RT Computed Radiography'
+                    : m.id === 'PT' ? 'PT' : 'RT Film'}
                 aria-describedby={`${sidebarId}-${m.id}-new-document-note`}
-                className="group flex items-center gap-3 rounded-lg border border-border/75 bg-background/40 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="group flex items-center gap-3 rounded-lg border border-border/75 bg-background/40 px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-accent hover:shadow-[var(--shadow-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <span className="grid h-8 w-8 flex-none place-items-center rounded-md border border-border/70 bg-muted/60 text-muted-foreground group-hover:text-primary">
+                <span className="workbench-brand-mark h-8 w-8 flex-none opacity-80 transition-opacity group-hover:opacity-100">
                   <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold leading-tight">Start {m.label}</span>
                   <span id={`${sidebarId}-${m.id}-new-document-note`} className="mt-0.5 block text-xs text-muted-foreground">New document · {m.tabCount} workflow steps</span>
                 </div>
-                <Layers3 className="h-4 w-4 flex-none text-muted-foreground/70" />
+                <ChevronRight className="h-4 w-4 flex-none text-muted-foreground/50 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-primary" />
               </button>
             );
           })}
         </div>
       </section>
 
-      <section className="rounded-lg border border-border/70 bg-background/30 p-3" aria-label="Active inspector">
+      <section className="workbench-group p-3" aria-label="Active inspector">
         <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Inspector</span>
         <ProfileIndicator variant="compact" className="border-0 bg-transparent p-0 shadow-none hover:bg-transparent" />
       </section>

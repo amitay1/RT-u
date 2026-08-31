@@ -8,6 +8,7 @@ import {
   Film,
   Link2,
   Plus,
+  ScanLine,
   ShieldCheck,
   Trash2,
   UserCheck,
@@ -61,6 +62,7 @@ import {
 } from '@/types/rtPtDocument';
 import type {
   PtPerformedResults,
+  RtCrPerformedResult,
   RtDigitalPerformedResult,
   RtFilmPerformedResult,
   RtPtBooleanOrEmpty,
@@ -97,6 +99,7 @@ const STATUS_LABELS: Record<RtPtInspectionReportStatus, string> = {
 const METHOD_ICONS: Record<RtPtMethod, typeof Film> = {
   'RT-Film': Film,
   'RT-Digital': Camera,
+  'RT-CR': ScanLine,
   PT: Droplets,
 };
 
@@ -473,6 +476,113 @@ function FilmResults({ controller, disabled }: ResultSectionProps) {
   );
 }
 
+function CrResults({ controller, disabled }: ResultSectionProps) {
+  const report = controller.report.method === 'RT-CR' ? controller.report : null;
+  if (!report) return null;
+
+  const updateResult = (id: string, patch: Partial<Omit<RtCrPerformedResult, 'id' | 'planned' | 'plannedItemId'>>) => {
+    controller.updateReport((current) => {
+      if (current.method !== 'RT-CR') return current;
+      return {
+        ...current,
+        results: current.results.map((result) => result.id === id ? { ...result, ...patch } : result),
+      };
+    });
+  };
+
+  if (report.results.length === 0) {
+    return (
+      <Card className="border-warning/30 bg-warning/5">
+        <CardContent className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
+          <AlertTriangle className="h-8 w-8 text-warning" aria-hidden="true" />
+          <div className="mt-3 text-sm font-semibold">No linked exposure views</div>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">Restart this report from a current approved technique that contains at least one planned exposure view.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <fieldset disabled={disabled} className="disabled:opacity-70">
+      <Accordion type="single" collapsible defaultValue={report.results[0]?.id} className="space-y-3">
+        {report.results.map((result, index) => {
+          const issueCount = controller.validation.issues.filter((issue) => issue.path.startsWith(`results[${index}]`)).length;
+          return (
+            <AccordionItem key={result.id} value={result.id} className="rounded-2xl border border-border/80 bg-card px-4 shadow-sm">
+              <AccordionTrigger className="gap-3 text-left hover:no-underline">
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <span className="font-semibold">View {index + 1}</span>
+                  <span className="max-w-56 truncate text-muted-foreground">{result.planned.viewId || 'Unidentified planned view'}</span>
+                  <Badge variant={resultBadgeVariant(result.result)}>{resultLabel(result.result)}</Badge>
+                  {issueCount > 0 && <Badge variant="outline">{issueCount} item{issueCount === 1 ? '' : 's'} to complete</Badge>}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                <div className="grid gap-4 xl:grid-cols-[minmax(18rem,0.8fr)_minmax(30rem,1.35fr)]">
+                  <PlannedPanel>
+                    <ReadOnlyDatum label="View ID" value={result.planned.viewId} />
+                    <ReadOnlyDatum label="Description" value={result.planned.description} />
+                    <ReadOnlyDatum label="Orientation" value={result.planned.orientation} />
+                    <ReadOnlyDatum label="Inspection zone" value={result.planned.inspectionZone} />
+                    <ReadOnlyDatum label="Wall technique" value={result.planned.wallTechnique} />
+                    <ReadOnlyDatum label="Source" value={result.planned.sourceType} />
+                    <ReadOnlyDatum label="Planned SFD" value={displayMeasure(result.planned.sfd, result.planned.sfdUnit)} />
+                    <ReadOnlyDatum label="Planned SOD / OFD" value={`${displayMeasure(result.planned.sod, result.planned.sodUnit)} / ${displayMeasure(result.planned.ofd, result.planned.ofdUnit)}`} />
+                    {result.planned.sourceType === 'X-ray' && (
+                      <>
+                        <ReadOnlyDatum label="Planned tube voltage" value={displayMeasure(result.planned.tubeVoltage, result.planned.tubeVoltageUnit)} />
+                        <ReadOnlyDatum label="Planned tube current" value={displayMeasure(result.planned.tubeCurrent, result.planned.tubeCurrentUnit)} />
+                      </>
+                    )}
+                    <ReadOnlyDatum label="Planned exposure" value={displayMeasure(result.planned.exposureTime, result.planned.exposureTimeUnit)} />
+                    <ReadOnlyDatum label="Plate / IQI" value={`${displayValue(result.planned.plateDesignation)} / ${displayValue(result.planned.iqiRequirement)}`} />
+                    <ReadOnlyDatum label="Required grey-value window" value={`${displayValue(result.planned.greyValueMin)} – ${displayValue(result.planned.greyValueMax)}`} />
+                    <ReadOnlyDatum label="Required minimum SNR" value={displayValue(result.planned.requiredSnrMin)} />
+                    <ReadOnlyDatum label="Attachment reference" value={result.planned.referenceAttachmentId} />
+                  </PlannedPanel>
+                  <PerformedPanel>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <TextField label="Actual Plate / Image ID" value={result.plateOrImageId} onChange={(plateOrImageId) => updateResult(result.id, { plateOrImageId })} />
+                      <TextField label="Retake of Plate / Image ID" value={result.retakeOfImageId} onChange={(retakeOfImageId) => updateResult(result.id, { retakeOfImageId })} hint="leave blank when not a retake" />
+                      <DateField label="Exposure Date" value={result.exposureDate} onChange={(exposureDate) => updateResult(result.id, { exposureDate })} />
+                      <DateField label="Plate Scan Date" value={result.scanDate} onChange={(scanDate) => updateResult(result.id, { scanDate })} />
+                      <NumberWithUnit label="Actual SFD" value={result.actualSfd} unit={result.actualSfdUnit} options={LENGTH_UNITS} onValueChange={(actualSfd) => updateResult(result.id, { actualSfd })} onUnitChange={(actualSfdUnit) => updateResult(result.id, { actualSfdUnit })} />
+                      <NumberWithUnit label="Actual SOD" value={result.actualSod} unit={result.actualSodUnit} options={LENGTH_UNITS} onValueChange={(actualSod) => updateResult(result.id, { actualSod })} onUnitChange={(actualSodUnit) => updateResult(result.id, { actualSodUnit })} />
+                      <NumberWithUnit label="Actual OFD" value={result.actualOfd} unit={result.actualOfdUnit} options={LENGTH_UNITS} onValueChange={(actualOfd) => updateResult(result.id, { actualOfd })} onUnitChange={(actualOfdUnit) => updateResult(result.id, { actualOfdUnit })} />
+                      {result.planned.sourceType === 'X-ray' ? (
+                        <>
+                          <NumberField label="Actual Tube Voltage" value={result.actualTubeVoltage} onChange={(actualTubeVoltage) => updateResult(result.id, { actualTubeVoltage })} unit={result.actualTubeVoltageUnit} min={0} />
+                          <NumberField label="Actual Tube Current" value={result.actualTubeCurrent} onChange={(actualTubeCurrent) => updateResult(result.id, { actualTubeCurrent })} unit={result.actualTubeCurrentUnit} min={0} />
+                        </>
+                      ) : (
+                        <>
+                          <NumberField label="Actual Source Activity" value={result.actualSourceActivity} onChange={(actualSourceActivity) => updateResult(result.id, { actualSourceActivity })} min={0} />
+                          <TextField label="Activity Unit" value={result.actualSourceActivityUnit} onChange={(actualSourceActivityUnit) => updateResult(result.id, { actualSourceActivityUnit })} />
+                        </>
+                      )}
+                      <NumberWithUnit label="Actual Exposure Time" value={result.actualExposureTime} unit={result.actualExposureTimeUnit} options={TIME_UNITS} onValueChange={(actualExposureTime) => updateResult(result.id, { actualExposureTime })} onUnitChange={(actualExposureTimeUnit) => updateResult(result.id, { actualExposureTimeUnit })} />
+                      <NumberField label="Achieved Grey-Value Minimum" value={result.greyValueMin} onChange={(greyValueMin) => updateResult(result.id, { greyValueMin })} min={0} />
+                      <NumberField label="Achieved Grey-Value Maximum" value={result.greyValueMax} onChange={(greyValueMax) => updateResult(result.id, { greyValueMax })} min={0} />
+                      <NumberField label="Achieved SNR" value={result.achievedSnr} onChange={(achievedSnr) => updateResult(result.id, { achievedSnr })} min={0} />
+                      <NumberField label="Achieved SRb" value={result.achievedSrb} onChange={(achievedSrb) => updateResult(result.id, { achievedSrb })} min={0} />
+                      <BooleanChoiceField label="SNR Requirement Met" value={result.snrRequirementMet} onChange={(snrRequirementMet) => updateResult(result.id, { snrRequirementMet })} hint="Explicit performed confirmation against the planned minimum SNR" />
+                      <TextField label="IQI Observed" value={result.iqiObserved} onChange={(iqiObserved) => updateResult(result.id, { iqiObserved })} placeholder="Observed wire, hole, or sensitivity" />
+                      <BooleanChoiceField label="IQI Requirement Met" value={result.iqiRequirementMet} onChange={(iqiRequirementMet) => updateResult(result.id, { iqiRequirementMet })} hint="Explicit performed confirmation; not inferred from the observation text" />
+                      <BooleanChoiceField label="Planned Coverage Confirmed" value={result.coverageConfirmed} onChange={(coverageConfirmed) => updateResult(result.id, { coverageConfirmed })} />
+                      <SelectField label="Result" value={result.result} onChange={(value) => updateResult(result.id, { result: value })} options={RESULT_OPTIONS} />
+                      <TextAreaField label="Result Remarks" value={result.remarks} onChange={(remarks) => updateResult(result.id, { remarks })} rows={3} />
+                    </div>
+                  </PerformedPanel>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </fieldset>
+  );
+}
+
 function DigitalResults({ controller, disabled }: ResultSectionProps) {
   const report = controller.report.method === 'RT-Digital' ? controller.report : null;
   if (!report) return null;
@@ -773,7 +883,7 @@ function IndicationsSection({ controller, disabled }: IndicationsSectionProps) {
     ? []
     : report.results.map((result, index) => ({
         id: result.id,
-        label: `${report.method === 'RT-Film' ? 'View' : 'Acquisition'} ${index + 1} — ${result.planned.viewId || result.id}`,
+        label: `${report.method === 'RT-Digital' ? 'Acquisition' : 'View'} ${index + 1} — ${result.planned.viewId || result.id}`,
       }));
 
   const addIndication = () => updateReport((current) => ({
@@ -1213,7 +1323,9 @@ export function RtPtInspectionWorkspace({ controller, technique }: RtPtInspectio
               ? <FilmResults controller={controller} disabled={isSuperseded} />
               : report.method === 'RT-Digital'
                 ? <DigitalResults controller={controller} disabled={isSuperseded} />
-                : <PtResults controller={controller} disabled={isSuperseded} />}
+                : report.method === 'RT-CR'
+                  ? <CrResults controller={controller} disabled={isSuperseded} />
+                  : <PtResults controller={controller} disabled={isSuperseded} />}
           </TabsContent>
           <TabsContent value="indications" className="m-0"><IndicationsSection controller={controller} disabled={isSuperseded} /></TabsContent>
           <TabsContent value="review" className="m-0"><ReviewSection controller={controller} disabled={isSuperseded} onSelectIssue={selectIssue} /></TabsContent>

@@ -4,7 +4,8 @@ import morgan from "morgan";
 import { config } from "dotenv";
 import { registerRtPtRoutes, type RtPtOrganizationSummary } from "./rtptRoutes";
 import { DbStorage } from "./storage";
-import { db } from "./db";
+import { MemoryStorage } from "./memoryStorage";
+import { db, isRtPtDatabaseConfigured } from "./db";
 import { organizations } from "../shared/schema";
 import { eq } from "drizzle-orm";
 import { setupVite } from "./vite";
@@ -27,6 +28,7 @@ import {
 import logger, { stream } from "./utils/logger";
 import compression from "compression";
 import { createStandaloneRtPtLicenseRuntime } from "./rtptLicenseRuntime";
+import { registerUnifiedStorageRoutes } from "./unifiedStorageRoutes";
 
 // Load environment variables
 config();
@@ -192,7 +194,23 @@ async function resolveLocalOrganization(): Promise<RtPtOrganizationSummary> {
 
 let localOrganizationPromise: Promise<RtPtOrganizationSummary> | undefined;
 
+const memoryLocalOrganization: RtPtOrganizationSummary = {
+  id: LOCAL_ORGANIZATION_ID,
+  name: "RT/PT Local Workspace (non-persistent)",
+  slug: LOCAL_ORGANIZATION_SLUG,
+  domain: null,
+  plan: "free",
+  isActive: true,
+  maxUsers: 999,
+  maxSheets: 99_999,
+  settings: {},
+  userRole: "owner",
+};
+
 async function listLocalOrganizations(_userId: string): Promise<RtPtOrganizationSummary[]> {
+  if (!isRtPtDatabaseConfigured) {
+    return [memoryLocalOrganization];
+  }
   if (!localOrganizationPromise) {
     localOrganizationPromise = resolveLocalOrganization();
   }
@@ -215,10 +233,22 @@ async function listLocalOrganizations(_userId: string): Promise<RtPtOrganization
   const rtPtLicenseRuntime = createStandaloneRtPtLicenseRuntime();
   rtPtLicenseRuntime.register(app);
 
+  // Same-machine shared storage (saved cards, settings, profiles) for the
+  // browser/PWA surface — parity with the desktop shell's unified storage.
+  // License-gated above alongside the other document APIs.
+  registerUnifiedStorageRoutes(app);
+
   // Register only the standalone RT/PT API. Header identity is permitted here
   // solely because this process is hard-bound to loopback above.
+  if (!isRtPtDatabaseConfigured) {
+    console.warn(
+      "⚠️  RTPT_DATABASE_URL is not set — running with NON-PERSISTENT in-memory storage for local development. "
+        + "Server-side sheets and profiles are lost on restart (browser-side drafts and saved cards are unaffected). "
+        + "Generic DATABASE_URL credentials remain intentionally ignored.",
+    );
+  }
   registerRtPtRoutes(app, {
-    storage: new DbStorage(),
+    storage: isRtPtDatabaseConfigured ? new DbStorage() : new MemoryStorage(),
     listOrganizations: listLocalOrganizations,
   });
 

@@ -1,4 +1,4 @@
-export type RtRadiographySetupMode = 'film' | 'dda';
+export type RtRadiographySetupMode = 'film' | 'cr' | 'dda';
 
 export type RtSetupLengthUnit = 'mm' | 'inch' | 'in';
 
@@ -140,9 +140,18 @@ function dimension(
 }
 
 export function normalizeRtSetupDiagram(input: RtSetupDiagramInput): NormalizedRtSetupDiagram {
-  const isFilm = input.mode === 'film';
-  const methodLabel = isFilm ? 'RT Film' : 'RT Digital / DDA';
-  const receptorHeading = isFilm ? 'Film / cassette' : 'DDA detector';
+  // CR shares film's SFD-based geometry; only its receptor and method labels differ.
+  const isSfdGeometry = input.mode === 'film' || input.mode === 'cr';
+  const methodLabel = input.mode === 'film'
+    ? 'RT Film'
+    : input.mode === 'cr'
+      ? 'RT Computed Radiography'
+      : 'RT Digital / DDA';
+  const receptorHeading = input.mode === 'film'
+    ? 'Film / cassette'
+    : input.mode === 'cr'
+      ? 'Imaging plate / cassette'
+      : 'DDA detector';
   const viewId = normalizeDisplayText(input.viewId, 'Unassigned view');
   const callout = normalizeDisplayText(input.callout, NOT_SPECIFIED);
   const viewCallout = callout === NOT_SPECIFIED ? viewId : `${viewId} · ${callout}`;
@@ -151,7 +160,7 @@ export function normalizeRtSetupDiagram(input: RtSetupDiagramInput): NormalizedR
     mode: input.mode,
     methodLabel,
     title: normalizeDisplayText(input.title, `${methodLabel} setup`),
-    sourceHeading: isFilm ? 'Radiation source' : 'X-ray source',
+    sourceHeading: isSfdGeometry ? 'Radiation source' : 'X-ray source',
     sourceLabel: normalizeDisplayText(input.sourceLabel, 'Equipment not specified'),
     partLabel: normalizeDisplayText(input.partLabel, 'Test part'),
     receptorHeading,
@@ -165,8 +174,12 @@ export function normalizeRtSetupDiagram(input: RtSetupDiagramInput): NormalizedR
     markerPlacement: normalizeDisplayText(input.markerPlacement, NOT_SPECIFIED),
     dimensions: {
       sourceToReceptor: dimension(
-        isFilm ? 'SFD' : 'SDD',
-        isFilm ? 'Source-to-film distance' : 'Source-to-detector distance',
+        isSfdGeometry ? 'SFD' : 'SDD',
+        input.mode === 'film'
+          ? 'Source-to-film distance'
+          : input.mode === 'cr'
+            ? 'Source-to-plate distance'
+            : 'Source-to-detector distance',
         input.distances?.sourceToReceptor,
       ),
       sourceToObject: dimension(
@@ -175,8 +188,12 @@ export function normalizeRtSetupDiagram(input: RtSetupDiagramInput): NormalizedR
         input.distances?.sourceToObject,
       ),
       objectToReceptor: dimension(
-        isFilm ? 'OFD' : 'ODD',
-        isFilm ? 'Object-to-film distance' : 'Object-to-detector distance',
+        isSfdGeometry ? 'OFD' : 'ODD',
+        input.mode === 'film'
+          ? 'Object-to-film distance'
+          : input.mode === 'cr'
+            ? 'Object-to-plate distance'
+            : 'Object-to-detector distance',
         input.distances?.objectToReceptor,
       ),
     },

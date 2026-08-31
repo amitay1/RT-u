@@ -1,10 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { LengthUnit, RtFilmSource } from '@/types/rtFilm';
+import type { LengthUnit, RtFilmGeneralInfo, RtFilmSource } from '@/types/rtFilm';
 import { DateField, NumberField, SelectField, TextField } from '@/components/tabs/shared/FieldRow';
 import { RtFilmExposureAnchorEditor } from '@/components/tabs/rt-film/RtFilmExposureChart';
+import { GammaDecayPlanningPanel } from '@/components/tabs/shared/GammaDecayPlanningPanel';
+import { RT_SUPPORTED_ISOTOPE_IDS as SUPPORTED_ISOTOPES } from '@/lib/rtIsotopeDecay';
 
 interface Props {
   data: RtFilmSource;
+  general: RtFilmGeneralInfo;
   onChange: (data: RtFilmSource) => void;
 }
 
@@ -13,7 +16,7 @@ const LENGTH_UNITS: ReadonlyArray<{ label: string; value: LengthUnit }> = [
   { label: 'inch', value: 'inch' },
 ];
 
-export const RtFilmEquipmentTab = ({ data, onChange }: Props) => {
+export const RtFilmEquipmentTab = ({ data, general, onChange }: Props) => {
   const set = <K extends keyof RtFilmSource>(key: K, value: RtFilmSource[K]) => (
     onChange({ ...data, [key]: value })
   );
@@ -69,7 +72,12 @@ export const RtFilmEquipmentTab = ({ data, onChange }: Props) => {
             <CardTitle className="text-base">Gamma Source Requirements</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <TextField label="Isotope" value={data.gamma.isotope} onChange={(isotope) => onChange({ ...data, gamma: { ...data.gamma, isotope } })} />
+            <TextField
+              label="Isotope"
+              value={data.gamma.isotope}
+              onChange={(isotope) => onChange({ ...data, gamma: { ...data.gamma, isotope } })}
+              placeholder={SUPPORTED_ISOTOPES}
+            />
             <TextField label="Source ID" value={data.gamma.sourceId} onChange={(sourceId) => onChange({ ...data, gamma: { ...data.gamma, sourceId } })} />
             <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
               <NumberField label="Planned Activity" value={data.gamma.activity} onChange={(activity) => onChange({ ...data, gamma: { ...data.gamma, activity } })} min={0} />
@@ -94,6 +102,7 @@ export const RtFilmEquipmentTab = ({ data, onChange }: Props) => {
                 options={LENGTH_UNITS}
               />
             </div>
+            <GammaDecayPlanningPanel gamma={data.gamma} plannedInspectionDate={general.date} />
           </CardContent>
         </Card>
       ) : null}

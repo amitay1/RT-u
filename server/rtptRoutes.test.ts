@@ -13,6 +13,7 @@ import {
   fingerprintRtPtApprovedContent,
 } from "../src/lib/rtPtDocumentCodec";
 import {
+  createCompleteCrDocument,
   createCompleteDigitalDocument,
   createCompleteFilmDocument,
   createCompletePtDocument,
@@ -408,6 +409,39 @@ test("technique-sheet POST rejects V1/V2 writes and persists canonical V3", asyn
   assert.equal(response.statusCode, 201);
   assert.equal(persisted.length, 1);
   assert.equal((persisted[0] as { schemaVersion: number }).schemaVersion, 3);
+});
+
+test("the write boundary accepts complete RT-CR documents and POST persists them", async () => {
+  const approvedCr = createCompleteCrDocument("approved");
+  const writable = validateWritableRtPtDocument(approvedCr);
+  assert.equal(writable.success, true);
+
+  const supported = validateSupportedRtPtDocument(JSON.parse(JSON.stringify(approvedCr)));
+  assert.equal(supported.success, true);
+
+  const persisted: unknown[] = [];
+  const { app, routes } = createFakeApp();
+  registerRtPtRoutes(app, {
+    storage: createStorage({
+      createTechniqueSheet: async (insert) => {
+        persisted.push(insert.data);
+        return techniqueSheetRecord(insert.data);
+      },
+    }),
+    listOrganizations: async () => [],
+  });
+  const route = routes.find(({ method, path }) => method === "POST" && path === "/api/technique-sheets");
+  assert.ok(route);
+  const request = {
+    headers: { "x-user-id": USER_ID, "x-org-id": ORG_ID },
+    body: { sheetName: "Native V3 CR write", data: createCompleteCrDocument() },
+    params: {},
+  } as unknown as Request;
+  const response = createResponse();
+  await runHandlers(route.handlers, request, response);
+  assert.equal(response.statusCode, 201);
+  assert.equal(persisted.length, 1);
+  assert.equal((persisted[0] as { method: string }).method, "RT-CR");
 });
 
 test("technique-sheet create and update derive envelope status from canonical V3 data", async () => {

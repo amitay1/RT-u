@@ -47,7 +47,8 @@ export interface RtPtLicenseDetails {
   appId: "com.amitay.rtptinspector";
   licenseId: string;
   customer: string;
-  installationId: string;
+  /** Null identifies a site license that is not bound to one installation. */
+  installationId: string | null;
   issuedAt: string;
   expiresAt: string | null;
   edition: string;
@@ -209,8 +210,10 @@ const normaliseLicenseDetails = (value: unknown): RtPtLicenseDetails | null => {
     || value.appId !== APP_ID
     || typeof value.licenseId !== "string"
     || !UUID_PATTERN.test(value.licenseId)
-    || typeof value.installationId !== "string"
-    || !UUID_PATTERN.test(value.installationId)
+    || (value.installationId !== null && (
+      typeof value.installationId !== "string"
+      || !UUID_PATTERN.test(value.installationId)
+    ))
     || typeof value.customer !== "string"
     || value.customer.length < 1
     || value.customer.length > 120
@@ -237,7 +240,7 @@ const normaliseLicenseDetails = (value: unknown): RtPtLicenseDetails | null => {
     appId: APP_ID,
     licenseId: value.licenseId,
     customer: value.customer,
-    installationId: value.installationId,
+    installationId: value.installationId as string | null,
     issuedAt: value.issuedAt as string,
     expiresAt: value.expiresAt as string | null,
     edition: "professional",
@@ -300,7 +303,10 @@ export const normaliseRtPtLicenseStatus = (value: unknown): RtPtLicenseStatus =>
     && value.reason === null
     && hasValidActiveInstallationId
     && license !== null
-    && license.installationId === installationId;
+    // A site license (installationId === null) is not bound to one
+    // installation; the signed token itself was already verified by the
+    // license service. Installation-bound licenses must match exactly.
+    && (license.installationId === null || license.installationId === installationId);
 
   if (status === "active" && !isActive) {
     return createClosedStatus(

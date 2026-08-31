@@ -202,8 +202,42 @@ export interface RtFilmExposureView extends RtFilmExposureDefaults {
   referenceAttachmentId: string;
 }
 
+export type Iso17636TestClassField = 'A' | 'B';
+
+export type RtCircumferentialSetupPlan = 'external-double-wall' | 'internal-panoramic';
+
+/**
+ * One dated performance measurement in an E2737-style long-term trend log,
+ * shared by the DR detector and the CR scanner. Append-only by validation:
+ * entries must stay in chronological order.
+ */
+export interface RtPerformanceTrendEntry {
+  id: string;
+  date: string;
+  measuredSrb: NumberOrEmpty;
+  measuredSrbUnit: DetectorLengthUnit;
+  measuredSnr: NumberOrEmpty;
+  reference: string;
+  notes: string;
+}
+
+/** Optional circumferential-coverage planning input shared by RT-Film and RT-CR. */
+export interface RtCircumferentialPlan {
+  pipeOuterDiameter: number;
+  pipeOuterDiameterUnit: LengthUnit;
+  setup: RtCircumferentialSetupPlan;
+}
+
 export interface RtFilmSheet {
   ps811000Applicable: boolean;
+  /**
+   * EN ISO 17636-1 test class governing this technique. Omitted (never '')
+   * when the technique is not planned to an ISO 17636-1 class, so documents
+   * approved before this field shipped keep their canonical fingerprint.
+   */
+  iso17636TestClass?: Iso17636TestClassField;
+  /** Omitted (never partial) when circumferential coverage is not planned here. */
+  circumferentialPlan?: RtCircumferentialPlan;
   general: RtFilmGeneralInfo;
   exposureDefaults: RtFilmExposureDefaults;
   source: RtFilmSource;

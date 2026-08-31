@@ -24,10 +24,18 @@ import {
   emptyRtFilmExposureDefaults,
   emptyRtFilmSheet,
   type NumberOrEmpty,
+  type RtCircumferentialPlan,
   type RtFilmExposureView,
   type RtFilmSheet,
   type RtFilmTechnique,
 } from '@/types/rtFilm';
+import {
+  emptyRtCrExposureDefaults,
+  emptyRtCrSheet,
+  type RtCrExposureView,
+  type RtCrSheet,
+  type RtCrTechnique,
+} from '@/types/rtCr';
 import {
   createRtPtSha256Fingerprint,
   isRtPtSha256Fingerprint,
@@ -113,7 +121,7 @@ const DIGITAL_THICKNESS_MODES = [
 ] as const;
 const DIGITAL_INSPECTION_AREA_MODES = ['Entire Part', 'Defined Area', 'Multiple Areas', ''] as const;
 const DIGITAL_DETECTOR_ORIENTATIONS = ['Portrait', 'Landscape', 'Auto', ''] as const;
-const DIGITAL_IQI_TYPES = ['Wire', 'Hole', ''] as const;
+const DIGITAL_IQI_TYPES = ['Wire', 'Hole', 'Duplex', ''] as const;
 const DIGITAL_DISTANCE_BASES = ['SOD + ODD', 'SDD - ODD', 'SDD - SOD', ''] as const;
 const DIGITAL_ATTACHMENT_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
 const PENETRANT_TYPES = ['Type I', 'Type II', ''] as const;
@@ -129,7 +137,7 @@ const APPROVAL_ROLES = [
   'quality',
   'customer',
 ] as const;
-const METHODS = ['RT-Film', 'RT-Digital', 'PT'] as const;
+const METHODS = ['RT-Film', 'RT-Digital', 'RT-CR', 'PT'] as const;
 const QUARANTINE_REASONS = [
   'performed-result',
   'ambiguous-legacy-field',
@@ -226,6 +234,66 @@ function enumField<const T extends readonly string[]>(
     throw new CodecError(`${path}.${key} must be one of: ${allowed.map((item) => item || '(empty)').join(', ')}.`);
   }
   return value as T[number];
+}
+
+/**
+ * Post-ship additive enum field: absent keys stay absent so canonical
+ * serialization (and therefore approval fingerprints) of earlier documents
+ * never changes. Present keys must be a listed value — '' is not accepted.
+ */
+function optionalEnumField<const T extends readonly string[]>(
+  source: UnknownRecord,
+  key: string,
+  path: string,
+  allowed: T,
+): T[number] | undefined {
+  if (!Object.prototype.hasOwnProperty.call(source, key)) return undefined;
+  const value = source[key];
+  if (typeof value !== 'string' || !allowed.includes(value as T[number])) {
+    throw new CodecError(`${path}.${key} must be one of: ${allowed.join(', ')}.`);
+  }
+  return value as T[number];
+}
+
+/**
+ * Post-ship additive circumferential-coverage plan. Absent keys stay absent
+ * (canonical stability); a present plan must be fully specified.
+ */
+function parseCircumferentialPlan(value: unknown, path: string): RtCircumferentialPlan | undefined {
+  if (value === undefined) return undefined;
+  const source = record(value, path);
+  const pipeOuterDiameter = source.pipeOuterDiameter;
+  if (typeof pipeOuterDiameter !== 'number' || !Number.isFinite(pipeOuterDiameter) || pipeOuterDiameter <= 0) {
+    throw new CodecError(`${path}.pipeOuterDiameter must be a positive finite number.`);
+  }
+  return {
+    pipeOuterDiameter,
+    pipeOuterDiameterUnit: enumField(source, 'pipeOuterDiameterUnit', path, LENGTH_UNITS),
+    setup: enumField(source, 'setup', path, ['external-double-wall', 'internal-panoramic'] as const),
+  };
+}
+
+function parsePerformanceTrendEntry(value: unknown, path: string) {
+  const source = record(value, path);
+  return {
+    id: nonEmptyStringField(source, 'id', path),
+    date: stringField(source, 'date', path),
+    measuredSrb: numberOrEmptyField(source, 'measuredSrb', path),
+    measuredSrbUnit: enumField(source, 'measuredSrbUnit', path, DETECTOR_LENGTH_UNITS, false, 'um'),
+    measuredSnr: numberOrEmptyField(source, 'measuredSnr', path),
+    reference: stringField(source, 'reference', path),
+    notes: stringField(source, 'notes', path),
+  };
+}
+
+/**
+ * Post-ship additive trend log. Absent OR empty stays absent so canonical
+ * serialization (and approval fingerprints) of earlier documents never change.
+ */
+function parseOptionalPerformanceTrend(value: unknown, path: string) {
+  if (value === undefined) return undefined;
+  const entries = arrayField(value, path, parsePerformanceTrendEntry);
+  return entries.length === 0 ? undefined : entries;
 }
 
 function arrayField<T>(
@@ -474,7 +542,11 @@ function parseFilmIqi(value: unknown, path: string, partial = false) {
 
 function parseFilmTechnique(value: unknown, path: string, partial = false): RtFilmTechnique {
   const source = record(value, path, partial);
+  const iso17636TestClass = optionalEnumField(source, 'iso17636TestClass', path, ['A', 'B'] as const);
+  const circumferentialPlan = parseCircumferentialPlan(source.circumferentialPlan, `${path}.circumferentialPlan`);
   return {
+    ...(iso17636TestClass === undefined ? {} : { iso17636TestClass }),
+    ...(circumferentialPlan === undefined ? {} : { circumferentialPlan }),
     ps811000Applicable: booleanField(source, 'ps811000Applicable', path, true, false),
     general: parseGeneral(source.general, `${path}.general`, partial),
     exposureDefaults: parseFilmExposureDefaults(source.exposureDefaults, `${path}.exposureDefaults`, partial),
@@ -483,6 +555,161 @@ function parseFilmTechnique(value: unknown, path: string, partial = false): RtFi
     iqi: parseFilmIqi(source.iqi, `${path}.iqi`, partial),
     acceptance: parseAcceptance(source.acceptance, `${path}.acceptance`, partial),
     exposureViews: arrayField(source.exposureViews, `${path}.exposureViews`, parseFilmView, partial),
+    techniqueNotes: stringField(source, 'techniqueNotes', path, partial),
+  };
+}
+
+function parseCrExposureDefaults(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    wallTechnique: enumField(source, 'wallTechnique', path, TECHNIQUE_TYPES, partial, ''),
+    sfd: numberOrEmptyField(source, 'sfd', path, partial),
+    sfdUnit: enumField(source, 'sfdUnit', path, LENGTH_UNITS, partial, 'mm'),
+    sod: numberOrEmptyField(source, 'sod', path, partial),
+    sodUnit: enumField(source, 'sodUnit', path, LENGTH_UNITS, partial, 'mm'),
+    ofd: numberOrEmptyField(source, 'ofd', path, partial),
+    ofdUnit: enumField(source, 'ofdUnit', path, LENGTH_UNITS, partial, 'mm'),
+    geometricMagnificationAuto: booleanField(source, 'geometricMagnificationAuto', path, partial, true),
+    geometricMagnification: numberOrEmptyField(source, 'geometricMagnification', path, partial),
+    thicknessDescription: stringField(source, 'thicknessDescription', path, partial),
+    thicknessMin: numberOrEmptyField(source, 'thicknessMin', path, partial),
+    thicknessMax: numberOrEmptyField(source, 'thicknessMax', path, partial),
+    thicknessUnit: enumField(source, 'thicknessUnit', path, LENGTH_UNITS, partial, 'mm'),
+    requiredUg: numberOrEmptyField(source, 'requiredUg', path, partial),
+    requiredUgUnit: enumField(source, 'requiredUgUnit', path, LENGTH_UNITS, partial, 'mm'),
+    iqiOverride: stringField(source, 'iqiOverride', path, partial),
+    tubeVoltage: numberOrEmptyField(source, 'tubeVoltage', path, partial),
+    tubeVoltageUnit: enumField(source, 'tubeVoltageUnit', path, ['kV'] as const, partial, 'kV'),
+    tubeCurrent: numberOrEmptyField(source, 'tubeCurrent', path, partial),
+    tubeCurrentUnit: enumField(source, 'tubeCurrentUnit', path, ['mA'] as const, partial, 'mA'),
+    exposureTime: numberOrEmptyField(source, 'exposureTime', path, partial),
+    exposureTimeUnit: enumField(source, 'exposureTimeUnit', path, TIME_UNITS, partial, ''),
+    filter: stringField(source, 'filter', path, partial),
+    collimation: stringField(source, 'collimation', path, partial),
+    plateSize: stringField(source, 'plateSize', path, partial),
+    beamAngle: numberOrEmptyField(source, 'beamAngle', path, partial),
+    beamAngleUnit: enumField(source, 'beamAngleUnit', path, ['deg'] as const, partial, 'deg'),
+    screenOverride: stringField(source, 'screenOverride', path, partial),
+    overlap: stringField(source, 'overlap', path, partial),
+    identification: stringField(source, 'identification', path, partial),
+    notes: stringField(source, 'notes', path, partial),
+  };
+}
+
+function parseCrView(value: unknown, path: string): RtCrExposureView {
+  const source = record(value, path);
+  return {
+    id: nonEmptyStringField(source, 'id', path),
+    viewId: stringField(source, 'viewId', path),
+    description: stringField(source, 'description', path),
+    orientation: stringField(source, 'orientation', path),
+    inspectionZone: stringField(source, 'inspectionZone', path),
+    referenceAttachmentId: stringField(source, 'referenceAttachmentId', path),
+    ...parseCrExposureDefaults(source, path),
+  };
+}
+
+function parseCrSource(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  const xRayPath = `${path}.xRay`;
+  const gammaPath = `${path}.gamma`;
+  const xRay = record(source.xRay, xRayPath, partial);
+  const gamma = record(source.gamma, gammaPath, partial);
+  return {
+    sourceType: enumField(source, 'sourceType', path, FILM_SOURCE_TYPES, partial, ''),
+    manufacturer: stringField(source, 'manufacturer', path, partial),
+    model: stringField(source, 'model', path, partial),
+    serialNumber: stringField(source, 'serialNumber', path, partial),
+    calibrationRequirement: stringField(source, 'calibrationRequirement', path, partial),
+    xRay: {
+      focalSpotSize: numberOrEmptyField(xRay, 'focalSpotSize', xRayPath, partial),
+      focalSpotSizeUnit: enumField(xRay, 'focalSpotSizeUnit', xRayPath, LENGTH_UNITS, partial, 'mm'),
+    },
+    gamma: {
+      isotope: stringField(gamma, 'isotope', gammaPath, partial),
+      sourceId: stringField(gamma, 'sourceId', gammaPath, partial),
+      activity: numberOrEmptyField(gamma, 'activity', gammaPath, partial),
+      activityUnit: stringField(gamma, 'activityUnit', gammaPath, partial),
+      activityReferenceDate: stringField(gamma, 'activityReferenceDate', gammaPath, partial),
+      effectiveSourceSize: numberOrEmptyField(gamma, 'effectiveSourceSize', gammaPath, partial),
+      effectiveSourceSizeUnit: enumField(gamma, 'effectiveSourceSizeUnit', gammaPath, LENGTH_UNITS, partial, 'mm'),
+    },
+  };
+}
+
+function parseCrPlateSystem(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    manufacturer: stringField(source, 'manufacturer', path, partial),
+    plateDesignation: stringField(source, 'plateDesignation', path, partial),
+    plateClass: stringField(source, 'plateClass', path, partial),
+    cassetteType: stringField(source, 'cassetteType', path, partial),
+    frontScreen: parseScreen(source.frontScreen, `${path}.frontScreen`, partial),
+    backScreen: parseScreen(source.backScreen, `${path}.backScreen`, partial),
+    erasureRequirement: stringField(source, 'erasureRequirement', path, partial),
+    plateConditionRequirement: stringField(source, 'plateConditionRequirement', path, partial),
+  };
+}
+
+function parseCrScannerQualification(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    reference: stringField(source, 'reference', path, partial),
+    date: stringField(source, 'date', path, partial),
+    dueDate: stringField(source, 'dueDate', path, partial),
+    status: stringField(source, 'status', path, partial),
+  };
+}
+
+function parseCrScanner(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  const performanceTrend = parseOptionalPerformanceTrend(source.performanceTrend, `${path}.performanceTrend`);
+  return {
+    manufacturer: stringField(source, 'manufacturer', path, partial),
+    model: stringField(source, 'model', path, partial),
+    serialNumber: stringField(source, 'serialNumber', path, partial),
+    pixelPitch: numberOrEmptyField(source, 'pixelPitch', path, partial),
+    pixelPitchUnit: enumField(source, 'pixelPitchUnit', path, DETECTOR_LENGTH_UNITS, partial, 'um'),
+    laserSpotSize: numberOrEmptyField(source, 'laserSpotSize', path, partial),
+    laserSpotSizeUnit: enumField(source, 'laserSpotSizeUnit', path, DETECTOR_LENGTH_UNITS, partial, 'um'),
+    scanResolutionPixelsPerMm: numberOrEmptyField(source, 'scanResolutionPixelsPerMm', path, partial),
+    pmtGainOrVoltage: stringField(source, 'pmtGainOrVoltage', path, partial),
+    calibrationRequirement: stringField(source, 'calibrationRequirement', path, partial),
+    qualification: parseCrScannerQualification(source.qualification, `${path}.qualification`, partial),
+    ...(performanceTrend === undefined ? {} : { performanceTrend }),
+  };
+}
+
+function parseCrImageQuality(value: unknown, path: string, partial = false) {
+  const source = record(value, path, partial);
+  return {
+    requiredSrb: numberOrEmptyField(source, 'requiredSrb', path, partial),
+    requiredSrbUnit: enumField(source, 'requiredSrbUnit', path, DETECTOR_LENGTH_UNITS, partial, 'um'),
+    greyValueMin: numberOrEmptyField(source, 'greyValueMin', path, partial),
+    greyValueMax: numberOrEmptyField(source, 'greyValueMax', path, partial),
+    requiredSnrMin: numberOrEmptyField(source, 'requiredSnrMin', path, partial),
+    duplexWireRequirement: stringField(source, 'duplexWireRequirement', path, partial),
+    maxScanDelay: numberOrEmptyField(source, 'maxScanDelay', path, partial),
+    maxScanDelayUnit: enumField(source, 'maxScanDelayUnit', path, TIME_UNITS, partial, ''),
+  };
+}
+
+function parseCrTechnique(value: unknown, path: string, partial = false): RtCrTechnique {
+  const source = record(value, path, partial);
+  const iso17636TestClass = optionalEnumField(source, 'iso17636TestClass', path, ['A', 'B'] as const);
+  const circumferentialPlan = parseCircumferentialPlan(source.circumferentialPlan, `${path}.circumferentialPlan`);
+  return {
+    ...(iso17636TestClass === undefined ? {} : { iso17636TestClass }),
+    ...(circumferentialPlan === undefined ? {} : { circumferentialPlan }),
+    general: parseGeneral(source.general, `${path}.general`, partial),
+    exposureDefaults: parseCrExposureDefaults(source.exposureDefaults, `${path}.exposureDefaults`, partial),
+    source: parseCrSource(source.source, `${path}.source`, partial),
+    plateSystem: parseCrPlateSystem(source.plateSystem, `${path}.plateSystem`, partial),
+    scanner: parseCrScanner(source.scanner, `${path}.scanner`, partial),
+    imageQuality: parseCrImageQuality(source.imageQuality, `${path}.imageQuality`, partial),
+    iqi: parseFilmIqi(source.iqi, `${path}.iqi`, partial),
+    acceptance: parseAcceptance(source.acceptance, `${path}.acceptance`, partial),
+    exposureViews: arrayField(source.exposureViews, `${path}.exposureViews`, parseCrView, partial),
     techniqueNotes: stringField(source, 'techniqueNotes', path, partial),
   };
 }
@@ -595,6 +822,7 @@ function parseReferenceStatus(value: unknown, path: string, partial = false) {
 
 function parseDetectorPerformance(value: unknown, path: string, partial = false) {
   const source = record(value, path, partial);
+  const performanceTrend = parseOptionalPerformanceTrend(source.performanceTrend, `${path}.performanceTrend`);
   return {
     detectorSrb: numberOrEmptyField(source, 'detectorSrb', path, partial),
     detectorSrbUnit: enumField(source, 'detectorSrbUnit', path, DETECTOR_LENGTH_UNITS, partial, 'um'),
@@ -603,6 +831,7 @@ function parseDetectorPerformance(value: unknown, path: string, partial = false)
     badPixelMap: parseReferenceStatus(source.badPixelMap, `${path}.badPixelMap`, partial),
     calibration: parseReferenceStatus(source.calibration, `${path}.calibration`, partial),
     stability: parseReferenceStatus(source.stability, `${path}.stability`, partial),
+    ...(performanceTrend === undefined ? {} : { performanceTrend }),
   };
 }
 
@@ -1621,7 +1850,7 @@ function parseMigration(value: unknown, path: string): RtPtMigrationMetadata {
 
 function parseMethod(value: unknown, path: string): RtPtMethod {
   if (typeof value !== 'string' || !METHODS.includes(value as RtPtMethod)) {
-    throw new CodecError(`${path} must be RT-Film, RT-Digital, or PT.`);
+    throw new CodecError(`${path} must be RT-Film, RT-Digital, RT-CR, or PT.`);
   }
   return value as RtPtMethod;
 }
@@ -1629,6 +1858,7 @@ function parseMethod(value: unknown, path: string): RtPtMethod {
 function parseTechnique(value: unknown, method: RtPtMethod, path: string, partial = false) {
   if (method === 'RT-Film') return parseFilmTechnique(value, path, partial);
   if (method === 'RT-Digital') return parseDigitalTechnique(value, path, partial);
+  if (method === 'RT-CR') return parseCrTechnique(value, path, partial);
   return parsePtTechnique(value, path, partial);
 }
 
@@ -1658,6 +1888,25 @@ export function createRtFilmExposureView(
 
 export function duplicateRtFilmExposureView(view: RtFilmExposureView): RtFilmExposureView {
   return createRtFilmExposureView({ ...view, id: createStableId('film-view'), viewId: '' });
+}
+
+export function createRtCrExposureView(
+  overrides: Partial<RtCrExposureView> = {},
+): RtCrExposureView {
+  return parseCrView({
+    ...emptyRtCrExposureDefaults,
+    id: createStableId('cr-view'),
+    viewId: '',
+    description: '',
+    orientation: '',
+    inspectionZone: '',
+    referenceAttachmentId: '',
+    ...overrides,
+  }, 'crView');
+}
+
+export function duplicateRtCrExposureView(view: RtCrExposureView): RtCrExposureView {
+  return createRtCrExposureView({ ...view, id: createStableId('cr-view'), viewId: '' });
 }
 
 export function createRtDigitalAcquisition(
@@ -1745,7 +1994,10 @@ export function createRtPtDocument(input: CreateRtPtDocumentInput): RtPtDocument
       ? input.sheets?.rtFilm
       : method === 'RT-Digital'
         ? input.sheets?.rtDigital
-        : input.sheets?.penetrant
+        : method === 'RT-CR'
+          // CR has no legacy sheets compatibility shape; only `technique` seeds it.
+          ? undefined
+          : input.sheets?.penetrant
   );
   const technique = parseTechnique(techniqueCandidate ?? {}, method, 'technique', true);
   const base = {
@@ -1773,6 +2025,7 @@ export function createRtPtDocument(input: CreateRtPtDocumentInput): RtPtDocument
 
   if (method === 'RT-Film') return { ...base, method, technique: technique as RtFilmTechnique };
   if (method === 'RT-Digital') return { ...base, method, technique: technique as RtDigitalTechnique };
+  if (method === 'RT-CR') return { ...base, method, technique: technique as RtCrTechnique };
   return { ...base, method, technique: technique as PtTechnique };
 }
 
@@ -1805,7 +2058,9 @@ function decodeV3(source: UnknownRecord): RtPtDocumentV3 {
     ? { ...base, method, technique: technique as RtFilmTechnique }
     : method === 'RT-Digital'
       ? { ...base, method, technique: technique as RtDigitalTechnique }
-      : { ...base, method, technique: technique as PtTechnique };
+      : method === 'RT-CR'
+        ? { ...base, method, technique: technique as RtCrTechnique }
+        : { ...base, method, technique: technique as PtTechnique };
   return reconcileDecodedRtPtApproval(document);
 }
 
@@ -2243,6 +2498,10 @@ function migrateTechnique(
   quarantine: RtPtQuarantineEntry[],
   warnings: string[],
 ): RtFilmTechnique | RtDigitalTechnique | PtTechnique {
+  if (method === 'RT-CR') {
+    // CR shipped as V3-native only; no V1/V2 document can legitimately carry it.
+    throw new CodecError('RT-CR techniques have no legacy schema and cannot be migrated.');
+  }
   if (method === 'RT-Film') return migrateLegacyFilm(technique, sourceVersion, quarantine, warnings);
   if (method === 'RT-Digital') {
     return migrateLegacyDigital(technique, sourceVersion, unitSystem, quarantine, warnings);
@@ -2356,6 +2615,10 @@ export function normalizePtSheet(value: unknown): PtSheet {
   return parsePtTechnique(value ?? emptyPtSheet, 'penetrant', true);
 }
 
+export function normalizeRtCrSheet(value: unknown): RtCrSheet {
+  return parseCrTechnique(value ?? emptyRtCrSheet, 'rtCr', true);
+}
+
 export function extractRtFilmTechnique(value: unknown): RtFilmTechnique {
   return parseFilmTechnique(value, 'technique', true);
 }
@@ -2366,6 +2629,10 @@ export function extractRtDigitalTechnique(value: unknown): RtDigitalTechnique {
 
 export function extractPtTechnique(value: unknown): PtTechnique {
   return parsePtTechnique(value, 'technique', true);
+}
+
+export function extractRtCrTechnique(value: unknown): RtCrTechnique {
+  return parseCrTechnique(value, 'technique', true);
 }
 
 /** Quarantine is intentionally unreachable from all hydration helpers. */
@@ -2380,6 +2647,13 @@ export function hydrateRtDigitalSheet(document: RtPtDocumentV3): RtDigitalNormal
   return document.method === 'RT-Digital'
     ? normalizeRtDigitalSheet(document.technique)
     : normalizeRtDigitalSheet(emptyRtDigitalSheet);
+}
+
+/** Quarantine is intentionally unreachable from all hydration helpers. */
+export function hydrateRtCrSheet(document: RtPtDocumentV3): RtCrSheet {
+  return document.method === 'RT-CR'
+    ? normalizeRtCrSheet(document.technique)
+    : normalizeRtCrSheet(emptyRtCrSheet);
 }
 
 /** Quarantine is intentionally unreachable from all hydration helpers. */

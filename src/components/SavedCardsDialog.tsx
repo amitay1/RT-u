@@ -41,6 +41,7 @@ import {
   Film,
   Monitor,
   Droplets,
+  ScanLine,
   Star,
   StarOff,
   Archive,
@@ -81,6 +82,7 @@ interface SavedCardsDialogProps {
 const METHOD_LABEL: Record<RtPtMethod, string> = {
   'RT-Film': 'Film RT',
   'RT-Digital': 'Digital RT',
+  'RT-CR': 'CR RT',
   PT: 'PT',
 };
 
@@ -115,7 +117,11 @@ function BeautifulCardItem({
   onExport: () => void;
 }) {
   const method = card.data.method;
-  const MethodIcon = method === 'RT-Film' ? Film : method === 'RT-Digital' ? Monitor : Droplets;
+  const MethodIcon = method === 'RT-Film'
+    ? Film
+    : method === 'RT-Digital'
+      ? Monitor
+      : method === 'RT-CR' ? ScanLine : Droplets;
   const methodAccent = 'bg-primary';
   const methodIconClass = 'border border-primary/20 bg-primary/10 text-primary';
 
@@ -418,6 +424,7 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
     total: cards.filter(c => !c.isArchived).length,
     film: cards.filter(c => c.data.method === 'RT-Film' && !c.isArchived).length,
     digital: cards.filter(c => c.data.method === 'RT-Digital' && !c.isArchived).length,
+    cr: cards.filter(c => c.data.method === 'RT-CR' && !c.isArchived).length,
     pt: cards.filter(c => c.data.method === 'PT' && !c.isArchived).length,
     favorites: cards.filter(c => c.isFavorite && !c.isArchived).length,
     archived: cards.filter(c => c.isArchived).length,
@@ -604,6 +611,15 @@ export function SavedCardsDialog({ open, onOpenChange, onLoadCard }: SavedCardsD
                 >
                   <Monitor className="w-4 h-4" />
                   Digital RT ({stats.digital})
+                </Button>
+                <Button
+                  variant={activeMethod === 'RT-CR' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setActiveMethod('RT-CR')}
+                  className="gap-1 rounded-md"
+                >
+                  <ScanLine className="w-4 h-4" />
+                  CR RT ({stats.cr})
                 </Button>
                 <Button
                   variant={activeMethod === 'PT' ? 'default' : 'ghost'}

@@ -17,6 +17,12 @@ import {
   lookupPs811000UgLimit,
   isThinAdhesiveTenKvpCase,
 } from '@/lib/ps811000';
+import {
+  calculateIso17636MinimumSod,
+  ISO_17636_1_MINIMUM_DENSITY,
+} from '@/lib/rtIso17636';
+import { calculateCircumferentialExposureCount } from '@/lib/rtCircumferential';
+import { duplexElementResolvedBySrb, resolveRtDuplexElement } from '@/lib/rtDuplexIqi';
 import type { LengthUnit, RtFilmExposureDefaults } from '@/types/rtFilm';
 import type {
   RtDigitalAcquisition,
@@ -525,6 +531,148 @@ function rtFilmFields(document: Extract<RtPtDocumentV3, { method: 'RT-Film' }>):
   } else {
     fields.push(field('technique.iqi.requiredUg', 'Required Geometric Unsharpness', 'iqi', iqi.requiredUg));
   }
+  if (source.sourceType === 'X-ray') {
+    fields.push(field('technique.source.xRay.focalSpotSize', 'Planned Focal Spot Size', 'source', source.xRay.focalSpotSize));
+  } else if (source.sourceType === 'Gamma') {
+    fields.push(
+      field('technique.source.gamma.isotope', 'Gamma Isotope', 'source', source.gamma.isotope),
+      field('technique.source.gamma.sourceId', 'Gamma Source ID', 'source', source.gamma.sourceId),
+      field('technique.source.gamma.activity', 'Gamma Source Activity', 'source', source.gamma.activity),
+      field('technique.source.gamma.activityUnit', 'Activity Unit', 'source', source.gamma.activityUnit),
+      field(
+        'technique.source.gamma.activityReferenceDate',
+        'Activity Reference Date',
+        'source',
+        source.gamma.activityReferenceDate,
+      ),
+      field(
+        'technique.source.gamma.effectiveSourceSize',
+        'Effective Source Size',
+        'source',
+        source.gamma.effectiveSourceSize,
+      ),
+    );
+  }
+  return fields;
+}
+
+function crViewFields(
+  document: Extract<RtPtDocumentV3, { method: 'RT-CR' }>,
+): RequiredField[] {
+  const sourceType = document.technique.source.sourceType;
+  return document.technique.exposureViews.flatMap((view, index) => {
+    const path = `technique.exposureViews[${index}]`;
+    const fields = [
+      field(`${path}.id`, `View ${index + 1} Stable ID`, 'views', view.id),
+      field(`${path}.viewId`, `View ${index + 1} Controlled ID`, 'views', view.viewId),
+      field(`${path}.description`, `View ${index + 1} Description`, 'views', view.description),
+      field(`${path}.orientation`, `View ${index + 1} Orientation`, 'views', view.orientation),
+      field(`${path}.inspectionZone`, `View ${index + 1} Inspection Zone`, 'views', view.inspectionZone),
+      field(`${path}.wallTechnique`, `View ${index + 1} Wall Technique`, 'views', view.wallTechnique),
+      field(`${path}.sfd`, `View ${index + 1} Planned SFD`, 'views', view.sfd),
+      field(`${path}.sod`, `View ${index + 1} Planned SOD`, 'views', view.sod),
+      field(`${path}.ofd`, `View ${index + 1} Planned OFD`, 'views', view.ofd),
+      field(
+        `${path}.thickness`,
+        `View ${index + 1} Thickness Plan`,
+        'views',
+        { description: view.thicknessDescription, min: view.thicknessMin, max: view.thicknessMax },
+        thicknessPlanPresent,
+        'Enter a thickness description or both planned minimum and maximum thickness.',
+      ),
+      field(`${path}.exposureTime`, `View ${index + 1} Planned Exposure Time`, 'views', view.exposureTime),
+      field(`${path}.exposureTimeUnit`, `View ${index + 1} Exposure Time Unit`, 'views', view.exposureTimeUnit),
+      field(`${path}.filter`, `View ${index + 1} Filter`, 'views', view.filter),
+      field(`${path}.collimation`, `View ${index + 1} Collimation`, 'views', view.collimation),
+      field(`${path}.plateSize`, `View ${index + 1} Imaging Plate Size`, 'views', view.plateSize),
+      field(`${path}.beamAngle`, `View ${index + 1} Planned Beam Angle`, 'views', view.beamAngle),
+      field(`${path}.overlap`, `View ${index + 1} Required Overlap`, 'views', view.overlap),
+      field(`${path}.identification`, `View ${index + 1} Identification Plan`, 'views', view.identification),
+      field(`${path}.requiredUg`, `View ${index + 1} Required Ug`, 'views', view.requiredUg),
+    ];
+    if (sourceType === 'X-ray') {
+      fields.push(
+        field(`${path}.tubeVoltage`, `View ${index + 1} Planned Tube Voltage`, 'views', view.tubeVoltage),
+        field(`${path}.tubeCurrent`, `View ${index + 1} Planned Tube Current`, 'views', view.tubeCurrent),
+      );
+    }
+    return fields;
+  });
+}
+
+function rtCrFields(document: Extract<RtPtDocumentV3, { method: 'RT-CR' }>): RequiredField[] {
+  const { general, source, plateSystem, scanner, imageQuality, iqi, acceptance } = document.technique;
+  const fields = [
+    ...commonGeneralFields(general),
+    field('technique.source.sourceType', 'Radiation Source Type', 'source', source.sourceType),
+    field('technique.source.manufacturer', 'Source Manufacturer', 'source', source.manufacturer),
+    field('technique.source.model', 'Source Model', 'source', source.model),
+    field('technique.source.serialNumber', 'Source Serial Number', 'source', source.serialNumber),
+    field(
+      'technique.source.calibrationRequirement',
+      'Source Calibration Requirement',
+      'source',
+      source.calibrationRequirement,
+    ),
+    field('technique.plateSystem.manufacturer', 'Imaging Plate Manufacturer', 'plate', plateSystem.manufacturer),
+    field('technique.plateSystem.plateDesignation', 'Imaging Plate Designation', 'plate', plateSystem.plateDesignation),
+    field('technique.plateSystem.plateClass', 'Imaging Plate System Class', 'plate', plateSystem.plateClass),
+    field('technique.plateSystem.cassetteType', 'Cassette Type', 'plate', plateSystem.cassetteType),
+    field('technique.plateSystem.frontScreen.material', 'Front Screen Material', 'plate', plateSystem.frontScreen.material),
+    field('technique.plateSystem.frontScreen.thickness', 'Front Screen Thickness', 'plate', plateSystem.frontScreen.thickness),
+    field('technique.plateSystem.backScreen.material', 'Back Screen Material', 'plate', plateSystem.backScreen.material),
+    field('technique.plateSystem.backScreen.thickness', 'Back Screen Thickness', 'plate', plateSystem.backScreen.thickness),
+    field('technique.plateSystem.erasureRequirement', 'Plate Erasure Requirement', 'plate', plateSystem.erasureRequirement),
+    field(
+      'technique.plateSystem.plateConditionRequirement',
+      'Plate Condition Requirement',
+      'plate',
+      plateSystem.plateConditionRequirement,
+    ),
+    field('technique.scanner.manufacturer', 'Scanner Manufacturer', 'plate', scanner.manufacturer),
+    field('technique.scanner.model', 'Scanner Model', 'plate', scanner.model),
+    field('technique.scanner.serialNumber', 'Scanner Serial Number', 'plate', scanner.serialNumber),
+    field('technique.scanner.pixelPitch', 'Scanner Pixel Pitch', 'plate', scanner.pixelPitch),
+    field(
+      'technique.scanner.scanResolutionPixelsPerMm',
+      'Planned Scan Resolution',
+      'plate',
+      scanner.scanResolutionPixelsPerMm,
+    ),
+    field(
+      'technique.scanner.calibrationRequirement',
+      'Scanner Calibration Requirement',
+      'plate',
+      scanner.calibrationRequirement,
+    ),
+    field('technique.scanner.qualification.reference', 'Scanner Qualification Reference', 'plate', scanner.qualification.reference),
+    field('technique.scanner.qualification.date', 'Scanner Qualification Date', 'plate', scanner.qualification.date),
+    field('technique.scanner.qualification.dueDate', 'Scanner Qualification Due Date', 'plate', scanner.qualification.dueDate),
+    field('technique.scanner.qualification.status', 'Scanner Qualification Status', 'plate', scanner.qualification.status),
+    field('technique.imageQuality.requiredSrb', 'Required Basic Spatial Resolution', 'image', imageQuality.requiredSrb),
+    field('technique.imageQuality.greyValueMin', 'Required Grey-Value Minimum', 'image', imageQuality.greyValueMin),
+    field('technique.imageQuality.greyValueMax', 'Required Grey-Value Maximum', 'image', imageQuality.greyValueMax),
+    field('technique.imageQuality.requiredSnrMin', 'Required Minimum SNR', 'image', imageQuality.requiredSnrMin),
+    field(
+      'technique.imageQuality.duplexWireRequirement',
+      'Spatial-Resolution Verification Requirement',
+      'image',
+      imageQuality.duplexWireRequirement,
+    ),
+    field('technique.imageQuality.maxScanDelay', 'Maximum Exposure-to-Scan Delay', 'image', imageQuality.maxScanDelay),
+    field('technique.imageQuality.maxScanDelayUnit', 'Scan Delay Unit', 'image', imageQuality.maxScanDelayUnit),
+    field('technique.iqi.type', 'IQI Type', 'iqi', iqi.type),
+    field('technique.iqi.standard', 'IQI Standard', 'iqi', iqi.standard),
+    field('technique.iqi.designation', 'IQI Designation', 'iqi', iqi.designation),
+    field('technique.iqi.shim', 'IQI Shim', 'iqi', iqi.shim),
+    field('technique.iqi.block', 'IQI Block', 'iqi', iqi.block),
+    field('technique.iqi.material', 'IQI Material', 'iqi', iqi.material),
+    field('technique.iqi.thickness', 'IQI Thickness', 'iqi', iqi.thickness),
+    field('technique.iqi.placement', 'IQI Placement', 'iqi', iqi.placement),
+    field('technique.iqi.requiredUg', 'Required Geometric Unsharpness', 'iqi', iqi.requiredUg),
+    ...acceptanceFields(acceptance),
+    ...crViewFields(document),
+  ];
   if (source.sourceType === 'X-ray') {
     fields.push(field('technique.source.xRay.focalSpotSize', 'Planned Focal Spot Size', 'source', source.xRay.focalSpotSize));
   } else if (source.sourceType === 'Gamma') {
@@ -1432,6 +1580,40 @@ function checkRange(
 
 const normalizedKey = (value: string): string => value.trim().toLocaleLowerCase();
 
+function addPerformanceTrendIssues(
+  issues: RtPtValidationIssue[],
+  entries: ReadonlyArray<{ id: string; date: string; measuredSrb: number | ''; measuredSnr: number | '' }> | undefined,
+  basePath: string,
+  label: string,
+  tab: string,
+): void {
+  if (!entries || entries.length === 0) return;
+  const ids = entries.map((entry) => normalizedKey(entry.id));
+  if (ids.some((id) => id.length === 0) || new Set(ids).size !== ids.length) {
+    addIssue(issues, basePath, `${label} Entry IDs`, tab, 'Every trend entry must have a unique stable ID.');
+  }
+  entries.forEach((entry, index) => {
+    const path = `${basePath}[${index}]`;
+    if (!isIsoCalendarDate(entry.date)) {
+      addIssue(issues, `${path}.date`, `${label} Entry ${index + 1} Date`, tab, 'Enter a real calendar date in YYYY-MM-DD format.');
+    }
+    checkPositive(issues, `${path}.measuredSrb`, `${label} Entry ${index + 1} Measured SRb`, tab, entry.measuredSrb);
+    checkPositive(issues, `${path}.measuredSnr`, `${label} Entry ${index + 1} Measured SNR`, tab, entry.measuredSnr);
+    if (index > 0) {
+      const previous = entries[index - 1];
+      if (isIsoCalendarDate(previous.date) && isIsoCalendarDate(entry.date) && entry.date < previous.date) {
+        addIssue(
+          issues,
+          `${path}.date`,
+          `${label} Chronology`,
+          tab,
+          'Trend entries are append-only and must stay in chronological order.',
+        );
+      }
+    }
+  });
+}
+
 function checkUniqueControlledValues(
   issues: RtPtValidationIssue[],
   path: string,
@@ -2279,6 +2461,72 @@ function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIss
       exposureDefaults,
       exposureViews,
     } = document.technique;
+    const iso17636TestClass = document.technique.iso17636TestClass;
+    const circumferentialPlan = document.technique.circumferentialPlan;
+    if (iso17636TestClass && circumferentialPlan) {
+      const coverage = calculateCircumferentialExposureCount({
+        setup: circumferentialPlan.setup,
+        testClass: iso17636TestClass,
+        outerDiameter: circumferentialPlan.pipeOuterDiameter,
+        outerDiameterUnit: circumferentialPlan.pipeOuterDiameterUnit,
+        wallThickness: document.technique.general.thickness,
+        wallThicknessUnit: document.technique.general.thicknessUnit,
+        sfd: exposureDefaults.sfd,
+        sfdUnit: exposureDefaults.sfdUnit,
+      });
+      if (coverage && exposureViews.length > 0 && exposureViews.length < coverage.minimumExposureCount) {
+        addIssue(
+          issues,
+          'technique.exposureViews',
+          'Circumferential Coverage',
+          'views',
+          `Full circumferential coverage at test class ${iso17636TestClass} requires at least`
+            + ` ${coverage.minimumExposureCount} exposures (coverage half-angle ${coverage.coverageHalfAngleDeg} deg);`
+            + ` ${exposureViews.length} are planned.`,
+        );
+      }
+    }
+    if (iso17636TestClass) {
+      const classMinimumDensity = ISO_17636_1_MINIMUM_DENSITY[iso17636TestClass];
+      if (
+        typeof filmSystem.requiredDensityMin === 'number'
+        && filmSystem.requiredDensityMin < classMinimumDensity
+      ) {
+        addIssue(
+          issues,
+          'technique.filmSystem.requiredDensityMin',
+          'ISO 17636-1 Class Density',
+          'film',
+          `Test class ${iso17636TestClass} requires a minimum optical density of ${classMinimumDensity} H&D.`,
+        );
+      }
+      const iso17636SourceSize = source.sourceType === 'Gamma'
+        ? source.gamma.effectiveSourceSize
+        : source.xRay.focalSpotSize;
+      const iso17636SourceSizeUnit = source.sourceType === 'Gamma'
+        ? source.gamma.effectiveSourceSizeUnit
+        : source.xRay.focalSpotSizeUnit;
+      exposureViews.forEach((view, index) => {
+        const minimum = calculateIso17636MinimumSod(
+          iso17636TestClass,
+          iso17636SourceSize,
+          iso17636SourceSizeUnit,
+          view.ofd,
+          view.ofdUnit,
+          view.sodUnit,
+        );
+        if (minimum && typeof view.sod === 'number' && view.sod < minimum.minimumSod) {
+          addIssue(
+            issues,
+            `technique.exposureViews[${index}].sod`,
+            `View ${index + 1} ISO 17636 Minimum Distance`,
+            'views',
+            `Test class ${iso17636TestClass} requires SOD >= ${minimum.minimumSod} ${minimum.outputUnit}`
+              + ` (f >= ${minimum.factor} x d x b^(2/3)).`,
+          );
+        }
+      });
+    }
     checkRange(
       issues,
       'technique.filmSystem.requiredDensityMin',
@@ -2566,6 +2814,42 @@ function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIss
     const { workflow, source, acquisitionDefaults, acquisitions } = document.technique;
     const { detectorPerformance } = document.technique;
 
+    addPerformanceTrendIssues(
+      issues,
+      detectorPerformance.performanceTrend,
+      'technique.detectorPerformance.performanceTrend',
+      'Detector Performance Trend',
+      'detector',
+    );
+
+    if (document.technique.iqi.type === 'Duplex') {
+      const duplexElement = resolveRtDuplexElement(document.technique.iqi.designation);
+      if (!duplexElement) {
+        addIssue(
+          issues,
+          'technique.iqi.designation',
+          'Duplex Element Designation',
+          'iqi',
+          'Enter a duplex element designation from ISO 19232-5 / ASTM E2002 (13D..1D).',
+        );
+      } else if (
+        duplexElementResolvedBySrb(
+          duplexElement,
+          detectorPerformance.imageSrb,
+          detectorPerformance.imageSrbUnit,
+        ) === false
+      ) {
+        addIssue(
+          issues,
+          'technique.detectorPerformance.imageSrb',
+          'Duplex Element vs Image SRb',
+          'detector',
+          `Resolving duplex element ${duplexElement.element} requires an image SRb of at most`
+            + ` ${duplexElement.wireDiameterMm} mm; the planned image SRb exceeds it.`,
+        );
+      }
+    }
+
     (['badPixelMap', 'calibration', 'stability'] as const).forEach((key) => {
       const status = detectorPerformance[key];
       const label = key === 'badPixelMap' ? 'Bad-pixel Map' : key[0].toUpperCase() + key.slice(1);
@@ -2704,6 +2988,273 @@ function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIss
       }
     });
     addDigitalStructuredIssues(document, issues);
+  } else if (document.method === 'RT-CR') {
+    const { general, source, exposureDefaults, scanner, imageQuality, exposureViews } = document.technique;
+    checkPositive(issues, 'technique.general.thickness', 'Nominal Thickness', 'general', general.thickness);
+
+    const iso17636TestClass = document.technique.iso17636TestClass;
+    const circumferentialPlan = document.technique.circumferentialPlan;
+    if (iso17636TestClass && circumferentialPlan) {
+      const coverage = calculateCircumferentialExposureCount({
+        setup: circumferentialPlan.setup,
+        testClass: iso17636TestClass,
+        outerDiameter: circumferentialPlan.pipeOuterDiameter,
+        outerDiameterUnit: circumferentialPlan.pipeOuterDiameterUnit,
+        wallThickness: general.thickness,
+        wallThicknessUnit: general.thicknessUnit,
+        sfd: exposureDefaults.sfd,
+        sfdUnit: exposureDefaults.sfdUnit,
+      });
+      if (coverage && exposureViews.length > 0 && exposureViews.length < coverage.minimumExposureCount) {
+        addIssue(
+          issues,
+          'technique.exposureViews',
+          'Circumferential Coverage',
+          'views',
+          `Full circumferential coverage at test class ${iso17636TestClass} requires at least`
+            + ` ${coverage.minimumExposureCount} exposures (coverage half-angle ${coverage.coverageHalfAngleDeg} deg);`
+            + ` ${exposureViews.length} are planned.`,
+        );
+      }
+    }
+    if (iso17636TestClass) {
+      const iso17636SourceSize = source.sourceType === 'Gamma'
+        ? source.gamma.effectiveSourceSize
+        : source.xRay.focalSpotSize;
+      const iso17636SourceSizeUnit = source.sourceType === 'Gamma'
+        ? source.gamma.effectiveSourceSizeUnit
+        : source.xRay.focalSpotSizeUnit;
+      exposureViews.forEach((view, index) => {
+        const minimum = calculateIso17636MinimumSod(
+          iso17636TestClass,
+          iso17636SourceSize,
+          iso17636SourceSizeUnit,
+          view.ofd,
+          view.ofdUnit,
+          view.sodUnit,
+        );
+        if (minimum && typeof view.sod === 'number' && view.sod < minimum.minimumSod) {
+          addIssue(
+            issues,
+            `technique.exposureViews[${index}].sod`,
+            `View ${index + 1} ISO 17636 Minimum Distance`,
+            'views',
+            `Test class ${iso17636TestClass} requires SOD >= ${minimum.minimumSod} ${minimum.outputUnit}`
+              + ` (f >= ${minimum.factor} x d x b^(2/3)).`,
+          );
+        }
+      });
+    }
+
+    if (source.sourceType === 'X-ray') {
+      checkPositive(issues, 'technique.source.xRay.focalSpotSize', 'Focal Spot Size', 'source', source.xRay.focalSpotSize);
+    } else if (source.sourceType === 'Gamma') {
+      checkPositive(issues, 'technique.source.gamma.activity', 'Gamma Source Activity', 'source', source.gamma.activity);
+      checkPositive(
+        issues,
+        'technique.source.gamma.effectiveSourceSize',
+        'Effective Source Size',
+        'source',
+        source.gamma.effectiveSourceSize,
+      );
+      if (isPresent(source.gamma.activityReferenceDate) && !isIsoCalendarDate(source.gamma.activityReferenceDate)) {
+        addIssue(
+          issues,
+          'technique.source.gamma.activityReferenceDate',
+          'Gamma Activity Reference Date',
+          'source',
+          'Enter a real calendar date in YYYY-MM-DD format.',
+        );
+      }
+    }
+    const gammaBranchHasData = [
+      source.gamma.isotope,
+      source.gamma.sourceId,
+      source.gamma.activity,
+      source.gamma.activityUnit,
+      source.gamma.activityReferenceDate,
+      source.gamma.effectiveSourceSize,
+    ].some(isPresent);
+    if (source.sourceType === 'X-ray' && gammaBranchHasData) {
+      addIssue(
+        issues,
+        'technique.source.gamma',
+        'Inactive Gamma Source Data',
+        'source',
+        'Gamma-source fields must be cleared when the planned source is X-ray.',
+      );
+    }
+    if (source.sourceType === 'Gamma' && isPresent(source.xRay.focalSpotSize)) {
+      addIssue(
+        issues,
+        'technique.source.xRay',
+        'Inactive X-ray Source Data',
+        'source',
+        'X-ray focal-spot data must be cleared when the planned source is Gamma.',
+      );
+    }
+
+    checkPositive(issues, 'technique.scanner.pixelPitch', 'Scanner Pixel Pitch', 'plate', scanner.pixelPitch);
+    checkPositive(issues, 'technique.scanner.laserSpotSize', 'Scanner Laser Spot Size', 'plate', scanner.laserSpotSize);
+    checkPositive(
+      issues,
+      'technique.scanner.scanResolutionPixelsPerMm',
+      'Planned Scan Resolution',
+      'plate',
+      scanner.scanResolutionPixelsPerMm,
+    );
+    const qualification = scanner.qualification;
+    (['date', 'dueDate'] as const).forEach((key) => {
+      if (isPresent(qualification[key]) && !isIsoCalendarDate(qualification[key])) {
+        addIssue(
+          issues,
+          `technique.scanner.qualification.${key}`,
+          key === 'date' ? 'Scanner Qualification Date' : 'Scanner Qualification Due Date',
+          'plate',
+          'Enter a real calendar date in YYYY-MM-DD format.',
+        );
+      }
+    });
+    if (
+      isIsoCalendarDate(qualification.date)
+      && isIsoCalendarDate(qualification.dueDate)
+      && qualification.date > qualification.dueDate
+    ) {
+      addIssue(
+        issues,
+        'technique.scanner.qualification.dueDate',
+        'Scanner Qualification Order',
+        'plate',
+        'The scanner qualification date cannot be after its due date.',
+      );
+    }
+    if (
+      isIsoCalendarDate(qualification.dueDate)
+      && isIsoCalendarDate(general.date)
+      && qualification.dueDate < general.date
+    ) {
+      addIssue(
+        issues,
+        'technique.scanner.qualification.dueDate',
+        'Scanner Qualification Currency',
+        'plate',
+        'The scanner qualification expires before the planned inspection date.',
+      );
+    }
+
+    checkPositive(issues, 'technique.imageQuality.requiredSrb', 'Required Basic Spatial Resolution', 'image', imageQuality.requiredSrb);
+    checkPositive(issues, 'technique.imageQuality.greyValueMin', 'Required Grey-Value Minimum', 'image', imageQuality.greyValueMin);
+    checkPositive(issues, 'technique.imageQuality.greyValueMax', 'Required Grey-Value Maximum', 'image', imageQuality.greyValueMax);
+    checkRange(
+      issues,
+      'technique.imageQuality.greyValueMin',
+      'Required Grey-Value Window',
+      'image',
+      imageQuality.greyValueMin,
+      imageQuality.greyValueMax,
+    );
+    checkPositive(issues, 'technique.imageQuality.requiredSnrMin', 'Required Minimum SNR', 'image', imageQuality.requiredSnrMin);
+    checkPositive(issues, 'technique.imageQuality.maxScanDelay', 'Maximum Exposure-to-Scan Delay', 'image', imageQuality.maxScanDelay);
+    addPerformanceTrendIssues(
+      issues,
+      scanner.performanceTrend,
+      'technique.scanner.performanceTrend',
+      'Scanner Performance Trend',
+      'plate',
+    );
+
+    const crDuplexElement = resolveRtDuplexElement(imageQuality.duplexWireRequirement);
+    if (
+      crDuplexElement
+      && duplexElementResolvedBySrb(crDuplexElement, imageQuality.requiredSrb, imageQuality.requiredSrbUnit) === false
+    ) {
+      addIssue(
+        issues,
+        'technique.imageQuality.requiredSrb',
+        'Duplex Element vs Required SRb',
+        'image',
+        `Resolving duplex element ${crDuplexElement.element} requires an SRb of at most`
+          + ` ${crDuplexElement.wireDiameterMm} mm; the planned required SRb exceeds it.`,
+      );
+    }
+
+    if (
+      typeof exposureDefaults.sfd === 'number'
+      && typeof exposureDefaults.sod === 'number'
+      && typeof exposureDefaults.ofd === 'number'
+      && !equalLengthSum(
+        exposureDefaults.sfd,
+        exposureDefaults.sfdUnit,
+        exposureDefaults.sod,
+        exposureDefaults.sodUnit,
+        exposureDefaults.ofd,
+        exposureDefaults.ofdUnit,
+      )
+    ) {
+      addIssue(
+        issues,
+        'technique.exposureDefaults.sfd',
+        'Default Exposure Geometry',
+        'views',
+        'Planned default SFD must equal planned SOD + OFD after unit conversion.',
+      );
+    }
+    const defaultCrUg = calculateFilmGeometricUnsharpness(exposureDefaults, source);
+    if (
+      typeof defaultCrUg === 'number'
+      && typeof exposureDefaults.requiredUg === 'number'
+      && defaultCrUg > exposureDefaults.requiredUg
+    ) {
+      addIssue(
+        issues,
+        'technique.exposureDefaults.requiredUg',
+        'Default Required Ug',
+        'views',
+        `Calculated default Ug (${defaultCrUg} ${exposureDefaults.requiredUgUnit}) exceeds the user-specified required Ug (${exposureDefaults.requiredUg} ${exposureDefaults.requiredUgUnit}).`,
+      );
+    }
+    exposureViews.forEach((view, index) => {
+      const path = `technique.exposureViews[${index}]`;
+      checkPositive(issues, `${path}.sfd`, `View ${index + 1} SFD`, 'views', view.sfd);
+      checkPositive(issues, `${path}.sod`, `View ${index + 1} SOD`, 'views', view.sod);
+      checkPositive(issues, `${path}.ofd`, `View ${index + 1} OFD`, 'views', view.ofd, true);
+      checkPositive(issues, `${path}.requiredUg`, `View ${index + 1} Required Ug`, 'views', view.requiredUg, true);
+      checkPositive(issues, `${path}.exposureTime`, `View ${index + 1} Exposure Time`, 'views', view.exposureTime);
+      if (source.sourceType === 'X-ray') {
+        checkPositive(issues, `${path}.tubeVoltage`, `View ${index + 1} Tube Voltage`, 'views', view.tubeVoltage);
+        checkPositive(issues, `${path}.tubeCurrent`, `View ${index + 1} Tube Current`, 'views', view.tubeCurrent);
+      }
+      if (
+        typeof view.sfd === 'number'
+        && typeof view.sod === 'number'
+        && typeof view.ofd === 'number'
+        && !equalLengthSum(view.sfd, view.sfdUnit, view.sod, view.sodUnit, view.ofd, view.ofdUnit)
+      ) {
+        addIssue(issues, `${path}.sfd`, `View ${index + 1} Geometry`, 'views', 'Planned SFD must equal planned SOD + OFD after unit conversion.');
+      }
+      checkRange(issues, `${path}.thicknessMin`, `View ${index + 1} Thickness Range`, 'views', view.thicknessMin, view.thicknessMax);
+      checkPositive(issues, `${path}.thicknessMin`, `View ${index + 1} Thickness Minimum`, 'views', view.thicknessMin);
+      checkPositive(issues, `${path}.thicknessMax`, `View ${index + 1} Thickness Maximum`, 'views', view.thicknessMax);
+      const calculatedUg = calculateFilmGeometricUnsharpness(view, source);
+      if (typeof calculatedUg === 'number' && typeof view.requiredUg === 'number' && calculatedUg > view.requiredUg) {
+        addIssue(
+          issues,
+          `${path}.requiredUg`,
+          `View ${index + 1} Required Ug`,
+          'views',
+          `Calculated Ug (${calculatedUg} ${view.requiredUgUnit}) exceeds the user-specified required Ug (${view.requiredUg} ${view.requiredUgUnit}).`,
+        );
+      }
+      if (source.sourceType === 'Gamma' && (isPresent(view.tubeVoltage) || isPresent(view.tubeCurrent))) {
+        addIssue(
+          issues,
+          `${path}.tubeVoltage`,
+          `View ${index + 1} Source-specific Exposure`,
+          'views',
+          'Tube voltage and current do not apply to a Gamma exposure view.',
+        );
+      }
+    });
   } else {
     const { materials, application, removal } = document.technique;
     checkPositive(issues, 'technique.general.thickness', 'Nominal Thickness', 'general', document.technique.general.thickness);
@@ -2811,7 +3362,7 @@ function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIss
     }
   }
 
-  const ids = document.method === 'RT-Film'
+  const ids = document.method === 'RT-Film' || document.method === 'RT-CR'
     ? document.technique.exposureViews.map((view) => view.id)
     : document.method === 'RT-Digital'
       ? document.technique.acquisitions.map((acquisition) => acquisition.id)
@@ -2819,9 +3370,9 @@ function addCrossFieldIssues(document: RtPtDocumentV3, issues: RtPtValidationIss
   if (new Set(ids).size !== ids.length) {
     addIssue(
       issues,
-      document.method === 'RT-Film' ? 'technique.exposureViews' : 'technique.acquisitions',
+      document.method === 'RT-Digital' ? 'technique.acquisitions' : 'technique.exposureViews',
       'Stable IDs',
-      document.method === 'RT-Film' ? 'views' : 'acquisitions',
+      document.method === 'RT-Digital' ? 'acquisitions' : 'views',
       'Every planned view/acquisition must have a unique stable ID.',
     );
   }
@@ -2969,6 +3520,26 @@ function approvalReadiness(
       complete: normalizedViewIds.length > 0 && new Set(normalizedViewIds).size === normalizedViewIds.length,
       message: 'Approval requires at least one exposure view and every controlled view ID must be unique.',
     });
+  } else if (document.method === 'RT-CR') {
+    const normalizedViewIds = document.technique.exposureViews.map((view) => view.viewId.trim()).filter(Boolean);
+    requirements.push(
+      {
+        path: 'technique.exposureViews',
+        label: 'CR Exposure Views',
+        tab: 'views',
+        complete: normalizedViewIds.length > 0 && new Set(normalizedViewIds).size === normalizedViewIds.length,
+        message: 'Approval requires at least one exposure view and every controlled view ID must be unique.',
+      },
+      {
+        path: 'technique.scanner.qualification',
+        label: 'Scanner Qualification Evidence',
+        tab: 'plate',
+        complete: isMeaningfulControlledText(document.technique.scanner.qualification.reference)
+          && isIsoCalendarDate(document.technique.scanner.qualification.date)
+          && isIsoCalendarDate(document.technique.scanner.qualification.dueDate),
+        message: 'Approval requires a scanner qualification reference with real qualification and due dates.',
+      },
+    );
   } else if (document.method === 'RT-Digital') {
     const normalizedViewIds = document.technique.acquisitions.map((item) => item.viewId.trim()).filter(Boolean);
     requirements.push(
@@ -3057,7 +3628,9 @@ export function validateRtPtDocument(document: RtPtDocumentV3): RtPtValidationSu
     ? rtFilmFields(document)
     : document.method === 'RT-Digital'
       ? rtDigitalFields(document)
-      : ptFields(document);
+      : document.method === 'RT-CR'
+        ? rtCrFields(document)
+        : ptFields(document);
 
   const draftIssues: RtPtValidationIssue[] = [];
   let completedFieldsCount = 0;

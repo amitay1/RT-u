@@ -164,7 +164,8 @@ export function RtRadiographySetupDiagram({
   const svgDescriptionId = `rt-setup-description-${generatedId}`;
   const captionId = `rt-setup-caption-${generatedId}`;
   const gridPatternId = `rt-setup-grid-${generatedId}`;
-  const isFilm = diagram.mode === 'film';
+  // CR shares the film-style (SFD-geometry) visual treatment.
+  const isFilm = diagram.mode !== 'dda';
 
   const description = [
     `${diagram.methodLabel} schematic for ${diagram.viewCallout}.`,

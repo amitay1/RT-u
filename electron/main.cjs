@@ -49,7 +49,9 @@ let updateCheckInterval = null;
 const pendingUpdatePreparation = new Map();
 const approvedOfflineUpdateDirectories = new Set();
 const offlineUpdatePackages = new Map();
-const RT_PT_METHODS = new Set(['RT-Film', 'RT-Digital', 'PT']);
+const RT_PT_METHODS = new Set(['RT-Film', 'RT-Digital', 'RT-CR', 'PT']);
+// Legacy V1/V2 documents predate CR; only the V3 structural check accepts it.
+const RT_PT_LEGACY_METHODS = new Set(['RT-Film', 'RT-Digital', 'PT']);
 const RT_PT_DOCUMENT_STATUSES = new Set(['draft', 'in-review', 'approved', 'superseded']);
 const RT_PT_UNIT_SYSTEMS = new Set(['SI', 'US-customary']);
 
@@ -62,7 +64,7 @@ function isLegacyRtPtDocumentV1(value) {
     isPlainObject(value)
     && value.documentKind === 'rtpt-document'
     && value.schemaVersion === 1
-    && RT_PT_METHODS.has(value.method)
+    && RT_PT_LEGACY_METHODS.has(value.method)
     && value.sheets
     && typeof value.sheets === 'object'
     && value.sheets.rtFilm
@@ -114,6 +116,20 @@ function hasV3TechniqueSections(method, technique) {
       && Array.isArray(technique.acquisitions);
   }
 
+  if (method === 'RT-CR') {
+    return [
+      'general',
+      'exposureDefaults',
+      'source',
+      'plateSystem',
+      'scanner',
+      'imageQuality',
+      'iqi',
+      'acceptance',
+    ].every((section) => isPlainObject(technique[section]))
+      && Array.isArray(technique.exposureViews);
+  }
+
   return [
     'general',
     'materials',
@@ -135,7 +151,7 @@ function isRtPtDocumentV2(value) {
     && value.documentType === 'technique'
     && typeof value.documentId === 'string'
     && value.documentId.trim()
-    && RT_PT_METHODS.has(value.method)
+    && RT_PT_LEGACY_METHODS.has(value.method)
     && RT_PT_DOCUMENT_STATUSES.has(value.status)
     && RT_PT_UNIT_SYSTEMS.has(value.unitSystem)
     && isPlainObject(value.documentControl)

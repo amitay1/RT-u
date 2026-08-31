@@ -41,7 +41,7 @@ const sourceTechniqueSchema = z.object({
   documentNumber: string,
   title: string,
   revision: string,
-  method: z.enum(['RT-Film', 'RT-Digital', 'PT']),
+  method: z.enum(['RT-Film', 'RT-Digital', 'RT-CR', 'PT']),
   approvedContentFingerprint: string,
   approvalDate: string,
   controlledReferences: z.array(controlledReferenceSchema),
@@ -165,6 +165,66 @@ const filmResultSchema = z.object({
   actualExposureTimeUnit: timeUnit,
   densityMinimum: numberOrEmpty,
   densityMaximum: numberOrEmpty,
+  iqiObserved: string,
+  iqiRequirementMet: booleanOrEmpty,
+  coverageConfirmed: booleanOrEmpty,
+  result: inspectionResult,
+  remarks: string,
+}).strict();
+
+const crPlannedSchema = z.object({
+  viewId: string,
+  description: string,
+  orientation: string,
+  inspectionZone: string,
+  referenceAttachmentId: string,
+  wallTechnique: string,
+  sourceType: z.enum(['X-ray', 'Gamma', '']),
+  sfd: numberOrEmpty,
+  sfdUnit: lengthUnit,
+  sod: numberOrEmpty,
+  sodUnit: lengthUnit,
+  ofd: numberOrEmpty,
+  ofdUnit: lengthUnit,
+  tubeVoltage: numberOrEmpty,
+  tubeVoltageUnit: z.literal('kV'),
+  tubeCurrent: numberOrEmpty,
+  tubeCurrentUnit: z.literal('mA'),
+  exposureTime: numberOrEmpty,
+  exposureTimeUnit: timeUnit,
+  plateDesignation: string,
+  iqiRequirement: string,
+  greyValueMin: numberOrEmpty,
+  greyValueMax: numberOrEmpty,
+  requiredSnrMin: numberOrEmpty,
+}).strict();
+const crResultSchema = z.object({
+  id: string,
+  plannedItemId: string,
+  planned: crPlannedSchema,
+  plateOrImageId: string,
+  retakeOfImageId: string,
+  exposureDate: string,
+  scanDate: string,
+  actualSfd: numberOrEmpty,
+  actualSfdUnit: lengthUnit,
+  actualSod: numberOrEmpty,
+  actualSodUnit: lengthUnit,
+  actualOfd: numberOrEmpty,
+  actualOfdUnit: lengthUnit,
+  actualTubeVoltage: numberOrEmpty,
+  actualTubeVoltageUnit: z.enum(['kV', '']),
+  actualTubeCurrent: numberOrEmpty,
+  actualTubeCurrentUnit: z.enum(['mA', '']),
+  actualSourceActivity: numberOrEmpty,
+  actualSourceActivityUnit: string,
+  actualExposureTime: numberOrEmpty,
+  actualExposureTimeUnit: timeUnit,
+  greyValueMin: numberOrEmpty,
+  greyValueMax: numberOrEmpty,
+  achievedSnr: numberOrEmpty,
+  achievedSrb: numberOrEmpty,
+  snrRequirementMet: booleanOrEmpty,
   iqiObserved: string,
   iqiRequirementMet: booleanOrEmpty,
   coverageConfirmed: booleanOrEmpty,
@@ -339,6 +399,7 @@ const ptResultsSchema = z.object({
 export const rtPtInspectionReportSchema = z.discriminatedUnion('method', [
   z.object({ ...baseShape, method: z.literal('RT-Film'), results: z.array(filmResultSchema) }).strict(),
   z.object({ ...baseShape, method: z.literal('RT-Digital'), results: z.array(digitalResultSchema) }).strict(),
+  z.object({ ...baseShape, method: z.literal('RT-CR'), results: z.array(crResultSchema) }).strict(),
   z.object({ ...baseShape, method: z.literal('PT'), results: ptResultsSchema }).strict(),
 ]);
 
@@ -366,6 +427,40 @@ const normalizeEditableFilmResult = (value: unknown): unknown => {
   normalized = defaultMissing(normalized, 'actualOfd', '');
   normalized = defaultMissing(normalized, 'actualOfdUnit', planned?.ofdUnit ?? 'mm');
   normalized = defaultMissing(normalized, 'iqiRequirementMet', '');
+
+  if (planned?.sourceType === 'X-ray') {
+    return { ...normalized, actualSourceActivity: '', actualSourceActivityUnit: '' };
+  }
+  if (planned?.sourceType === 'Gamma') {
+    return {
+      ...normalized,
+      actualTubeVoltage: '',
+      actualTubeVoltageUnit: '',
+      actualTubeCurrent: '',
+      actualTubeCurrentUnit: '',
+    };
+  }
+  return {
+    ...normalized,
+    actualTubeVoltage: '',
+    actualTubeVoltageUnit: '',
+    actualTubeCurrent: '',
+    actualTubeCurrentUnit: '',
+    actualSourceActivity: '',
+    actualSourceActivityUnit: '',
+  };
+};
+
+const normalizeEditableCrResult = (value: unknown): unknown => {
+  if (!isRecord(value)) return value;
+  const planned = isRecord(value.planned) ? value.planned : null;
+  let normalized = defaultMissing(value, 'actualSod', '');
+  normalized = defaultMissing(normalized, 'actualSodUnit', planned?.sodUnit ?? 'mm');
+  normalized = defaultMissing(normalized, 'actualOfd', '');
+  normalized = defaultMissing(normalized, 'actualOfdUnit', planned?.ofdUnit ?? 'mm');
+  normalized = defaultMissing(normalized, 'scanDate', '');
+  normalized = defaultMissing(normalized, 'iqiRequirementMet', '');
+  normalized = defaultMissing(normalized, 'snrRequirementMet', '');
 
   if (planned?.sourceType === 'X-ray') {
     return { ...normalized, actualSourceActivity: '', actualSourceActivityUnit: '' };
@@ -666,6 +761,13 @@ const normalizeEditableInspectionReportInput = (value: unknown): unknown => {
       results: value.results.map(normalizeEditableDigitalResult),
     };
   }
+  if (value.method === 'RT-CR' && Array.isArray(value.results)) {
+    return {
+      ...value,
+      sourceTechnique,
+      results: value.results.map(normalizeEditableCrResult),
+    };
+  }
   if (value.method === 'PT') {
     return {
       ...value,
@@ -699,6 +801,25 @@ const hasInactivePerformedBranchData = (report: RtPtInspectionReportV1): boolean
     });
   }
   if (report.method === 'RT-Digital') return false;
+  if (report.method === 'RT-CR') {
+    return report.results.some((result) => {
+      if (result.planned.sourceType === 'X-ray') {
+        return hasValue(result.actualSourceActivity) || hasValue(result.actualSourceActivityUnit);
+      }
+      if (result.planned.sourceType === 'Gamma') {
+        return hasValue(result.actualTubeVoltage)
+          || hasValue(result.actualTubeVoltageUnit)
+          || hasValue(result.actualTubeCurrent)
+          || hasValue(result.actualTubeCurrentUnit);
+      }
+      return hasValue(result.actualTubeVoltage)
+        || hasValue(result.actualTubeVoltageUnit)
+        || hasValue(result.actualTubeCurrent)
+        || hasValue(result.actualTubeCurrentUnit)
+        || hasValue(result.actualSourceActivity)
+        || hasValue(result.actualSourceActivityUnit);
+    });
+  }
 
   const { results } = report;
   const inactiveMethodAPlan = [
@@ -1028,6 +1149,73 @@ export function createRtPtInspectionReport(
         cnrRequirementMet: '',
         detectorControlReference: '',
         archiveReference: '',
+        coverageConfirmed: '',
+        result: '',
+        remarks: '',
+      })),
+    };
+  }
+  if (document.method === 'RT-CR') {
+    return {
+      ...base,
+      method: 'RT-CR',
+      sourceTechnique: { ...base.sourceTechnique, method: 'RT-CR' },
+      results: document.technique.exposureViews.map((view) => ({
+        id: createId('cr-result'),
+        plannedItemId: view.id,
+        planned: {
+          viewId: view.viewId,
+          description: view.description,
+          orientation: view.orientation,
+          inspectionZone: view.inspectionZone,
+          referenceAttachmentId: view.referenceAttachmentId,
+          wallTechnique: view.wallTechnique,
+          sourceType: document.technique.source.sourceType,
+          sfd: view.sfd,
+          sfdUnit: view.sfdUnit,
+          sod: view.sod,
+          sodUnit: view.sodUnit,
+          ofd: view.ofd,
+          ofdUnit: view.ofdUnit,
+          tubeVoltage: document.technique.source.sourceType === 'X-ray' ? view.tubeVoltage : '',
+          tubeVoltageUnit: view.tubeVoltageUnit,
+          tubeCurrent: document.technique.source.sourceType === 'X-ray' ? view.tubeCurrent : '',
+          tubeCurrentUnit: view.tubeCurrentUnit,
+          exposureTime: view.exposureTime,
+          exposureTimeUnit: view.exposureTimeUnit,
+          plateDesignation: document.technique.plateSystem.plateDesignation,
+          iqiRequirement: view.iqiOverride || document.technique.iqi.designation,
+          greyValueMin: document.technique.imageQuality.greyValueMin,
+          greyValueMax: document.technique.imageQuality.greyValueMax,
+          requiredSnrMin: document.technique.imageQuality.requiredSnrMin,
+        },
+        plateOrImageId: '',
+        retakeOfImageId: '',
+        exposureDate: '',
+        scanDate: '',
+        actualSfd: '',
+        actualSfdUnit: view.sfdUnit,
+        actualSod: '',
+        actualSodUnit: view.sodUnit,
+        actualOfd: '',
+        actualOfdUnit: view.ofdUnit,
+        actualTubeVoltage: '',
+        actualTubeVoltageUnit: document.technique.source.sourceType === 'X-ray' ? view.tubeVoltageUnit : '',
+        actualTubeCurrent: '',
+        actualTubeCurrentUnit: document.technique.source.sourceType === 'X-ray' ? view.tubeCurrentUnit : '',
+        actualSourceActivity: '',
+        actualSourceActivityUnit: document.technique.source.sourceType === 'Gamma'
+          ? document.technique.source.gamma.activityUnit
+          : '',
+        actualExposureTime: '',
+        actualExposureTimeUnit: view.exposureTimeUnit,
+        greyValueMin: '',
+        greyValueMax: '',
+        achievedSnr: '',
+        achievedSrb: '',
+        snrRequirementMet: '',
+        iqiObserved: '',
+        iqiRequirementMet: '',
         coverageConfirmed: '',
         result: '',
         remarks: '',

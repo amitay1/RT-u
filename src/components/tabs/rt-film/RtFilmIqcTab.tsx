@@ -9,6 +9,8 @@ import {
   PS811000_WIRE_IQI_GROUPS,
   PS811000_WIRE_TABLE,
 } from '@/lib/ps811000';
+import { calculateE1025EpsProfile } from '@/lib/rtIqiReference';
+import { AstmIqiReferenceCard } from '@/components/tabs/shared/AstmIqiReferenceCard';
 
 interface Props {
   data: RtFilmIqi;
@@ -35,6 +37,7 @@ export const RtFilmIqcTab = ({ data, general, ps811000Applicable, onChange }: Pr
   const imageQualityRequirement = ps811000Applicable
     ? lookupPs811000ImageQualityRequirement(general.thickness, general.thicknessUnit)
     : null;
+  const epsProfile = calculateE1025EpsProfile(data.designation, general.thickness, general.thicknessUnit);
 
   return (
     <div className="space-y-4">
@@ -65,6 +68,24 @@ export const RtFilmIqcTab = ({ data, general, ps811000Applicable, onChange }: Pr
         </div>
       </CardContent>
       </Card>
+
+      <AstmIqiReferenceCard>
+        <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-sm">
+          <div className="font-semibold">Equivalent Penetrameter Sensitivity (computed)</div>
+          <div className="mt-1 text-muted-foreground">
+            {epsProfile ? (
+              <>
+                E1025 plaque {epsProfile.plaque.designation} (T {epsProfile.plaque.thicknessInch}") on part thickness{' '}
+                {general.thickness} {general.thicknessUnit}: EPS {epsProfile.eps1T ?? '-'}% at 1T,{' '}
+                {epsProfile.eps2T ?? '-'}% at 2T, {epsProfile.eps4T ?? '-'}% at 4T
+                {' '}&mdash; EPS = (100/X)&middot;&radic;(T&middot;H/2)
+              </>
+            ) : (
+              'Enter a tabulated E1025 designation (e.g. 10) and a numeric part thickness to compute EPS at the 1T/2T/4T holes.'
+            )}
+          </div>
+        </div>
+      </AstmIqiReferenceCard>
 
       {ps811000Applicable ? (
         <Card>

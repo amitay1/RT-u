@@ -32,6 +32,7 @@ const LICENSED_API_PATHS = [
   "/api/technique-sheets",
   "/api/organizations",
   "/api/inspector-profiles",
+  "/api/unified-storage",
 ] as const;
 
 class LicenseAuthorityPinningError extends Error {

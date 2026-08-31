@@ -24,12 +24,14 @@ export interface RtPtInspectionReportPdfReleaseState {
 const METHOD_TITLE = {
   'RT-Film': 'Radiographic Testing - Film',
   'RT-Digital': 'Radiographic Testing - Digital Detector Array',
+  'RT-CR': 'Radiographic Testing - Computed Radiography',
   PT: 'Liquid Penetrant Testing',
 } as const;
 
 const METHOD_CODE = {
   'RT-Film': 'FILM RT',
   'RT-Digital': 'DDA RT',
+  'RT-CR': 'CR RT',
   PT: 'PT',
 } as const;
 
@@ -716,6 +718,98 @@ const renderFilmResults = (
   return { sectionNumber, y };
 };
 
+const crSourceValues = (
+  result: Extract<RtPtInspectionReportV1, { method: 'RT-CR' }>['results'][number],
+): [string, string] => {
+  if (result.planned.sourceType === 'X-ray') {
+    return [
+      formatIdentity(
+        formatValue(result.planned.tubeVoltage, result.planned.tubeVoltageUnit),
+        formatValue(result.planned.tubeCurrent, result.planned.tubeCurrentUnit),
+      ),
+      formatIdentity(
+        formatValue(result.actualTubeVoltage, result.actualTubeVoltageUnit),
+        formatValue(result.actualTubeCurrent, result.actualTubeCurrentUnit),
+      ),
+    ];
+  }
+  if (result.planned.sourceType === 'Gamma') {
+    return [
+      'Gamma source per approved technique',
+      formatValue(result.actualSourceActivity, result.actualSourceActivityUnit),
+    ];
+  }
+  return ['Source type not specified', 'Not specified'];
+};
+
+const renderCrResults = (
+  pdf: jsPDF,
+  report: Extract<RtPtInspectionReportV1, { method: 'RT-CR' }>,
+  startSectionNumber: number,
+  startY: number,
+): { sectionNumber: number; y: number } => {
+  let sectionNumber = startSectionNumber;
+  const summaryRows: RowInput[] = report.results.length > 0
+    ? report.results.map((result, index) => [
+      formatValue(result.planned.viewId || index + 1),
+      formatIdentity(result.plateOrImageId, result.retakeOfImageId ? `Retake of ${result.retakeOfImageId}` : ''),
+      formatIdentity(result.planned.inspectionZone, result.planned.orientation),
+      formatIdentity(result.exposureDate, result.scanDate ? `scan ${result.scanDate}` : ''),
+      formatBooleanRecord(result.coverageConfirmed),
+      formatCode(result.result),
+    ])
+    : [[{ content: 'No performed CR result rows entered.', colSpan: 6 }]];
+  let y = renderDataTableSection(
+    pdf,
+    sectionNumber,
+    'Performed CR result summary',
+    ['VIEW', 'PLATE / RETAKE', 'ZONE / ORIENTATION', 'DATES', 'COVERAGE', 'RESULT'],
+    summaryRows,
+    startY,
+    {
+      0: { cellWidth: 17, fontStyle: 'bold', halign: 'center' },
+      1: { cellWidth: 37 },
+      2: { cellWidth: 43 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 32, fontStyle: 'bold' },
+    },
+  );
+  sectionNumber += 1;
+
+  report.results.forEach((result, index) => {
+    const [plannedSource, actualSource] = crSourceValues(result);
+    const rows: RowInput[] = [
+      ['View / Inspection Zone', formatIdentity(result.planned.viewId, result.planned.description, result.planned.inspectionZone, result.planned.orientation), formatIdentity(result.plateOrImageId, result.exposureDate)],
+      ['Setup Reference / Wall Technique', formatIdentity(result.planned.referenceAttachmentId, result.planned.wallTechnique), formatValue(result.retakeOfImageId ? `Retake of ${result.retakeOfImageId}` : 'Original exposure')],
+      ['Geometry', `SFD ${formatValue(result.planned.sfd, result.planned.sfdUnit)}\nSOD ${formatValue(result.planned.sod, result.planned.sodUnit)}\nOFD ${formatValue(result.planned.ofd, result.planned.ofdUnit)}`, `Actual SFD ${formatValue(result.actualSfd, result.actualSfdUnit)}\nActual SOD ${formatValue(result.actualSod, result.actualSodUnit)}\nActual OFD ${formatValue(result.actualOfd, result.actualOfdUnit)}`],
+      ['Active Source Settings', plannedSource, actualSource],
+      ['Exposure / Scan', formatValue(result.planned.exposureTime, result.planned.exposureTimeUnit), formatIdentity(formatValue(result.actualExposureTime, result.actualExposureTimeUnit), result.scanDate ? `scanned ${result.scanDate}` : '')],
+      ['Plate / Grey-Value Window', `${formatValue(result.planned.plateDesignation)}\nRequired ${formatRange(result.planned.greyValueMin, result.planned.greyValueMax, '')}`, `Measured ${formatRange(result.greyValueMin, result.greyValueMax, '')}`],
+      ['SNR / SRb', `Required minimum SNR ${formatValue(result.planned.requiredSnrMin)}`, `Achieved SNR ${formatValue(result.achievedSnr)}\nAchieved SRb ${formatValue(result.achievedSrb)}\n${formatRequirementAssessment(result.snrRequirementMet)}`],
+      ['Image Quality Indicator', formatValue(result.planned.iqiRequirement), formatValue(result.iqiObserved)],
+      ['IQI Requirement Assessment', 'Explicit inspector determination required', formatRequirementAssessment(result.iqiRequirementMet)],
+      ['Coverage / Result', 'Required planned coverage', `${formatBooleanRecord(result.coverageConfirmed)}\n${formatCode(result.result)}`],
+      ['Remarks', 'Not applicable', formatValue(result.remarks)],
+    ];
+    y = renderDataTableSection(
+      pdf,
+      sectionNumber,
+      `CR result ${result.planned.viewId || index + 1}`,
+      ['CONTROL', 'PLANNED / REQUIRED', 'PERFORMED / ACHIEVED'],
+      rows,
+      y,
+      {
+        0: { cellWidth: 42, fontStyle: 'bold' },
+        1: { cellWidth: 70 },
+        2: { cellWidth: 70 },
+      },
+    );
+    sectionNumber += 1;
+  });
+  return { sectionNumber, y };
+};
+
 const renderDigitalResults = (
   pdf: jsPDF,
   report: Extract<RtPtInspectionReportV1, { method: 'RT-Digital' }>,
@@ -1132,6 +1226,10 @@ export function buildRtPtInspectionReportPdf(
     y = rendered.y;
   } else if (report.method === 'RT-Digital') {
     const rendered = renderDigitalResults(pdf, report, sectionNumber, y);
+    sectionNumber = rendered.sectionNumber;
+    y = rendered.y;
+  } else if (report.method === 'RT-CR') {
+    const rendered = renderCrResults(pdf, report, sectionNumber, y);
     sectionNumber = rendered.sectionNumber;
     y = rendered.y;
   } else {

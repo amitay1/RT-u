@@ -50,6 +50,23 @@ describe("RT/PT renderer license trust boundary", () => {
     });
   });
 
+  it("accepts an active site license that is not bound to one installation", () => {
+    const response = activeResponse();
+    (response.license as Record<string, unknown>).installationId = null;
+
+    expect(normaliseRtPtLicenseStatus(response)).toMatchObject({
+      status: "active",
+      active: true,
+      installationId: INSTALLATION_ID,
+      reason: null,
+      license: {
+        installationId: null,
+        edition: "professional",
+        features: ["rt-film", "rt-digital", "pt"],
+      },
+    });
+  });
+
   it.each([
     ["missing license details", (response: ReturnType<typeof activeResponse>) => {
       (response as Record<string, unknown>).license = null;

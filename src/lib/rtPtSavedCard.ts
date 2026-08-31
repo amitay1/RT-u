@@ -107,12 +107,14 @@ function readTags(record: UnknownRecord): string[] {
 function defaultCardName(method: RtPtMethod): string {
   if (method === 'RT-Film') return 'Imported Film RT Technique';
   if (method === 'RT-Digital') return 'Imported Digital RT Technique';
+  if (method === 'RT-CR') return 'Imported CR RT Technique';
   return 'Imported PT Technique';
 }
 
 function defaultStandardLabel(method: RtPtMethod): string {
   if (method === 'RT-Film') return 'Film RT reference not provided';
   if (method === 'RT-Digital') return 'Digital RT reference not provided';
+  if (method === 'RT-CR') return 'CR RT reference not provided';
   return 'PT reference not provided';
 }
 

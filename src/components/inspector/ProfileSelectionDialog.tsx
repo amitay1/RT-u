@@ -95,12 +95,12 @@ export function ProfileSelectionDialog({
     <>
       <Dialog open={open && !showManager} onOpenChange={allowClose ? onOpenChange : undefined}>
         <DialogContent
-          className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden rounded-lg border border-border bg-background p-0 text-foreground shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl"
+          className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden rounded-lg border border-border bg-card p-0 text-foreground shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl"
           hideCloseButton={!allowClose}
           onPointerDownOutside={allowClose ? undefined : (e) => e.preventDefault()}
           onEscapeKeyDown={allowClose ? undefined : (e) => e.preventDefault()}
         >
-          <DialogHeader className="flex-none border-b border-border bg-card px-4 py-4 pr-12 text-left sm:px-6 sm:py-5 sm:pr-14">
+          <DialogHeader className="flex-none border-b border-border bg-muted/40 px-4 py-4 pr-12 text-left sm:px-6 sm:py-5 sm:pr-14">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-border bg-muted/60 text-muted-foreground">
@@ -148,7 +148,7 @@ export function ProfileSelectionDialog({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
             {profiles.length === 0 ? (
               <div className="space-y-4 rounded-lg border border-dashed border-border bg-muted/20 px-5 py-10 text-center">
-                <div className="mx-auto grid h-14 w-14 place-items-center rounded-md border border-border bg-card text-muted-foreground">
+                <div className="mx-auto grid h-14 w-14 place-items-center rounded-md border border-primary/30 bg-primary/10 text-primary">
                   <UserPlus className="h-7 w-7" aria-hidden="true" />
                 </div>
                 <div>

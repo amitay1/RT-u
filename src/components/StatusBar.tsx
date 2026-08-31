@@ -96,7 +96,7 @@ export const StatusBar = ({
       <span className="sr-only" role="status" aria-live="polite">
         {isOnline ? 'Online' : 'Offline'}{autoSaveDisplay ? `. ${autoSaveDisplay.text}` : ''}. {completionLabel} completion {Math.round(completionPercent)} percent. Controlled release readiness is verified separately.
       </span>
-      <div className="flex flex-shrink-0 items-center gap-2 rounded-md border border-border/75 bg-muted/30 px-2.5 py-1.5">
+      <div className="flex flex-shrink-0 items-center gap-2 px-1.5">
         {isOnline ? (
           <>
             <Wifi className="h-4 w-4 text-success" />
@@ -114,7 +114,7 @@ export const StatusBar = ({
 
       {autoSaveDisplay && (
         <>
-          <div className="hidden items-center gap-2 rounded-md border border-border/75 bg-muted/30 px-3 py-1.5 lg:flex">
+          <div className="hidden items-center gap-2 px-1.5 lg:flex">
             {autoSaveDisplay.icon}
             <span className={`${autoSaveDisplay.color} text-xs font-medium`}>{autoSaveDisplay.text}</span>
           </div>
@@ -123,7 +123,7 @@ export const StatusBar = ({
       )}
 
       <div className="flex min-w-0 flex-1 items-center justify-center">
-        <div className="flex w-full min-w-0 max-w-[680px] items-center gap-2 rounded-md border border-border/75 bg-muted/30 px-2.5 py-1.5 md:gap-3 md:px-3">
+        <div className="flex w-full min-w-0 max-w-[760px] items-center gap-2 md:gap-3">
           {completionPercent === 100 ? (
             <CheckCircle className="h-4 w-4 flex-shrink-0 text-primary" />
           ) : (
@@ -132,7 +132,7 @@ export const StatusBar = ({
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="hidden shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">{completionLabel}</span>
             <div
-              className="relative h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-background/80"
+              className="workbench-inline-progress-track min-w-16 flex-1"
               role="progressbar"
               aria-label={`${completionLabel} completed`}
               aria-valuemin={0}
@@ -141,7 +141,7 @@ export const StatusBar = ({
               aria-valuetext={`${requiredFieldsComplete} of ${totalRequiredFields} required fields, ${Math.round(completionPercent)} percent`}
             >
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300"
+                  className="workbench-inline-progress-fill absolute inset-y-0 left-0"
                   style={{ width: `${Math.max(0, Math.min(100, completionPercent))}%` }}
                 />
             </div>
@@ -152,7 +152,7 @@ export const StatusBar = ({
         </div>
       </div>
 
-      <span className="hidden rounded-md border border-border/75 bg-muted/30 px-2.5 py-1.5 font-mono text-xs font-semibold text-muted-foreground sm:inline-flex">
+      <span className="hidden font-mono text-xs font-semibold tracking-wide text-muted-foreground sm:inline-flex">
         {appVersion}
       </span>
     </footer>

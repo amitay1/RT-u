@@ -305,6 +305,177 @@ function buildFilmOverview(
   return { stages, callouts };
 }
 
+function buildCrOverview(
+  techniqueDocument: Extract<RtPtDocument, { method: 'RT-CR' }>,
+): { stages: RtProcessStage[]; callouts: RtProcessCallout[] } {
+  const { general, exposureDefaults: exposure, source, plateSystem, scanner, iqi, exposureViews } =
+    techniqueDocument.technique;
+  const { documentControl } = techniqueDocument;
+
+  const isGamma = source.sourceType === 'Gamma';
+  const sourceLabel = isGamma
+    ? join(text(source.gamma.isotope), text(source.gamma.sourceId))
+    : join(text(source.manufacturer), text(source.model));
+  const sourceSize = isGamma
+    ? formatLength(source.gamma.effectiveSourceSize, source.gamma.effectiveSourceSizeUnit)
+    : formatLength(source.xRay.focalSpotSize, source.xRay.focalSpotSizeUnit);
+  const sourceSizeLabel = isGamma ? 'Effective source size' : 'Focal spot';
+
+  const calculatedUg = formatLength(
+    calculateFilmGeometricUnsharpness(exposure, source),
+    exposure.requiredUgUnit,
+  );
+  const requiredUg = resolveRequiredUg(
+    exposure.requiredUg,
+    exposure.requiredUgUnit,
+    iqi.requiredUg,
+    iqi.requiredUgUnit,
+  );
+
+  const energy = isGamma
+    ? join(text(source.gamma.isotope), formatMeasure(source.gamma.activity, source.gamma.activityUnit))
+    : formatMeasure(exposure.tubeVoltage, exposure.tubeVoltageUnit);
+  const energyLabel = isGamma ? 'Isotope / activity' : 'Tube voltage';
+  const exposureTime = formatMeasure(exposure.exposureTime, exposure.exposureTimeUnit);
+
+  const receptorLabel = join(text(plateSystem.plateDesignation), text(plateSystem.plateClass));
+  const viewCount = exposureViews.length;
+
+  const stages: RtProcessStage[] = [
+    buildStage({
+      id: 'part',
+      step: 1,
+      title: 'Casting selection',
+      caption: 'Part, material and wall covered by this technique.',
+      headlineLabel: 'Part',
+      headline: join(text(general.partName), text(general.partNumber)),
+      metrics: [
+        { label: 'Material', value: text(general.material) },
+        { label: 'Wall thickness', value: formatLength(general.thickness, general.thicknessUnit) },
+      ],
+      targetTab: 'general',
+      targetTabLabel: 'General',
+    }),
+    buildStage({
+      id: 'geometry',
+      step: 2,
+      title: 'Geometry & distances',
+      caption: 'Source, object and imaging-plate positions for the shot.',
+      headlineLabel: 'SFD',
+      headline: formatLength(exposure.sfd, exposure.sfdUnit),
+      metrics: [
+        { label: 'SOD', value: formatLength(exposure.sod, exposure.sodUnit) },
+        { label: 'OFD', value: formatLength(exposure.ofd, exposure.ofdUnit) },
+        { label: 'Magnification', value: formatRatio(exposure.geometricMagnification) },
+      ],
+      targetTab: 'exposure',
+      targetTabLabel: 'Exposure Defaults',
+    }),
+    buildStage({
+      id: 'unsharpness',
+      step: 3,
+      title: 'Ug calculation',
+      caption: 'Geometric unsharpness against the required limit.',
+      headlineLabel: 'Calculated Ug',
+      headline: calculatedUg,
+      metrics: [
+        { label: 'Required max Ug', value: requiredUg },
+        { label: sourceSizeLabel, value: sourceSize },
+      ],
+      targetTab: 'iqc',
+      targetTabLabel: 'Image Quality',
+    }),
+    buildStage({
+      id: 'exposure',
+      step: 4,
+      title: 'Exposure selection',
+      caption: 'Energy, current and time for the qualified exposure.',
+      headlineLabel: energyLabel,
+      headline: energy,
+      metrics: [
+        {
+          label: isGamma ? 'Exposure time' : 'Tube current',
+          value: isGamma ? exposureTime : formatMeasure(exposure.tubeCurrent, exposure.tubeCurrentUnit),
+        },
+        {
+          label: isGamma ? 'Wall technique' : 'Exposure time',
+          value: isGamma ? text(exposure.wallTechnique) : exposureTime,
+        },
+      ],
+      targetTab: 'exposure',
+      targetTabLabel: 'Exposure Defaults',
+    }),
+    buildStage({
+      id: 'detector',
+      step: 5,
+      title: 'Plate position & scan',
+      caption: 'Imaging-plate placement, coverage and readout across the views.',
+      headlineLabel: 'Exposure views',
+      headline: viewCount > 0 ? `${viewCount} view${viewCount === 1 ? '' : 's'}` : null,
+      metrics: [
+        { label: 'Overlap', value: text(exposure.overlap) },
+        { label: 'Scan resolution', value: formatMeasure(scanner.scanResolutionPixelsPerMm, 'px/mm') },
+      ],
+      targetTab: 'views',
+      targetTabLabel: 'Exposure Views',
+    }),
+    buildStage({
+      id: 'card',
+      step: 6,
+      title: 'Technique card',
+      caption: 'Controlled document identity and release control.',
+      headlineLabel: 'Document',
+      headline: join(
+        text(documentControl.number),
+        documentControl.revision.trim() ? `Rev ${documentControl.revision.trim()}` : null,
+      ),
+      metrics: [
+        { label: 'Title', value: text(documentControl.title) },
+        { label: 'Effective date', value: text(documentControl.effectiveDate) },
+      ],
+      targetTab: 'control',
+      targetTabLabel: 'Control & Approval',
+    }),
+  ];
+
+  const callouts: RtProcessCallout[] = [
+    {
+      id: 'source',
+      label: isGamma ? 'Gamma source' : 'X-ray source',
+      primary: sourceLabel,
+      secondary: join(sourceSize ? `${sourceSizeLabel} ${sourceSize}` : null, energy),
+    },
+    {
+      id: 'part',
+      label: 'Part',
+      primary: join(text(general.partName), text(general.partNumber)),
+      secondary: join(
+        text(general.material),
+        formatLength(general.thickness, general.thicknessUnit),
+      ),
+    },
+    {
+      id: 'detector',
+      label: 'Imaging plate',
+      primary: receptorLabel,
+      secondary: join(text(exposure.plateSize), text(plateSystem.manufacturer)),
+    },
+    {
+      id: 'geometry',
+      label: 'Geometry',
+      primary: formatLength(exposure.sfd, exposure.sfdUnit)
+        ? `SFD ${formatLength(exposure.sfd, exposure.sfdUnit)}`
+        : null,
+      secondary: join(
+        formatLength(exposure.sod, exposure.sodUnit) ? `SOD ${formatLength(exposure.sod, exposure.sodUnit)}` : null,
+        formatLength(exposure.ofd, exposure.ofdUnit) ? `OFD ${formatLength(exposure.ofd, exposure.ofdUnit)}` : null,
+      ),
+    },
+  ];
+
+  return { stages, callouts };
+}
+
 function buildDigitalOverview(
   techniqueDocument: Extract<RtPtDocument, { method: 'RT-Digital' }>,
 ): { stages: RtProcessStage[]; callouts: RtProcessCallout[] } {
@@ -465,9 +636,10 @@ function buildDigitalOverview(
   return { stages, callouts };
 }
 
-const METHOD_LABEL: Record<'RT-Film' | 'RT-Digital', string> = {
+const METHOD_LABEL: Record<'RT-Film' | 'RT-Digital' | 'RT-CR', string> = {
   'RT-Film': 'RT Film',
   'RT-Digital': 'RT Digital / DDA',
+  'RT-CR': 'RT Computed Radiography',
 };
 
 /** Returns `null` for penetrant techniques, which have no radiographic pipeline. */
@@ -479,7 +651,9 @@ export function buildRtProcessOverview(
 
   const { stages, callouts } = techniqueDocument.method === 'RT-Film'
     ? buildFilmOverview(techniqueDocument)
-    : buildDigitalOverview(techniqueDocument);
+    : techniqueDocument.method === 'RT-CR'
+      ? buildCrOverview(techniqueDocument)
+      : buildDigitalOverview(techniqueDocument);
 
   return {
     methodLabel: METHOD_LABEL[techniqueDocument.method],

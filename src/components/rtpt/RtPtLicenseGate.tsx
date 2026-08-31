@@ -140,7 +140,7 @@ const copyText = async (value: string): Promise<void> => {
 
 function LicenseLoadingScreen() {
   return (
-    <main className="flex min-h-full w-full items-center justify-center overflow-auto bg-background px-5 py-10 text-foreground">
+    <main className="workbench-shell flex min-h-full w-full items-center justify-center overflow-auto px-5 py-10 text-foreground">
       <section
         className="app-panel flex w-full max-w-md flex-col items-center px-7 py-10 text-center"
         aria-labelledby="license-loading-title"
@@ -227,7 +227,7 @@ export function RtPtLicenseGate({ children }: RtPtLicenseGateProps) {
   const reportedMessage = error || status.message || presentation.description;
 
   return (
-    <main className="h-full min-h-0 w-full overflow-auto bg-background text-foreground">
+    <main className="workbench-shell h-full min-h-0 w-full overflow-auto text-foreground">
       <div className="mx-auto flex min-h-full w-full max-w-[1240px] flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-5">
           <RonexBrandMark variant="page" />

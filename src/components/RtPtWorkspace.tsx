@@ -10,6 +10,7 @@ import {
   Check,
   Droplets,
   Film,
+  ScanLine,
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react';
@@ -27,6 +28,13 @@ import { RtFilmFilmSystemTab } from '@/components/tabs/rt-film/RtFilmFilmSystemT
 import { RtFilmIqcTab } from '@/components/tabs/rt-film/RtFilmIqcTab';
 import { RtFilmAcceptanceTab } from '@/components/tabs/rt-film/RtFilmAcceptanceTab';
 import { RtFilmExposureViewsTab } from '@/components/tabs/rt-film/RtFilmExposureViewsTab';
+
+import { RtCrGeneralTab } from '@/components/tabs/rt-cr/RtCrGeneralTab';
+import { RtCrExposureTab } from '@/components/tabs/rt-cr/RtCrExposureTab';
+import { RtCrEquipmentTab } from '@/components/tabs/rt-cr/RtCrEquipmentTab';
+import { RtCrPlateScannerTab } from '@/components/tabs/rt-cr/RtCrPlateScannerTab';
+import { RtCrImageQualityTab } from '@/components/tabs/rt-cr/RtCrImageQualityTab';
+import { RtCrExposureViewsTab } from '@/components/tabs/rt-cr/RtCrExposureViewsTab';
 
 import { RtDigitalGeneralTab } from '@/components/tabs/rt-digital/RtDigitalGeneralTab';
 import { RtDigitalExposureTab } from '@/components/tabs/rt-digital/RtDigitalExposureTab';
@@ -61,12 +69,14 @@ const workbenchTabTriggerClass = 'group rounded-md px-3 py-2 text-sm font-semibo
 const METHOD_ICONS: Record<RtPtMethod, typeof Film> = {
   'RT-Film': Film,
   'RT-Digital': Camera,
+  'RT-CR': ScanLine,
   PT: Droplets,
 };
 
 const WORKSPACE_DISPLAY_LABEL: Record<RtPtMethod, string> = {
   'RT-Film': 'RT Film Technique',
   'RT-Digital': 'RT Digital / DDA Technique',
+  'RT-CR': 'RT Computed Radiography Technique',
   PT: 'Penetrant Technique',
 };
 
@@ -94,6 +104,17 @@ const TAB_DEFINITIONS: Record<RtPtMethod, ReadonlyArray<RtPtWorkflowTabDefinitio
     { value: 'acceptance', label: 'Acceptance Profiles', shortLabel: 'Acceptance' },
     { value: 'control', label: 'Control & Approval', shortLabel: 'Control' },
   ],
+  'RT-CR': [
+    { value: 'general', label: 'General', shortLabel: 'General' },
+    { value: 'exposure', label: 'Exposure Defaults', shortLabel: 'Exposure' },
+    { value: 'equipment', label: 'Source', shortLabel: 'Source' },
+    { value: 'plate', label: 'Plate & Scanner', shortLabel: 'Plate' },
+    { value: 'image', label: 'Image Quality', shortLabel: 'Image' },
+    { value: 'iqc', label: 'IQI', shortLabel: 'IQI' },
+    { value: 'acceptance', label: 'Acceptance', shortLabel: 'Acceptance' },
+    { value: 'views', label: 'Exposure Views', shortLabel: 'Views' },
+    { value: 'control', label: 'Control & Approval', shortLabel: 'Control' },
+  ],
   PT: [
     { value: 'general', label: 'General', shortLabel: 'General' },
     { value: 'materials', label: 'Materials', shortLabel: 'Materials' },
@@ -108,12 +129,14 @@ const TAB_DEFINITIONS: Record<RtPtMethod, ReadonlyArray<RtPtWorkflowTabDefinitio
 };
 
 export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => {
-  const { method, activeTabs, setActiveTab, rtFilm, rtDigital, penetrant } = workspace;
+  const { method, activeTabs, setActiveTab, rtFilm, rtDigital, rtCr, penetrant } = workspace;
   const activeTab = method === 'RT-Film'
     ? activeTabs.rtFilm
     : method === 'RT-Digital'
       ? activeTabs.rtDigital
-      : activeTabs.pt;
+      : method === 'RT-CR'
+        ? activeTabs.rtCr
+        : activeTabs.pt;
   const MethodIcon = METHOD_ICONS[method];
   const tabs = TAB_DEFINITIONS[method];
   const activeStep = Math.max(0, tabs.findIndex((tab) => tab.value === activeTab));
@@ -161,10 +184,10 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
               <MethodIcon className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Technique planning workspace</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary/70">Technique planning workspace</div>
               <div className="mt-0.5 flex min-w-0 items-center gap-2">
                 <h2
-                  className="truncate text-base font-semibold tracking-tight md:text-lg"
+                  className="truncate text-lg font-semibold tracking-tight md:text-xl"
                   aria-label={RT_PT_METHOD_LABEL[method]}
                   title={RT_PT_METHOD_LABEL[method]}
                 >
@@ -183,8 +206,8 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
             </div>
             <div className="hidden flex-none items-center gap-3 text-right md:flex">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Workflow position</div>
-                <div className="mt-0.5 text-sm font-semibold">Step {activeStep + 1} of {tabs.length}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Workflow position</div>
+                <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">Step {activeStep + 1} of {tabs.length}</div>
               </div>
               <div className="grid h-9 w-9 place-items-center rounded-lg border border-border/70 bg-muted/50 text-muted-foreground" title="Controlled planning document">
                 <ShieldCheck className="h-4 w-4" aria-hidden="true" />
@@ -235,8 +258,8 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
                     {(issueCount.errors > 0 || issueCount.warnings > 0) && (
                       <span
                         className={issueCount.errors > 0
-                          ? 'grid h-5 min-w-5 place-items-center rounded-full bg-destructive/10 px-1 text-[10px] font-bold tabular-nums text-destructive'
-                          : 'grid h-5 min-w-5 place-items-center rounded-full bg-warning/15 px-1 text-[10px] font-bold tabular-nums text-warning'}
+                          ? 'grid h-[1.125rem] min-w-[1.125rem] place-items-center rounded-full border border-destructive/30 px-1 font-mono text-[10px] font-semibold tabular-nums text-destructive/90'
+                          : 'grid h-[1.125rem] min-w-[1.125rem] place-items-center rounded-full border border-warning/35 px-1 font-mono text-[10px] font-semibold tabular-nums text-warning'}
                         aria-hidden="true"
                       >
                         {issueCount.errors || issueCount.warnings}
@@ -264,6 +287,8 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
                   onChange={rtFilm.updateGeneral}
                   ps811000Applicable={rtFilm.sheet.ps811000Applicable}
                   onPs811000ApplicableChange={rtFilm.updatePs811000Applicable}
+                  iso17636TestClass={rtFilm.sheet.iso17636TestClass}
+                  onIso17636TestClassChange={rtFilm.updateIso17636TestClass}
                 />
               </TabsContent>
               <TabsContent value="exposure" className="m-0">
@@ -272,9 +297,14 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
                   source={rtFilm.sheet.source}
                   ps811000Applicable={rtFilm.sheet.ps811000Applicable}
                   onChange={rtFilm.updateExposureDefaults}
+                  circumferentialPlan={rtFilm.sheet.circumferentialPlan}
+                  onCircumferentialPlanChange={rtFilm.updateCircumferentialPlan}
+                  iso17636TestClass={rtFilm.sheet.iso17636TestClass}
+                  nominalThickness={rtFilm.sheet.general.thickness}
+                  nominalThicknessUnit={rtFilm.sheet.general.thicknessUnit}
                 />
               </TabsContent>
-              <TabsContent value="equipment" className="m-0"><RtFilmEquipmentTab data={rtFilm.sheet.source} onChange={rtFilm.updateSource} /></TabsContent>
+              <TabsContent value="equipment" className="m-0"><RtFilmEquipmentTab data={rtFilm.sheet.source} general={rtFilm.sheet.general} onChange={rtFilm.updateSource} /></TabsContent>
               <TabsContent value="film" className="m-0">
                 <RtFilmFilmSystemTab
                   data={rtFilm.sheet.filmSystem}
@@ -465,6 +495,73 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
               </TabsContent>
             </>
           )}
+          {method === 'RT-CR' && (
+            <>
+              <TabsContent value="general" className="m-0">
+                <RtCrGeneralTab
+                  data={rtCr.sheet.general}
+                  onChange={rtCr.updateGeneral}
+                  iso17636TestClass={rtCr.sheet.iso17636TestClass}
+                  onIso17636TestClassChange={rtCr.updateIso17636TestClass}
+                />
+              </TabsContent>
+              <TabsContent value="exposure" className="m-0">
+                <RtCrExposureTab
+                  data={rtCr.sheet.exposureDefaults}
+                  source={rtCr.sheet.source}
+                  onChange={rtCr.updateExposureDefaults}
+                  circumferentialPlan={rtCr.sheet.circumferentialPlan}
+                  onCircumferentialPlanChange={rtCr.updateCircumferentialPlan}
+                  iso17636TestClass={rtCr.sheet.iso17636TestClass}
+                  nominalThickness={rtCr.sheet.general.thickness}
+                  nominalThicknessUnit={rtCr.sheet.general.thicknessUnit}
+                />
+              </TabsContent>
+              <TabsContent value="equipment" className="m-0">
+                <RtCrEquipmentTab data={rtCr.sheet.source} general={rtCr.sheet.general} onChange={rtCr.updateSource} />
+              </TabsContent>
+              <TabsContent value="plate" className="m-0">
+                <RtCrPlateScannerTab
+                  plateSystem={rtCr.sheet.plateSystem}
+                  scanner={rtCr.sheet.scanner}
+                  onPlateSystemChange={rtCr.updatePlateSystem}
+                  onScannerChange={rtCr.updateScanner}
+                />
+              </TabsContent>
+              <TabsContent value="image" className="m-0">
+                <RtCrImageQualityTab data={rtCr.sheet.imageQuality} onChange={rtCr.updateImageQuality} />
+              </TabsContent>
+              <TabsContent value="iqc" className="m-0">
+                <RtFilmIqcTab
+                  data={rtCr.sheet.iqi}
+                  general={rtCr.sheet.general}
+                  ps811000Applicable={false}
+                  onChange={rtCr.updateIqi}
+                />
+              </TabsContent>
+              <TabsContent value="acceptance" className="m-0">
+                <RtFilmAcceptanceTab
+                  data={rtCr.sheet.acceptance}
+                  onChange={rtCr.updateAcceptance}
+                  techniqueNotes={rtCr.sheet.techniqueNotes}
+                  onTechniqueNotesChange={rtCr.updateTechniqueNotes}
+                />
+              </TabsContent>
+              <TabsContent value="views" className="m-0">
+                <RtCrExposureViewsTab
+                  data={rtCr.sheet.exposureViews}
+                  source={rtCr.sheet.source}
+                  plateSystem={rtCr.sheet.plateSystem}
+                  onAdd={rtCr.addExposureView}
+                  onChange={rtCr.updateExposureView}
+                  onDuplicate={rtCr.duplicateExposureView}
+                  onMove={rtCr.moveExposureView}
+                  onDelete={rtCr.deleteExposureView}
+                />
+              </TabsContent>
+            </>
+          )}
+
           {method === 'PT' && (
             <>
               <TabsContent value="general" className="m-0"><PtGeneralTab data={penetrant.sheet.general} onChange={penetrant.updateGeneral} /></TabsContent>

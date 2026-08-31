@@ -4,12 +4,14 @@ import {
   type RtDigitalAcquisitionPlan,
   type RtDigitalPlanning,
 } from '@/types/rtDigital';
+import { emptyRtCrSheet } from '@/types/rtCr';
 import { emptyRtFilmSheet } from '@/types/rtFilm';
 import {
   calculateRtDigitalPlanning,
   type RtDigitalExposureGridDescriptor,
 } from '@/lib/rtDigitalPlanning';
 import {
+  createRtCrExposureView,
   createRtDigitalAcquisition,
   createRtFilmExposureView,
   createRtPtDocument,
@@ -188,6 +190,127 @@ export function createCompleteFilmDocument(status: RtPtDocumentStatus = 'draft')
       techniqueNotes: 'All entries are planned or required values.',
     },
   }) as Extract<RtPtDocumentV3, { method: 'RT-Film' }>;
+  return bindFixtureApproval(document, status);
+}
+
+const crView = (index: number) => createRtCrExposureView({
+  id: `cr-view-${index}`,
+  viewId: `V${index}`,
+  description: `Planned view ${index}`,
+  orientation: `${(index - 1) * 90} deg`,
+  inspectionZone: `Zone ${index}`,
+  referenceAttachmentId: `ATT-${index}`,
+  wallTechnique: 'SWSI',
+  sfd: 110,
+  sfdUnit: 'mm',
+  sod: 100,
+  sodUnit: 'mm',
+  ofd: 10,
+  ofdUnit: 'mm',
+  thicknessDescription: 'Controlled range',
+  thicknessMin: 8,
+  thicknessMax: 12,
+  thicknessUnit: 'mm',
+  requiredUg: 0.1,
+  requiredUgUnit: 'mm',
+  iqiOverride: 'Use global IQI plan',
+  tubeVoltage: 120,
+  tubeCurrent: 5,
+  exposureTime: 2,
+  exposureTimeUnit: 'min',
+  filter: 'None',
+  collimation: 'To inspection zone',
+  plateSize: '35 x 43 cm',
+  beamAngle: 90,
+  screenOverride: 'None',
+  overlap: 'Witnessed overlap required',
+  identification: `Lead marker V${index}`,
+  notes: 'Planned only',
+});
+
+export function createCompleteCrDocument(status: RtPtDocumentStatus = 'draft'): Extract<RtPtDocumentV3, { method: 'RT-CR' }> {
+  const document = createRtPtDocument({
+    ...controlledBase,
+    status,
+    method: 'RT-CR',
+    technique: {
+      ...emptyRtCrSheet,
+      general: completeGeneral,
+      exposureDefaults: {
+        ...emptyRtCrSheet.exposureDefaults,
+        wallTechnique: 'SWSI',
+        sfd: 110,
+        sod: 100,
+        ofd: 10,
+        geometricMagnification: 1.1,
+        requiredUg: 0.1,
+      },
+      source: {
+        ...emptyRtCrSheet.source,
+        sourceType: 'X-ray',
+        manufacturer: 'Source Maker',
+        model: 'XR-200',
+        serialNumber: 'XR-SN-1',
+        calibrationRequirement: 'Calibration within the controlled procedure interval',
+        xRay: { focalSpotSize: 1, focalSpotSizeUnit: 'mm' },
+      },
+      plateSystem: {
+        manufacturer: 'Plate Maker',
+        plateDesignation: 'IPX-1',
+        plateClass: 'IP1 per controlled reference',
+        cassetteType: 'Rigid',
+        frontScreen: { material: 'Lead', thickness: 0.1, thicknessUnit: 'mm' },
+        backScreen: { material: 'Lead', thickness: 0.1, thicknessUnit: 'mm' },
+        erasureRequirement: 'Full erase before re-use',
+        plateConditionRequirement: 'Inspect for artifacts each cycle',
+      },
+      scanner: {
+        manufacturer: 'Scanner Maker',
+        model: 'CRS-50',
+        serialNumber: 'CRS-SN-1',
+        pixelPitch: 50,
+        pixelPitchUnit: 'um',
+        laserSpotSize: 50,
+        laserSpotSizeUnit: 'um',
+        scanResolutionPixelsPerMm: 20,
+        pmtGainOrVoltage: 'Gain 4',
+        calibrationRequirement: 'Per controlled procedure',
+        qualification: {
+          reference: 'SCANNER-QUAL-1',
+          date: '2026-07-01',
+          dueDate: '2027-07-01',
+          status: 'Qualified',
+        },
+      },
+      imageQuality: {
+        requiredSrb: 100,
+        requiredSrbUnit: 'um',
+        greyValueMin: 20000,
+        greyValueMax: 55000,
+        requiredSnrMin: 70,
+        duplexWireRequirement: 'Duplex D8 per controlled reference',
+        maxScanDelay: 30,
+        maxScanDelayUnit: 'min',
+      },
+      iqi: {
+        ...emptyRtCrSheet.iqi,
+        type: 'Hole',
+        standard: 'Controlled IQI standard',
+        designation: 'IQI-10',
+        shim: 'Shim S-1',
+        block: 'Block B-1',
+        material: 'Same alloy group',
+        thickness: 10,
+        placement: 'Source side',
+        requiredSensitivity: 'Per controlled reference',
+        imageQualityLevel: 'Per controlled reference',
+        requiredUg: 0.1,
+      },
+      acceptance: completeAcceptance,
+      exposureViews: [1, 2, 3, 4].map(crView),
+      techniqueNotes: 'All entries are planned or required values.',
+    },
+  }) as Extract<RtPtDocumentV3, { method: 'RT-CR' }>;
   return bindFixtureApproval(document, status);
 }
 

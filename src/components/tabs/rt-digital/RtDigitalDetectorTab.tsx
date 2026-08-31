@@ -11,6 +11,7 @@ import {
   TextAreaField,
   TextField,
 } from '@/components/tabs/shared/FieldRow';
+import { PerformanceTrendEditor } from '@/components/tabs/shared/PerformanceTrendEditor';
 import { useRtDigitalCatalog } from '@/hooks/useRtDigitalCatalog';
 import type {
   DetectorLengthUnit,
@@ -314,6 +315,17 @@ export const RtDigitalDetectorTab = ({
             value={catalogStatusFromReference(performance.stability)}
             onChange={(value) => onPerformanceChange({ ...performance, stability: { ...value } })}
           />
+          <div className="xl:col-span-3">
+            <PerformanceTrendEditor
+              title="Long-term performance trend (E2737-style)"
+              description="Dated SRb / SNR measurements against the qualification baseline. Append-only; chronological order is enforced."
+              entries={performance.performanceTrend}
+              onChange={(entries) => {
+                const { performanceTrend: _previous, ...rest } = performance;
+                onPerformanceChange(entries === null ? rest : { ...rest, performanceTrend: entries });
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

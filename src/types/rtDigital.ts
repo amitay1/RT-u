@@ -5,6 +5,7 @@ import {
   type DetectorLengthUnit,
   type LengthUnit,
   type NumberOrEmpty,
+  type RtPerformanceTrendEntry,
   type RtPtAcceptancePlan,
   type RtPtGeneralInfo,
   type TechniqueType,
@@ -109,7 +110,7 @@ export type RtDigitalPartGeometryType =
 export type RtDigitalThicknessMode = 'Single Thickness' | 'Thickness Range' | 'Multiple Thickness Zones' | '';
 export type RtDigitalInspectionAreaMode = 'Entire Part' | 'Defined Area' | 'Multiple Areas' | '';
 export type RtDigitalDetectorOrientation = 'Portrait' | 'Landscape' | 'Auto' | '';
-export type RtDigitalIqiType = 'Wire' | 'Hole' | '';
+export type RtDigitalIqiType = 'Wire' | 'Hole' | 'Duplex' | '';
 
 export interface RtDigitalVisualPoint {
   x: NumberOrEmpty;
@@ -585,6 +586,8 @@ export interface RtDigitalDetectorPerformance {
   badPixelMap: RtDigitalReferenceStatus;
   calibration: RtDigitalReferenceStatus;
   stability: RtDigitalReferenceStatus;
+  /** Omitted when empty so earlier canonical fingerprints stay stable. */
+  performanceTrend?: RtPerformanceTrendEntry[];
 }
 
 export interface RtDigitalImageProcessing {

@@ -22,7 +22,7 @@ interface FieldShellProps {
 
 export const FieldShell = ({ label, htmlFor, hint, hintKind = 'help', className, children }: FieldShellProps) => (
   <div className={cn('field-shell flex min-w-0 flex-col gap-1.5', className)}>
-    <Label htmlFor={htmlFor} className="flex min-h-5 flex-wrap items-center gap-1.5 text-sm font-medium text-foreground/85">
+    <Label htmlFor={htmlFor} className="flex min-h-5 flex-wrap items-center gap-1.5 text-xs font-medium tracking-[0.01em] text-muted-foreground">
       <span>{label}</span>
       {hint ? (
         hintKind === 'unit'

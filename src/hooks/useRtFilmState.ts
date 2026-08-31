@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   emptyRtFilmSheet,
+  type RtCircumferentialPlan,
   type RtFilmAcceptance,
   type RtFilmExposureDefaults,
   type RtFilmExposureView,
@@ -65,6 +66,21 @@ export function useRtFilmState() {
 
   const updatePs811000Applicable = useCallback((ps811000Applicable: boolean) => {
     setSheet((current) => withPs811000Density({ ...current, ps811000Applicable }));
+  }, []);
+
+  const updateIso17636TestClass = useCallback((testClass: 'A' | 'B' | '') => {
+    setSheet((current) => {
+      // The key is deleted (never '') so untouched documents keep their canonical form.
+      const { iso17636TestClass: _previous, ...rest } = current;
+      return testClass === '' ? rest : { ...rest, iso17636TestClass: testClass };
+    });
+  }, []);
+
+  const updateCircumferentialPlan = useCallback((plan: RtCircumferentialPlan | null) => {
+    setSheet((current) => {
+      const { circumferentialPlan: _previous, ...rest } = current;
+      return plan === null ? rest : { ...rest, circumferentialPlan: plan };
+    });
   }, []);
 
   const updateExposureDefaults = useCallback((exposureDefaults: RtFilmExposureDefaults) => {
@@ -155,6 +171,8 @@ export function useRtFilmState() {
     resetSheet,
     updateGeneral,
     updatePs811000Applicable,
+    updateIso17636TestClass,
+    updateCircumferentialPlan,
     updateExposureDefaults,
     updateSource,
     updateFilmSystem,

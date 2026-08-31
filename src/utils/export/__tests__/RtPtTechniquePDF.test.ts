@@ -3,11 +3,14 @@ import { reconcileRtPtApprovedContent } from '@/lib/rtPtApprovalLifecycle';
 import { fingerprintRtPtApprovedContent } from '@/lib/rtPtDocumentCodec';
 import { validateRtPtDocument } from '@/lib/rtPtValidation';
 import {
+  buildRtPtFilmExposureSheetPdf,
   buildRtPtTechniquePdf,
   getRtPtExportSections,
+  getRtPtFilmExposureSheetPdfFilename,
   getRtPtPdfReleaseState,
   getRtPtTechniquePdfFilename,
 } from '@/utils/export/RtPtTechniquePDF';
+import { collectRtPtTechniqueImageAttachments } from '@/utils/export/rtPtPdfAttachments';
 import {
   createCompleteDigitalDocument,
   createCompleteFilmDocument,
@@ -389,5 +392,77 @@ describe('RT/PT V3 controlled PDF export', () => {
 
     expect(getRtPtPdfReleaseState(approved, spoofedReadySummary).controlledRelease).toBe(false);
     expect(getRtPtTechniquePdfFilename(approved, spoofedReadySummary)).toMatch(/^DRAFT-UNCONTROLLED-/);
+  });
+
+  it('collects only image attachments referenced by the digital document', () => {
+    const digital = createCompleteDigitalDocument();
+    const collected = collectRtPtTechniqueImageAttachments(digital);
+    expect(collected.length).toBeGreaterThan(0);
+    expect(collected.every((metadata) => metadata.mimeType.startsWith('image/'))).toBe(true);
+    // The fixture's part attachment is an application/pdf record and must stay metadata-only.
+    expect(collected.some((metadata) => metadata.id === 'part-reference-1')).toBe(false);
+    expect(collectRtPtTechniqueImageAttachments(createCompleteFilmDocument())).toEqual([]);
+  });
+
+  it('embeds pre-loaded, integrity-bound attachment images and skips unloaded ones', () => {
+    const digital = createCompleteDigitalDocument();
+    const [first] = collectRtPtTechniqueImageAttachments(digital);
+    expect(first).toBeDefined();
+
+    const onePixelPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const attachmentImages = new Map([[first.id, {
+      metadata: first,
+      dataUrl: onePixelPng,
+      widthPx: 1,
+      heightPx: 1,
+    }]]);
+
+    const withImages = buildRtPtTechniquePdf(digital, undefined, { attachmentImages });
+    const withImagesCommands = JSON.stringify((withImages.internal as unknown as { pages: string[][] }).pages);
+    expect(withImagesCommands).toContain('ATTACHED REFERENCE IMAGES');
+    expect(withImagesCommands).toContain('Attachment 1:');
+    expect(withImagesCommands).toContain('SHA-256');
+
+    const withoutImages = buildRtPtTechniquePdf(digital);
+    const withoutImagesCommands = JSON.stringify((withoutImages.internal as unknown as { pages: string[][] }).pages);
+    expect(withoutImagesCommands).not.toContain('ATTACHED REFERENCE IMAGES');
+  });
+
+  it('prints computed isotope decay rows only for a recognized gamma source', () => {
+    const document = createCompleteFilmDocument();
+    document.technique.source.sourceType = 'Gamma';
+    document.technique.source.gamma = {
+      isotope: 'Ir-192',
+      sourceId: 'SRC-9',
+      activity: 100,
+      activityUnit: 'Ci',
+      activityReferenceDate: '2026-01-01',
+      effectiveSourceSize: 2,
+      effectiveSourceSizeUnit: 'mm',
+    };
+    document.technique.general.date = '2026-03-16';
+
+    const serialized = serializeSections(document);
+    expect(serialized).toContain('Isotope Half-Life Basis');
+    expect(serialized).toContain('73.83 days (Iridium-192, Ir-192)');
+    expect(serialized).toContain('Computed Activity at Planned Inspection Date');
+    expect(serialized).toContain('Exposure-Time Correction Factor');
+
+    document.technique.source.gamma.isotope = 'Yb-169';
+    const unrecognized = serializeSections(document);
+    expect(unrecognized).not.toContain('Isotope Half-Life Basis');
+    expect(unrecognized).not.toContain('Computed Activity at Planned Inspection Date');
+  });
+
+  it('builds a standalone film exposure sheet under the technique release rules', () => {
+    const document = createCompleteFilmDocument();
+    const pdf = buildRtPtFilmExposureSheetPdf(document);
+    const commands = JSON.stringify((pdf.internal as unknown as { pages: string[][] }).pages);
+    expect(commands).toContain('FILM EXPOSURE SHEET - PLANNED EXPOSURES ONLY');
+    expect(commands).toContain('EXPOSURE SHEET BASIS');
+    expect(commands).toContain('EXPOSURE PLAN OVERVIEW');
+    expect(commands).toContain('DRAFT - UNCONTROLLED');
+    expect(getRtPtFilmExposureSheetPdfFilename(document)).toMatch(/^DRAFT-UNCONTROLLED-RTPT-FILM-EXPOSURE-SHEET-/);
+    expect(() => buildRtPtFilmExposureSheetPdf(createCompletePtDocument('D', 'Type I'))).toThrow(/RT-Film/);
   });
 });

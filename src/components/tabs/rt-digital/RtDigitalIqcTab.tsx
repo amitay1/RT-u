@@ -19,6 +19,7 @@ import {
   TextAreaField,
   TextField,
 } from '@/components/tabs/shared/FieldRow';
+import { AstmIqiReferenceCard } from '@/components/tabs/shared/AstmIqiReferenceCard';
 import { useRtDigitalCatalog } from '@/hooks/useRtDigitalCatalog';
 import { convertRtDigitalLength } from '@/lib/rtDigitalPlanning';
 import type {
@@ -57,6 +58,7 @@ const LENGTH_UNITS: ReadonlyArray<{ label: string; value: LengthUnit }> = [
 const IQI_TYPES: ReadonlyArray<{ label: string; value: Exclude<RtDigitalIqiType, ''> }> = [
   { label: 'Wire IQI', value: 'Wire' },
   { label: 'Hole-type IQI', value: 'Hole' },
+  { label: 'Duplex-wire IQI (ISO 19232-5 / ASTM E2002)', value: 'Duplex' },
 ];
 
 const WALL_TECHNIQUES: ReadonlyArray<{ label: string; value: Exclude<RtDigitalWallTechnique, ''> }> = [
@@ -389,10 +391,10 @@ export function RtDigitalIqcTab({
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <SelectField
             label="IQI Type"
-            value={(data.type === 'Wire' || data.type === 'Hole' ? data.type : draft.iqiType)}
+            value={(data.type === 'Wire' || data.type === 'Hole' || data.type === 'Duplex' ? data.type : draft.iqiType)}
             onChange={setIqiType}
             options={IQI_TYPES}
-            placeholder="Select Wire or Hole…"
+            placeholder="Select Wire, Hole, or Duplex…"
           />
           <TextField label="IQI Standard" value={data.standard} onChange={(value) => setCore('standard', value)} />
           <TextField label="IQI Designation" value={data.designation} onChange={(value) => setCore('designation', value)} />
@@ -571,6 +573,8 @@ export function RtDigitalIqcTab({
           })}
         </CardContent>
       </Card>
+
+      <AstmIqiReferenceCard />
     </div>
   );
 }

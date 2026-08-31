@@ -17,6 +17,7 @@ interface MenuBarProps {
   onOpenSavedCards: () => void;
   onExportTechnique: () => void;
   onExportInspectionReport: () => void;
+  onExportExposureSheet?: () => void;
   workspaceMode: RtPtWorkspaceMode;
   onNew: () => void;
   onExportDiagnostics?: () => void;
@@ -24,11 +25,11 @@ interface MenuBarProps {
   onOfflineUpdate?: () => void;
 }
 
-export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExportTechnique, onExportInspectionReport, workspaceMode, onNew, onExportDiagnostics, onRunDiagnostics, onOfflineUpdate }: MenuBarProps) => {
+export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExportTechnique, onExportInspectionReport, onExportExposureSheet, workspaceMode, onNew, onExportDiagnostics, onRunDiagnostics, onOfflineUpdate }: MenuBarProps) => {
   return (
-    <Menubar className="h-10 flex-shrink-0 rounded-none border-x-0 border-t-0 border-b border-border/80 bg-card/95 px-2 shadow-none">
+    <Menubar className="app-menubar h-9 flex-shrink-0 rounded-none border-0 bg-transparent px-2 shadow-none">
       <MenubarMenu>
-        <MenubarTrigger className="px-3 py-1.5 text-sm font-semibold">File</MenubarTrigger>
+        <MenubarTrigger className="px-3 py-1 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=open]:text-accent-foreground">File</MenubarTrigger>
         <MenubarContent>
           <MenubarItem onClick={onNew} className="text-base py-2">
             <FileText className="mr-3 h-5 w-5" />
@@ -58,6 +59,12 @@ export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExportTechnique,
             Export Technique PDF
             {workspaceMode === "technique" && <MenubarShortcut className="text-sm">Ctrl+E</MenubarShortcut>}
           </MenubarItem>
+          {onExportExposureSheet && (
+            <MenubarItem onClick={onExportExposureSheet} className="text-base py-2">
+              <Download className="mr-3 h-5 w-5" />
+              Export Film Exposure Sheet PDF
+            </MenubarItem>
+          )}
           <MenubarItem onClick={onExportInspectionReport} className="text-base py-2">
             <ClipboardCheck className="mr-3 h-5 w-5" />
             Export Inspection Report PDF
@@ -67,7 +74,7 @@ export const MenuBar = ({ onSave, onSaveAs, onOpenSavedCards, onExportTechnique,
       </MenubarMenu>
 
       <MenubarMenu>
-        <MenubarTrigger className="px-3 py-1.5 text-sm font-semibold">Help</MenubarTrigger>
+        <MenubarTrigger className="px-3 py-1 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=open]:text-accent-foreground">Help</MenubarTrigger>
         <MenubarContent>
           <MenubarItem onClick={() => window.open('https://github.com/amitay1/RT-u#readme', '_blank')} className="text-base py-2">
             <Book className="mr-3 h-5 w-5" />

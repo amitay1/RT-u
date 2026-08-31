@@ -42,10 +42,13 @@ import type {
 } from "@/services/techniqueSheetService";
 import { RT_PT_METHOD_LABEL, type RtPtMethod, type RtPtWorkspaceMode } from "@/types/rtPtDocument";
 import {
+  buildRtPtFilmExposureSheetPdf,
   buildRtPtTechniquePdf,
+  getRtPtFilmExposureSheetPdfFilename,
   getRtPtPdfReleaseState,
   getRtPtTechniquePdfFilename,
 } from "@/utils/export/RtPtTechniquePDF";
+import { loadRtPtTechniquePdfAttachmentImages } from "@/utils/export/rtPtPdfAttachments";
 import {
   buildRtPtInspectionReportPdf,
   getRtPtInspectionReportPdfFilename,
@@ -84,6 +87,7 @@ const RT_PT_LOCAL_OWNER = {
 const RT_PT_METHOD_SHORT_LABEL: Record<RtPtMethod, string> = {
   "RT-Film": "RT Film",
   "RT-Digital": "RT Digital / DDA",
+  "RT-CR": "RT Computed Radiography",
   PT: "Penetrant Testing",
 };
 
@@ -209,7 +213,9 @@ const Index = () => {
     ? rtPtWorkspace.activeTabs.rtFilm
     : ndtMethod === "RT-Digital"
       ? rtPtWorkspace.activeTabs.rtDigital
-      : rtPtWorkspace.activeTabs.pt;
+      : ndtMethod === "RT-CR"
+        ? rtPtWorkspace.activeTabs.rtCr
+        : rtPtWorkspace.activeTabs.pt;
 
   const buildRtPtPayload = useCallback(() => rtPtDocument, [rtPtDocument]);
 
@@ -284,7 +290,8 @@ const Index = () => {
     setIsExportingTechniquePdf(true);
     try {
       if (!await confirmActiveLicense()) return;
-      const pdf = buildRtPtTechniquePdf(rtPtDocument, rtPtValidation);
+      const attachmentImages = await loadRtPtTechniquePdfAttachmentImages(rtPtDocument);
+      const pdf = buildRtPtTechniquePdf(rtPtDocument, rtPtValidation, { attachmentImages });
       const filename = getRtPtTechniquePdfFilename(rtPtDocument, rtPtValidation);
       const release = getRtPtPdfReleaseState(rtPtDocument, rtPtValidation);
       if (!await saveGeneratedPdf(pdf, filename)) return;
@@ -297,6 +304,30 @@ const Index = () => {
       setIsExportingTechniquePdf(false);
     }
   }, [confirmActiveLicense, rtPtDocument, rtPtValidation, saveGeneratedPdf]);
+
+  const handleExportExposureSheetPdf = useCallback(async () => {
+    if (techniquePdfExportInFlightRef.current || inspectionReportPdfExportInFlightRef.current) return;
+    if (rtPtDocument.method !== "RT-Film" && rtPtDocument.method !== "RT-CR") {
+      toast.info("The exposure sheet export applies to RT-Film and RT-CR techniques only.");
+      return;
+    }
+    techniquePdfExportInFlightRef.current = true;
+    setIsExportingTechniquePdf(true);
+    try {
+      if (!await confirmActiveLicense()) return;
+      const pdf = buildRtPtFilmExposureSheetPdf(rtPtDocument);
+      const filename = getRtPtFilmExposureSheetPdfFilename(rtPtDocument);
+      const release = getRtPtPdfReleaseState(rtPtDocument);
+      if (!await saveGeneratedPdf(pdf, filename)) return;
+      if (release.controlledRelease) toast.success(`Exported controlled exposure sheet ${filename}`);
+      else toast.warning(`Exported draft/uncontrolled exposure sheet ${filename}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The exposure sheet PDF could not be exported.");
+    } finally {
+      techniquePdfExportInFlightRef.current = false;
+      setIsExportingTechniquePdf(false);
+    }
+  }, [confirmActiveLicense, rtPtDocument, saveGeneratedPdf]);
 
   const handleExportInspectionReportPdf = useCallback(async () => {
     if (inspectionReportPdfExportInFlightRef.current || techniquePdfExportInFlightRef.current) return;
@@ -775,6 +806,7 @@ const Index = () => {
             onOpenSavedCards={openSavedCards}
             onExportTechnique={handleExportTechniquePdf}
             onExportInspectionReport={handleExportInspectionReportPdf}
+            onExportExposureSheet={rtPtDocument.method === "RT-Film" || rtPtDocument.method === "RT-CR" ? handleExportExposureSheetPdf : undefined}
             workspaceMode={workspaceMode}
             onNew={handleNewProject}
             onExportDiagnostics={() => setDiagnosticsDialogOpen(true)}
@@ -788,6 +820,7 @@ const Index = () => {
         onSave={handleSaveActiveWorkspace}
         onExportTechnique={handleExportTechniquePdf}
         onExportInspectionReport={handleExportInspectionReportPdf}
+        onExportExposureSheet={rtPtDocument.method === "RT-Film" || rtPtDocument.method === "RT-CR" ? handleExportExposureSheetPdf : undefined}
         isExportingTechnique={isExportingTechniquePdf}
         isExportingInspectionReport={isExportingInspectionReportPdf}
         onValidate={handleValidate}

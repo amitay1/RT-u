@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * The full string is kept intact for assistive technology while the visual
  * layout splits it into an emblem, a wordmark, a tagline and the modality chips.
  */
-export const RONEX_BRAND_TEXT = "RONEX RADIOGRAPHYC TEST DR/CR/FILM";
+export const RONEX_BRAND_TEXT = "RONEX RADIOGRAPHIC TEST DR/CR/FILM";
 
 const MODALITIES = ["DR", "CR", "FILM"] as const;
 
@@ -67,12 +67,12 @@ export const RonexBrandMark = ({ variant = "toolbar", className }: RonexBrandMar
         <div className={cn("ronex-brand-word", isPage ? "text-[2.05rem]" : "text-[1.38rem]")}>RONEX</div>
         <div className={cn("ronex-brand-rule", isPage ? "" : "hidden lg:block")} />
         <div className={cn("ronex-brand-sub", isPage ? "flex" : "hidden lg:flex")}>
-          <span className={cn("ronex-brand-tagline", isPage ? "text-[0.7rem]" : "text-[0.575rem]")}>
-            Radiographyc Test
+          <span className={cn("ronex-brand-tagline", isPage ? "text-[0.7rem]" : "text-[0.62rem]")}>
+            Radiographic Test
           </span>
           <span className="ronex-brand-modes">
             {MODALITIES.map(modality => (
-              <span key={modality} className={cn("ronex-brand-mode", isPage ? "text-[0.58rem]" : "text-[0.49rem]")}>
+              <span key={modality} className={cn("ronex-brand-mode", isPage ? "text-[0.58rem]" : "text-[0.55rem]")}>
                 {modality}
               </span>
             ))}

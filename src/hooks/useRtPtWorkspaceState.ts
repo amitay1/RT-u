@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePenetrantState } from '@/hooks/usePenetrantState';
+import { useRtCrState } from '@/hooks/useRtCrState';
 import { useRtDigitalState } from '@/hooks/useRtDigitalState';
 import { useRtFilmState } from '@/hooks/useRtFilmState';
 import {
@@ -7,9 +8,11 @@ import {
   createRtPtDocumentId,
   decodeRtPtDocument,
   extractPtTechnique,
+  extractRtCrTechnique,
   extractRtDigitalTechnique,
   extractRtFilmTechnique,
   hydratePtSheet,
+  hydrateRtCrSheet,
   hydrateRtDigitalSheet,
   hydrateRtFilmSheet,
 } from '@/lib/rtPtDocumentCodec';
@@ -78,15 +81,18 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
 
   const rtFilm = useRtFilmState();
   const rtDigital = useRtDigitalState();
+  const rtCr = useRtCrState();
   const penetrant = usePenetrantState();
   const { sheet: rtFilmSheet, replaceSheet: replaceRtFilmSheet, resetSheet: resetRtFilmSheet } = rtFilm;
   const { sheet: rtDigitalSheet, replaceSheet: replaceRtDigitalSheet, resetSheet: resetRtDigitalSheet } = rtDigital;
+  const { sheet: rtCrSheet, replaceSheet: replaceRtCrSheet, resetSheet: resetRtCrSheet } = rtCr;
   const { sheet: penetrantSheet, replaceSheet: replacePenetrantSheet, resetSheet: resetPenetrantSheet } = penetrant;
 
   const setActiveTab = useCallback((targetMethod: RtPtMethod, tab: string) => {
     setActiveTabs((current) => {
       if (targetMethod === 'RT-Film') return { ...current, rtFilm: tab };
       if (targetMethod === 'RT-Digital') return { ...current, rtDigital: tab };
+      if (targetMethod === 'RT-CR') return { ...current, rtCr: tab };
       return { ...current, pt: tab };
     });
   }, []);
@@ -107,7 +113,9 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
       ? extractRtFilmTechnique(rtFilmSheet)
       : method === 'RT-Digital'
         ? extractRtDigitalTechnique(rtDigitalSheet)
-        : extractPtTechnique(penetrantSheet),
+        : method === 'RT-CR'
+          ? extractRtCrTechnique(rtCrSheet)
+          : extractPtTechnique(penetrantSheet),
     migration,
   }), [
     approvalFingerprint,
@@ -121,6 +129,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     organization,
     penetrantSheet,
     revisionHistory,
+    rtCrSheet,
     rtDigitalSheet,
     rtFilmSheet,
     status,
@@ -179,9 +188,11 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     setApprovalFingerprint(next.approvalFingerprint);
     resetRtFilmSheet();
     resetRtDigitalSheet();
+    resetRtCrSheet();
     resetPenetrantSheet();
     if (next.method === 'RT-Film') replaceRtFilmSheet(hydrateRtFilmSheet(next));
     else if (next.method === 'RT-Digital') replaceRtDigitalSheet(hydrateRtDigitalSheet(next));
+    else if (next.method === 'RT-CR') replaceRtCrSheet(hydrateRtCrSheet(next));
     else replacePenetrantSheet(hydratePtSheet(next));
 
     setActiveTabs({ ...DEFAULT_RT_PT_ACTIVE_TABS });
@@ -199,9 +210,11 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     return decoded;
   }, [
     replacePenetrantSheet,
+    replaceRtCrSheet,
     replaceRtDigitalSheet,
     replaceRtFilmSheet,
     resetPenetrantSheet,
+    resetRtCrSheet,
     resetRtDigitalSheet,
     resetRtFilmSheet,
   ]);
@@ -210,6 +223,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     setApprovalFingerprint(undefined);
     resetRtFilmSheet();
     resetRtDigitalSheet();
+    resetRtCrSheet();
     resetPenetrantSheet();
     setActiveTabs({ ...DEFAULT_RT_PT_ACTIVE_TABS });
     setDocumentId(createRtPtDocumentId());
@@ -223,7 +237,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     setApprovals([]);
     setMigration(undefined);
     setMethod(nextMethod);
-  }, [initialMethod, resetPenetrantSheet, resetRtDigitalSheet, resetRtFilmSheet]);
+  }, [initialMethod, resetPenetrantSheet, resetRtCrSheet, resetRtDigitalSheet, resetRtFilmSheet]);
 
   const acknowledgeMigration = useCallback((reviewer: { name: string; personnelId: string }): boolean => {
     const reviewerName = reviewer.name.trim();
@@ -254,6 +268,7 @@ export function useRtPtWorkspaceState(initialMethod: RtPtMethod = 'RT-Film') {
     setActiveTab,
     rtFilm,
     rtDigital,
+    rtCr,
     penetrant,
     document,
     documentId,

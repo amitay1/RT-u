@@ -4,9 +4,35 @@ import type {
 } from '@/types/rtDigital';
 import type {
   LengthUnit,
-  RtFilmExposureSetup,
-  RtFilmSource,
+  NumberOrEmpty,
+  RadiationType,
 } from '@/types/rtFilm';
+
+/**
+ * Structural inputs for the SFD-based (film/CR) geometry math. RT-Film and
+ * RT-CR exposure plans both satisfy these shapes; the functions below are
+ * shared by both modalities.
+ */
+export interface RtSfdMagnificationInputs {
+  sfd: NumberOrEmpty;
+  sfdUnit: LengthUnit;
+  sod: NumberOrEmpty;
+  sodUnit: LengthUnit;
+}
+
+export interface RtSfdUgGeometryInputs {
+  sod: NumberOrEmpty;
+  sodUnit: LengthUnit;
+  ofd: NumberOrEmpty;
+  ofdUnit: LengthUnit;
+  requiredUgUnit: LengthUnit;
+}
+
+export interface RtSfdSourcePlanInputs {
+  sourceType: RadiationType;
+  xRay: { focalSpotSize: NumberOrEmpty; focalSpotSizeUnit: LengthUnit };
+  gamma: { effectiveSourceSize: NumberOrEmpty; effectiveSourceSizeUnit: LengthUnit };
+}
 
 const INCH_TO_MM = 25.4;
 
@@ -22,7 +48,7 @@ const roundedRatio = (numerator: number, denominator: number): number => (
   Number((numerator / denominator).toFixed(4))
 );
 
-export function calculateFilmMagnification(exposure: RtFilmExposureSetup): number | '' {
+export function calculateFilmMagnification(exposure: RtSfdMagnificationInputs): number | '' {
   if (typeof exposure.sfd !== 'number' || typeof exposure.sod !== 'number') return '';
   const sfd = lengthToMillimeters(exposure.sfd, exposure.sfdUnit);
   const sod = lengthToMillimeters(exposure.sod, exposure.sodUnit);
@@ -38,7 +64,12 @@ export function calculateDigitalMagnification(exposure: RtDigitalExposureSetup):
   return roundedRatio(sdd, sod);
 }
 
-export function applyFilmAutoMagnification(exposure: RtFilmExposureSetup): RtFilmExposureSetup {
+export function applyFilmAutoMagnification<
+  T extends RtSfdMagnificationInputs & {
+    geometricMagnificationAuto: boolean;
+    geometricMagnification: NumberOrEmpty;
+  },
+>(exposure: T): T {
   if (!exposure.geometricMagnificationAuto) return exposure;
   return { ...exposure, geometricMagnification: calculateFilmMagnification(exposure) };
 }
@@ -77,8 +108,8 @@ export function calculateGeometricUnsharpness(
 }
 
 export function calculateFilmGeometricUnsharpness(
-  exposure: RtFilmExposureSetup,
-  source: RtFilmSource,
+  exposure: RtSfdUgGeometryInputs,
+  source: RtSfdSourcePlanInputs,
 ): number | '' {
   if (source.sourceType === 'X-ray') {
     return calculateGeometricUnsharpness(
