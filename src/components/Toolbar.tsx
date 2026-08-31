@@ -194,7 +194,7 @@ export const Toolbar = ({
             disabled={isExportingTechnique || isExportingInspectionReport}
             title={isExportingTechnique ? "Exporting technique PDF" : "Export technique PDF"}
             aria-label={isExportingTechnique ? "Exporting technique PDF" : "Export technique PDF"}
-            className={cn("h-10 px-3.5", workspaceMode === "technique" && "font-semibold shadow-md")}
+            className={cn("h-10 px-3.5", workspaceMode === "technique" && "font-semibold shadow-[0_2px_14px_hsl(var(--primary)/0.35)]")}
           >
             {isExportingTechnique ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             <span className="hidden xl:inline">{isExportingTechnique ? "Exporting…" : "Technique PDF"}</span>
@@ -224,7 +224,7 @@ export const Toolbar = ({
             aria-label={isExportingInspectionReport
               ? "Exporting inspection report PDF"
               : workspaceMode === "inspection" ? "Export inspection report PDF" : "Open inspection record before report export"}
-            className={cn("h-10 px-3.5", workspaceMode === "inspection" && "font-semibold shadow-md")}
+            className={cn("h-10 px-3.5", workspaceMode === "inspection" && "font-semibold shadow-[0_2px_14px_hsl(var(--primary)/0.35)]")}
           >
             {isExportingInspectionReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
             <span className="hidden xl:inline">{isExportingInspectionReport ? "Exporting…" : workspaceMode === "inspection" ? "Report PDF" : "Open Report"}</span>
