@@ -266,9 +266,9 @@ export const RtDigitalGeneralTab = ({ data, planning, onChange, onPlanningChange
           </p>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <TextField label="Part Name" value={synced(part.partName, data.partName)} onChange={(value) => setSyncedText('partName', 'partName', value)} />
-          <TextField label="Part Number" value={synced(part.partNumber, data.partNumber)} onChange={(value) => setSyncedText('partNumber', 'partNumber', value)} />
-          <TextField label="Vendor Code" value={synced(part.vendorCode, data.vendorCode)} onChange={(value) => setSyncedText('vendorCode', 'vendorCode', value)} />
+          <TextField label="Part Name" value={synced(part.partName, data.partName)} onChange={(value) => setSyncedText('partName', 'partName', value)} placeholder="Designation per drawing title block" />
+          <TextField label="Part Number" value={synced(part.partNumber, data.partNumber)} onChange={(value) => setSyncedText('partNumber', 'partNumber', value)} placeholder="Controlled part / drawing number" />
+          <TextField label="Vendor Code" value={synced(part.vendorCode, data.vendorCode)} onChange={(value) => setSyncedText('vendorCode', 'vendorCode', value)} placeholder="Customer or vendor identifier" />
           <TextField
             label="Revision / Configuration"
             value={synced(part.revisionOrConfiguration, data.partRevisionOrConfiguration)}
@@ -292,7 +292,7 @@ export const RtDigitalGeneralTab = ({ data, planning, onChange, onPlanningChange
           <CardTitle className="text-base">Material &amp; Manufacturing</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <TextField label="Material" value={synced(part.material, data.material)} onChange={(value) => setSyncedText('material', 'material', value)} />
+          <TextField label="Material" value={synced(part.material, data.material)} onChange={(value) => setSyncedText('material', 'material', value)} placeholder="Alloy and material specification" />
           <TextField label="Material Specification" value={part.materialSpecification} onChange={(materialSpecification) => setPart({ materialSpecification })} />
           <TextField
             label="Material Group"
@@ -301,7 +301,7 @@ export const RtDigitalGeneralTab = ({ data, planning, onChange, onPlanningChange
             hint="controlled automatic / database value"
             disabled
           />
-          <TextField label="Surface Finish" value={synced(part.surfaceFinish, data.surfaceFinish)} onChange={(value) => setSyncedText('surfaceFinish', 'surfaceFinish', value)} />
+          <TextField label="Surface Finish" value={synced(part.surfaceFinish, data.surfaceFinish)} onChange={(value) => setSyncedText('surfaceFinish', 'surfaceFinish', value)} placeholder="Surface condition at inspection" />
           <SelectField
             label="Manufacturing Process"
             value={part.manufacturingProcess}

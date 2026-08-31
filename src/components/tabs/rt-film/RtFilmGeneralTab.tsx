@@ -49,16 +49,16 @@ export const RtFilmGeneralTab = ({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 2xl:grid-cols-4">
-          <TextField label="Part Name" value={data.partName} onChange={(value) => set('partName', value)} />
-          <TextField label="Part Number" value={data.partNumber} onChange={(value) => set('partNumber', value)} />
-          <TextField label="Vendor Code" value={data.vendorCode} onChange={(value) => set('vendorCode', value)} />
+          <TextField label="Part Name" value={data.partName} onChange={(value) => set('partName', value)} placeholder="Designation per drawing title block" />
+          <TextField label="Part Number" value={data.partNumber} onChange={(value) => set('partNumber', value)} placeholder="Controlled part / drawing number" />
+          <TextField label="Vendor Code" value={data.vendorCode} onChange={(value) => set('vendorCode', value)} placeholder="Customer or vendor identifier" />
           <TextField
             label="Part Revision / Configuration"
             value={data.partRevisionOrConfiguration}
             onChange={(value) => set('partRevisionOrConfiguration', value)}
           />
-          <TextField label="Material" value={data.material} onChange={(value) => set('material', value)} />
-          <TextField label="Surface Finish" value={data.surfaceFinish} onChange={(value) => set('surfaceFinish', value)} />
+          <TextField label="Material" value={data.material} onChange={(value) => set('material', value)} placeholder="Alloy and material specification" />
+          <TextField label="Surface Finish" value={data.surfaceFinish} onChange={(value) => set('surfaceFinish', value)} placeholder="Surface condition at inspection" />
           <div className="md:col-span-2">
             <TextField label="Inspection Area" value={data.inspectionArea} onChange={(value) => set('inspectionArea', value)} placeholder="Zone, weld, region, or extent" />
           </div>
@@ -66,8 +66,8 @@ export const RtFilmGeneralTab = ({
             <NumberField label="Nominal Thickness" value={data.thickness} onChange={(value) => set('thickness', value)} unit={data.thicknessUnit} min={0} />
             <SelectField label="Unit" value={data.thicknessUnit} onChange={(value) => set('thicknessUnit', value)} options={LENGTH_UNITS} />
           </div>
-          <TextField label="Drawing Reference" value={data.drawingReference} onChange={(value) => set('drawingReference', value)} />
-          <TextField label="Procedure Number" value={data.procedureNumber} onChange={(value) => set('procedureNumber', value)} />
+          <TextField label="Drawing Reference" value={data.drawingReference} onChange={(value) => set('drawingReference', value)} placeholder="Governing drawing and revision" />
+          <TextField label="Procedure Number" value={data.procedureNumber} onChange={(value) => set('procedureNumber', value)} placeholder="Internal NDT procedure" />
           <SelectField
             label="Planned Inspection Stage"
             value={data.inspectionStage}

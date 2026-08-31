@@ -62,29 +62,34 @@ export function RtPtWorkflowOverview({
 
       <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:justify-end">
         <span
-          className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold ${
-            snapshot.errors > 0
-              ? 'border-destructive/30 bg-destructive/10 text-destructive'
-              : 'border-success/30 bg-success/10 text-success'
+          className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] ${
+            snapshot.errors > 0 ? 'border-destructive/30' : 'border-success/30'
           }`}
         >
           {snapshot.errors > 0
-            ? <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-            : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />}
-          {snapshot.errors} corrections
+            ? <ShieldAlert className="h-3.5 w-3.5 text-destructive/80" aria-hidden="true" />
+            : <CheckCircle2 className="h-3.5 w-3.5 text-success/80" aria-hidden="true" />}
+          <span className={`font-mono font-semibold tabular-nums ${snapshot.errors > 0 ? 'text-destructive/90' : 'text-success'}`}>
+            {snapshot.errors}
+          </span>
+          <span className="text-muted-foreground">corrections</span>
         </span>
         <span
-          className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold ${
-            snapshot.warnings > 0
-              ? 'border-warning/30 bg-warning/10 text-warning'
-              : 'border-border/70 bg-muted/40 text-muted-foreground'
+          className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] ${
+            snapshot.warnings > 0 ? 'border-warning/35' : 'border-border/60'
           }`}
         >
-          <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-          {snapshot.warnings} review
+          <AlertTriangle className={`h-3.5 w-3.5 ${snapshot.warnings > 0 ? 'text-warning/80' : 'text-muted-foreground/60'}`} aria-hidden="true" />
+          <span className={`font-mono font-semibold tabular-nums ${snapshot.warnings > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+            {snapshot.warnings}
+          </span>
+          <span className="text-muted-foreground">review</span>
         </span>
-        <span className="inline-flex h-8 items-center rounded-md border border-border/70 bg-muted/40 px-2.5 text-xs font-semibold text-muted-foreground">
-          {snapshot.readySections}/{snapshot.totalSections} sections clear
+        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/60 px-2 text-[11px]">
+          <span className="font-mono font-semibold tabular-nums text-foreground/85">
+            {snapshot.readySections}/{snapshot.totalSections}
+          </span>
+          <span className="text-muted-foreground">sections clear</span>
         </span>
 
         {snapshot.nextTab ? (
@@ -92,7 +97,7 @@ export function RtPtWorkflowOverview({
             type="button"
             size="sm"
             variant="outline"
-            className="min-w-0 max-w-full"
+            className="h-7 min-w-0 max-w-full border-[hsl(var(--accent-border)/0.7)] bg-[hsl(var(--accent-soft)/0.4)] px-2.5 text-xs font-semibold text-accent-foreground hover:bg-[hsl(var(--accent-soft))] hover:text-accent-foreground"
             onClick={() => onSelectTab(snapshot.nextTab!.value)}
             title={`${snapshot.nextTab.label}: ${nextActionLabel}`}
           >
@@ -100,7 +105,7 @@ export function RtPtWorkflowOverview({
             <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         ) : (
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-2.5 text-xs font-semibold text-success">
+          <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-success/30 px-2 text-[11px] font-semibold text-success">
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             Workflow clear
           </span>
