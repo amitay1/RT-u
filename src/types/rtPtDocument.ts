@@ -210,6 +210,14 @@ export const RT_PT_REFERENCE_SUGGESTIONS: Record<RtPtMethod, string> = {
   PT: 'Suggested reference to verify: ASTM E1417/E1417M (select the contractually applicable revision)',
 };
 
+/** Compact display form of the suggested reference for space-constrained chrome. */
+export const RT_PT_REFERENCE_STANDARD: Record<RtPtMethod, string> = {
+  'RT-Film': 'ASTM E1742/E1742M',
+  'RT-Digital': 'ASTM E2698',
+  'RT-CR': 'ASTM E2033',
+  PT: 'ASTM E1417/E1417M',
+};
+
 /** @deprecated Neutral metadata label retained for integrations that have not renamed the field. */
 export const RT_PT_STANDARD_LABEL: Record<RtPtMethod, string> = {
   'RT-Film': 'Film RT - controlled reference not selected',

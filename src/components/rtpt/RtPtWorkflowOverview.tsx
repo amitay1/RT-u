@@ -65,6 +65,8 @@ export function RtPtWorkflowOverview({
           className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] ${
             snapshot.errors > 0 ? 'border-destructive/30' : 'border-success/30'
           }`}
+          title={`${snapshot.errors} required field${snapshot.errors === 1 ? '' : 's'} still to complete`}
+          aria-label={`${snapshot.errors} required corrections`}
         >
           {snapshot.errors > 0
             ? <ShieldAlert className="h-3.5 w-3.5 text-destructive/80" aria-hidden="true" />
@@ -72,24 +74,28 @@ export function RtPtWorkflowOverview({
           <span className={`font-mono font-semibold tabular-nums ${snapshot.errors > 0 ? 'text-destructive/90' : 'text-success'}`}>
             {snapshot.errors}
           </span>
-          <span className="text-muted-foreground">corrections</span>
         </span>
         <span
           className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] ${
             snapshot.warnings > 0 ? 'border-warning/35' : 'border-border/60'
           }`}
+          title={`${snapshot.warnings} item${snapshot.warnings === 1 ? '' : 's'} to review`}
+          aria-label={`${snapshot.warnings} review items`}
         >
           <AlertTriangle className={`h-3.5 w-3.5 ${snapshot.warnings > 0 ? 'text-warning/80' : 'text-muted-foreground/60'}`} aria-hidden="true" />
           <span className={`font-mono font-semibold tabular-nums ${snapshot.warnings > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
             {snapshot.warnings}
           </span>
-          <span className="text-muted-foreground">review</span>
         </span>
-        <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/60 px-2 text-[11px]">
+        <span
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/60 px-2 text-[11px]"
+          title={`${snapshot.readySections} of ${snapshot.totalSections} sections clear`}
+          aria-label={`${snapshot.readySections} of ${snapshot.totalSections} sections clear`}
+        >
+          <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground/70" aria-hidden="true" />
           <span className="font-mono font-semibold tabular-nums text-foreground/85">
             {snapshot.readySections}/{snapshot.totalSections}
           </span>
-          <span className="text-muted-foreground">sections clear</span>
         </span>
 
         {snapshot.nextTab ? (

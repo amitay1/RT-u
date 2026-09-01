@@ -3,6 +3,7 @@ import { BookOpenCheck, Camera, ChevronRight, Droplets, FilePlus2, Film, ScanLin
 import { Badge } from '@/components/ui/badge';
 import { ProfileIndicator } from '@/components/inspector';
 import {
+  RT_PT_REFERENCE_STANDARD,
   RT_PT_REFERENCE_SUGGESTIONS,
   type RtPtMethod,
 } from '@/types/rtPtDocument';
@@ -27,28 +28,28 @@ const METHOD_META: MethodMeta[] = [
   {
     id: 'RT-Film',
     label: 'RT Film',
-    summary: 'Controlled film-radiography technique planning for exposure geometry, source setup, film system and image-quality requirements.',
+    summary: 'Exposure geometry, source, film system, and image quality.',
     Icon: Film,
     tabCount: 8,
   },
   {
     id: 'RT-Digital',
     label: 'RT Digital / DDA',
-    summary: 'Controlled DDA technique planning for source and detector configuration, acquisition, image quality, processing and storage.',
+    summary: 'Source and detector setup, acquisition, and image quality.',
     Icon: Camera,
     tabCount: 9,
   },
   {
     id: 'RT-CR',
     label: 'RT Computed Radiography',
-    summary: 'Controlled CR technique planning for exposure geometry, imaging-plate system, scanner readout and scanned-image quality requirements.',
+    summary: 'Imaging-plate system, scanner readout, and image quality.',
     Icon: ScanLine,
     tabCount: 9,
   },
   {
     id: 'PT',
     label: 'Penetrant Testing',
-    summary: 'Controlled liquid-penetrant technique planning for approved materials, surface preparation, application, removal, development and viewing conditions.',
+    summary: 'Materials, surface preparation, application, and viewing.',
     Icon: Droplets,
     tabCount: 9,
   },
@@ -102,9 +103,9 @@ export const RtPtSidebar = ({ method, onMethodChange, compact = false }: RtPtSid
         <section className="workbench-group flex min-w-0 items-center gap-3 px-3 py-2" aria-label="Method reference and active inspector">
           <BookOpenCheck className="h-4 w-4 flex-none text-primary" />
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Reference guidance</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Reference</span>
             <p className="truncate text-xs text-muted-foreground" title={RT_PT_REFERENCE_SUGGESTIONS[active.id]}>
-              {RT_PT_REFERENCE_SUGGESTIONS[active.id]}
+              {RT_PT_REFERENCE_STANDARD[active.id]} · confirm revision
             </p>
           </div>
           <ProfileIndicator variant="compact" className="hidden flex-none border-0 bg-transparent p-0 shadow-none hover:bg-transparent sm:inline-flex" />
@@ -133,10 +134,12 @@ export const RtPtSidebar = ({ method, onMethodChange, compact = false }: RtPtSid
         <div className="mt-3 rounded-lg border border-border/70 bg-background/40 p-3">
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             <BookOpenCheck className="h-4 w-4 text-primary" />
-            Reference guidance
+            Reference
           </div>
-          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{RT_PT_REFERENCE_SUGGESTIONS[active.id]}</p>
-          <p className="mt-2 border-l-2 border-warning/60 pl-2 text-[11px] font-medium leading-relaxed text-warning/90">Confirm the applicable revision and customer requirements.</p>
+          <p className="mt-1.5 text-xs leading-relaxed text-foreground/90" title={RT_PT_REFERENCE_SUGGESTIONS[active.id]}>
+            {RT_PT_REFERENCE_STANDARD[active.id]}
+            <span className="ml-1.5 text-muted-foreground/80">· confirm revision</span>
+          </p>
         </div>
       </section>
 

@@ -18,7 +18,7 @@ export const StatusBar = ({
   totalRequiredFields,
   autoSaveStatus = "idle",
   lastSaved,
-  completionLabel = "Required technique fields",
+  completionLabel = "Required fields",
 }: StatusBarProps) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [appVersion, setAppVersion] = useState(`v${__APP_VERSION__}`);
@@ -88,8 +88,6 @@ export const StatusBar = ({
   const autoSaveDisplay = getAutoSaveDisplay();
   const progressStateLabel =
     completionPercent >= 100 ? "Fields complete" : completionPercent >= 75 ? "Almost complete" : completionPercent > 0 ? "In progress" : "Not started";
-  const progressToneClass =
-    completionPercent > 0 ? "text-primary" : "text-muted-foreground";
 
   return (
     <footer className="status-ribbon flex h-11 flex-shrink-0 items-center gap-2 overflow-hidden px-2 text-xs text-muted-foreground md:gap-3 md:px-4" aria-label="Application status">
@@ -145,8 +143,7 @@ export const StatusBar = ({
                   style={{ width: `${Math.max(0, Math.min(100, completionPercent))}%` }}
                 />
             </div>
-            <span className={`hidden shrink-0 text-xs font-semibold sm:inline ${progressToneClass}`}>{progressStateLabel}</span>
-            <span className="shrink-0 font-mono text-xs font-semibold text-foreground">{Math.round(completionPercent)}%</span>
+            <span className="shrink-0 font-mono text-xs font-semibold text-foreground" title={progressStateLabel}>{Math.round(completionPercent)}%</span>
             <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">{requiredFieldsComplete}/{totalRequiredFields}</span>
           </div>
         </div>

@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react';
-import { RT_PT_METHOD_LABEL, RT_PT_REFERENCE_SUGGESTIONS, type RtPtMethod } from '@/types/rtPtDocument';
+import { RT_PT_METHOD_LABEL, RT_PT_REFERENCE_STANDARD, RT_PT_REFERENCE_SUGGESTIONS, type RtPtMethod } from '@/types/rtPtDocument';
 import type { RtPtValidationSummary } from '@/lib/rtPtValidation';
 import {
   buildRtPtWorkflowSnapshot,
@@ -200,7 +200,7 @@ export const RtPtWorkspace = ({ workspace, validation }: RtPtWorkspaceProps) => 
                   title={RT_PT_REFERENCE_SUGGESTIONS[method]}
                 >
                   <BookOpenCheck className="h-3.5 w-3.5 flex-none" />
-                  {RT_PT_REFERENCE_SUGGESTIONS[method]}
+                  {RT_PT_REFERENCE_STANDARD[method]}
                 </span>
               </div>
             </div>

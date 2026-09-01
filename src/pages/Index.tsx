@@ -869,7 +869,7 @@ const Index = () => {
         totalRequiredFields={workspaceMode === "inspection"
           ? inspectionReportWorkspace.validation.totalRequiredFields
           : rtPtValidation.totalRequiredFields}
-        completionLabel={workspaceMode === "inspection" ? "Inspection report fields" : "Required technique fields"}
+        completionLabel={workspaceMode === "inspection" ? "Report fields" : "Required fields"}
         autoSaveStatus={workspaceMode === "inspection"
           ? inspectionReportWorkspace.persistenceError ? "error" : "saved"
           : persistence.autoSaveStatus}

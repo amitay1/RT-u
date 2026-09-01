@@ -763,6 +763,32 @@ All colors MUST be HSL.
     );
   }
 
+  /* Quiet reading mode: section helper text is collapsed by default and
+     revealed on hover or keyboard focus, so the page shows titles and
+     fields first. The ⓘ glyph marks that guidance exists. */
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"] > p {
+    max-height: 0;
+    margin: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 220ms ease, opacity 200ms ease, margin 220ms ease;
+  }
+
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"]:hover > p,
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"]:focus-within > p {
+    max-height: 6rem;
+    opacity: 1;
+  }
+
+  .workbench-surface [data-slot="card"] > [data-slot="card-header"]:has(> p) [data-slot="card-title"]::after {
+    content: "ⓘ";
+    margin-left: 0.45rem;
+    font-size: 0.72em;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground) / 0.7);
+    vertical-align: 0.12em;
+  }
+
   /* Title-block corner tick, echoing the RONEX aperture emblem. */
   .workbench-surface [data-slot="card"] > [data-slot="card-header"]::after {
     content: "";

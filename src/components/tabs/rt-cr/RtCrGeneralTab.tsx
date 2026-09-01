@@ -86,10 +86,11 @@ export const RtCrGeneralTab = ({ data, onChange, iso17636TestClass, onIso17636Te
               hint="optional"
             />
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Selecting a class enforces the ISO 17636 minimum source-to-object distance
-            (f &gt;= 7.5/15 &middot; d &middot; b^(2/3)) per exposure view. Class grey-value and SNR tables
-            remain governed by the controlled standard text.
+          <p
+            className="mt-2 text-xs text-muted-foreground"
+            title="Selecting a class enforces the ISO 17636 minimum source-to-object distance (f >= 7.5/15 · d · b^(2/3)) per exposure view. Class grey-value and SNR tables remain governed by the controlled standard text."
+          >
+            Enforces the class minimum source-to-object distance per exposure view.
           </p>
         </div>
       </CardContent>

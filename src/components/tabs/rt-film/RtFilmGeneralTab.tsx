@@ -97,8 +97,11 @@ export const RtFilmGeneralTab = ({
             />
             <div>
               <Label htmlFor={ps811000Id} className="font-semibold">Apply PS811000E C1 planning rules</Label>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Enables verified numerical lookups and calculations from the controlled reference. This does not replace the applicable drawing, customer requirements, machine technique table, or Level III approval.
+              <p
+                className="mt-1 text-xs text-muted-foreground"
+                title="Enables verified numerical lookups and calculations from the controlled reference. This does not replace the applicable drawing, customer requirements, machine technique table, or Level III approval."
+              >
+                Applies the controlled PS811000E lookup tables to this technique.
               </p>
             </div>
           </div>
@@ -114,10 +117,11 @@ export const RtFilmGeneralTab = ({
               hint="optional"
             />
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Selecting a class enforces the ISO 17636-1 minimum source-to-object distance
-            (f &gt;= 7.5/15 &middot; d &middot; b^(2/3)) per view and the class minimum optical density.
-            Class IQI and viewing tables remain governed by the controlled standard text.
+          <p
+            className="mt-2 text-xs text-muted-foreground"
+            title="Selecting a class enforces the ISO 17636-1 minimum source-to-object distance (f >= 7.5/15 · d · b^(2/3)) per view and the class minimum optical density. Class IQI and viewing tables remain governed by the controlled standard text."
+          >
+            Enforces the class minimum source-to-object distance and density per view.
           </p>
         </div>
 
