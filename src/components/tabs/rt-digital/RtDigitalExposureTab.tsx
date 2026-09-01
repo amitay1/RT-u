@@ -165,7 +165,7 @@ export const RtDigitalExposureTab = ({
       <Card>
         <CardHeader>
           <CardTitle>2. X-ray Source</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Select a revisioned RT/PT-local source snapshot or define one here. Digital/DDA remains X-ray-only.
           </p>
         </CardHeader>

@@ -80,7 +80,7 @@ export function RtFilmExposureChart({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">PS811000E exposure chart</div>
-          <p className="text-xs text-muted-foreground">
+          <p className="note-clamp text-xs text-muted-foreground">
             Read kV straight off the row. Figure 2 gives the energy for
             {' '}
             {data.ps811000EnergyCurve
@@ -210,7 +210,7 @@ export function RtFilmExposureChart({
       ) : null}
 
       {chart.fit ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="note-clamp text-xs text-muted-foreground">
           mAs derived from
           {' '}
           {chart.fit.anchorCount}
@@ -272,7 +272,7 @@ export function RtFilmExposureAnchorEditor({ source, onChange }: RtFilmExposureA
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">Machine exposure chart anchors</div>
-          <p className="text-xs text-muted-foreground">
+          <p className="note-clamp text-xs text-muted-foreground">
             PS811000E requires milliamperage to be recorded (para. 9.12.8.m) but supplies no machine
             values. Record qualified exposures from this tube here: two or more at the same kV and
             different thicknesses let the technique sheet derive mA and time for every thickness.

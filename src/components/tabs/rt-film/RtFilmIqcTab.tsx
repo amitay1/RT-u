@@ -44,7 +44,7 @@ export const RtFilmIqcTab = ({ data, general, ps811000Applicable, onChange }: Pr
       <Card>
       <CardHeader>
         <CardTitle>5. IQI &amp; Image Quality Requirements</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="note-clamp text-sm text-muted-foreground">
           Define planned IQI selection and required image quality. Achieved readings belong to the inspection record.
         </p>
       </CardHeader>
@@ -91,7 +91,7 @@ export const RtFilmIqcTab = ({ data, general, ps811000Applicable, onChange }: Pr
         <Card>
           <CardHeader>
             <CardTitle className="text-base">PS811000E C1 IQI lookup assistance</CardTitle>
-            <p className="text-sm text-muted-foreground">Calculated and tabulated planning aids; the controlled drawing or specification may impose a different level.</p>
+            <p className="note-clamp text-sm text-muted-foreground">Calculated and tabulated planning aids; the controlled drawing or specification may impose a different level.</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -28,7 +28,7 @@ export const RtDigitalSystemTab = ({ data, onChange }: Props) => {
       <Card>
         <CardHeader>
           <CardTitle>3. Digital Detector System</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Identify the qualified DDA configuration and the detector characteristics required by the technique.
           </p>
         </CardHeader>
@@ -56,7 +56,7 @@ export const RtDigitalSystemTab = ({ data, onChange }: Props) => {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Software &amp; Qualification Basis</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Reference the software configuration and controlled evidence used to qualify the planned system.
           </p>
         </CardHeader>

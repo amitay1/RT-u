@@ -104,7 +104,7 @@ export const RtCrExposureFields = ({ data, source, onChange }: Props) => {
         <div>
           <h3 className="text-sm font-semibold text-foreground">Exposure &amp; beam controls</h3>
           {isGamma ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="note-clamp text-xs text-muted-foreground">
               Tube voltage and current do not apply to a Gamma exposure; the isotope plan on the Equipment tab governs the source.
             </p>
           ) : null}

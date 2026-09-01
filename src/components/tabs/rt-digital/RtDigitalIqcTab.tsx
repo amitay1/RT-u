@@ -384,7 +384,7 @@ export function RtDigitalIqcTab({
       <Card>
         <CardHeader>
           <CardTitle>6. IQI &amp; Image Quality Requirements</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Define planned requirements here. Achieved wire/hole visibility, SNR, CNR, and other results belong to the inspection record.
           </p>
         </CardHeader>
@@ -419,7 +419,7 @@ export function RtDigitalIqcTab({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base">RT/PT-local IQI Rule Catalog</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">Every save appends an immutable revision; selecting it copies a detached snapshot into this technique.</p>
+              <p className="note-clamp mt-1 text-sm text-muted-foreground">Every save appends an immutable revision; selecting it copies a detached snapshot into this technique.</p>
             </div>
             <Badge variant="outline"><Database className="mr-1 h-3.5 w-3.5" />Versioned local catalog</Badge>
           </div>
@@ -466,7 +466,7 @@ export function RtDigitalIqcTab({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base">Thickness-range Rules</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">When ranges overlap, the narrowest range wins; ties use the higher minimum, then stable row ID.</p>
+              <p className="note-clamp mt-1 text-sm text-muted-foreground">When ranges overlap, the narrowest range wins; ties use the higher minimum, then stable row ID.</p>
             </div>
             <Button type="button" size="sm" variant="outline" onClick={() => setDraft({ ...draft, rules: [...draft.rules, createRule()] })}><Plus className="mr-1.5 h-4 w-4" />Add range</Button>
           </div>
@@ -505,7 +505,7 @@ export function RtDigitalIqcTab({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <CardTitle className="text-base">Deterministic Zone Outputs</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">The highest governing thickness is marked governing. Overrides are links to structured approval records, never free-text substitutions here.</p>
+              <p className="note-clamp mt-1 text-sm text-muted-foreground">The highest governing thickness is marked governing. Overrides are links to structured approval records, never free-text substitutions here.</p>
             </div>
             <Badge variant="outline">{zones.length} zone{zones.length === 1 ? '' : 's'}</Badge>
           </div>

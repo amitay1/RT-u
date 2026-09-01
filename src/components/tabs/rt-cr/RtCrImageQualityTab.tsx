@@ -28,7 +28,7 @@ export const RtCrImageQualityTab = ({ data, onChange }: Props) => {
     <Card>
       <CardHeader>
         <CardTitle>5. Required Scanned-Image Quality</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="note-clamp text-sm text-muted-foreground">
           Numeric requirements the scanned image must meet. The inspection record verifies achieved values
           against this plan — an accepted view requires the achieved SNR to meet the planned minimum.
         </p>

@@ -79,7 +79,7 @@ export const RtFilmFilmSystemTab = ({ data, ps811000Applicable, onChange }: Prop
             <div className="space-y-4 rounded-xl border border-primary/25 bg-primary/5 p-4 md:col-span-2">
               <div>
                 <div className="text-sm font-semibold">PS811000E C1 density controls</div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="note-clamp mt-1 text-xs text-muted-foreground">
                   Selecting the viewing mode calculates the required density range. Values above the ordinary range require a controlled approval basis.
                 </p>
               </div>
@@ -149,7 +149,7 @@ export const RtFilmFilmSystemTab = ({ data, ps811000Applicable, onChange }: Prop
                   <Switch id={boeingId} checked={data.boeingPart} onCheckedChange={(value) => set('boeingPart', value)} />
                   <div className="flex-1">
                     <Label htmlFor={boeingId} className="font-semibold">Boeing part viewer limitation applies</Label>
-                    <p className="mt-1 text-xs text-muted-foreground">The built-in viewer-output lookup is not a substitute for the customer-specific viewer limitation.</p>
+                    <p className="note-clamp mt-1 text-xs text-muted-foreground">The built-in viewer-output lookup is not a substitute for the customer-specific viewer limitation.</p>
                   </div>
                 </div>
                 {data.boeingPart ? (

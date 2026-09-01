@@ -71,7 +71,7 @@ export const PerformanceTrendEditor = ({ title, description, entries, onChange }
         </Button>
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="note-clamp text-sm text-muted-foreground">
           No trend measurements recorded. Entries are append-only and must stay in chronological order.
         </p>
       ) : (

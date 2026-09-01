@@ -261,7 +261,7 @@ export const RtDigitalGeneralTab = ({ data, planning, onChange, onPlanningChange
       <Card>
         <CardHeader>
           <CardTitle>01. Part &amp; Inspection Definition</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Define the controlled part and planned DR inspection scope. This section contains inputs only—no calculated results.
           </p>
         </CardHeader>
@@ -530,7 +530,7 @@ export const RtDigitalGeneralTab = ({ data, planning, onChange, onPlanningChange
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Part Image / Drawing</CardTitle>
-          <p className="text-sm text-muted-foreground">Attach the visual reference used to mark orientation, inspection areas, thickness zones, and datum.</p>
+          <p className="note-clamp text-sm text-muted-foreground">Attach the visual reference used to mark orientation, inspection areas, thickness zones, and datum.</p>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <RtDigitalAttachmentField

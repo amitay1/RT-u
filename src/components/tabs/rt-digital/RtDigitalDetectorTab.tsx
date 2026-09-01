@@ -216,7 +216,7 @@ export const RtDigitalDetectorTab = ({
       <Card>
         <CardHeader>
           <CardTitle>3. Digital Detector</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Select a revisioned RT/PT detector snapshot; controlled values are copied into this technique and remain unchanged by later catalog edits.
           </p>
         </CardHeader>

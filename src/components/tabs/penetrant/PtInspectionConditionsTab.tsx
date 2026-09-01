@@ -75,7 +75,7 @@ export const PtInspectionConditionsTab = ({ data, onChange, penetrantType }: Pro
           </div>
         ) : null}
         {!penetrantType ? (
-          <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground md:col-span-2">
+          <p className="note-clamp rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground md:col-span-2">
             Select Type I or Type II in Materials to configure the applicable planned viewing requirements.
           </p>
         ) : null}

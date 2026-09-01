@@ -394,7 +394,7 @@ function FilmResults({ controller, disabled }: ResultSectionProps) {
         <CardContent className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
           <AlertTriangle className="h-8 w-8 text-warning" aria-hidden="true" />
           <div className="mt-3 text-sm font-semibold">No linked exposure views</div>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">Restart this report from a current approved technique that contains at least one planned exposure view.</p>
+          <p className="note-clamp mt-1 max-w-xl text-sm text-muted-foreground">Restart this report from a current approved technique that contains at least one planned exposure view.</p>
         </CardContent>
       </Card>
     );
@@ -496,7 +496,7 @@ function CrResults({ controller, disabled }: ResultSectionProps) {
         <CardContent className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
           <AlertTriangle className="h-8 w-8 text-warning" aria-hidden="true" />
           <div className="mt-3 text-sm font-semibold">No linked exposure views</div>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">Restart this report from a current approved technique that contains at least one planned exposure view.</p>
+          <p className="note-clamp mt-1 max-w-xl text-sm text-muted-foreground">Restart this report from a current approved technique that contains at least one planned exposure view.</p>
         </CardContent>
       </Card>
     );
@@ -603,7 +603,7 @@ function DigitalResults({ controller, disabled }: ResultSectionProps) {
         <CardContent className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
           <AlertTriangle className="h-8 w-8 text-warning" aria-hidden="true" />
           <div className="mt-3 text-sm font-semibold">No linked DDA acquisitions</div>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">Restart this report from a current approved technique that contains at least one planned acquisition.</p>
+          <p className="note-clamp mt-1 max-w-xl text-sm text-muted-foreground">Restart this report from a current approved technique that contains at least one planned acquisition.</p>
         </CardContent>
       </Card>
     );
@@ -928,7 +928,7 @@ function IndicationsSection({ controller, disabled }: IndicationsSectionProps) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Observed Indications</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">Record each observed indication explicitly. Evaluation and disposition remain inspector-controlled entries.</p>
+              <p className="note-clamp mt-1 text-sm text-muted-foreground">Record each observed indication explicitly. Evaluation and disposition remain inspector-controlled entries.</p>
             </div>
             <Button type="button" size="sm" onClick={addIndication}>
               <Plus className="mr-1.5 h-4 w-4" />
@@ -941,7 +941,7 @@ function IndicationsSection({ controller, disabled }: IndicationsSectionProps) {
             <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
               <CheckCircle2 className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
               <div className="mt-3 text-sm font-semibold">No indications recorded</div>
-              <p className="mt-1 max-w-lg text-sm text-muted-foreground">This empty state does not infer an acceptable result. Enter the overall disposition separately in Review &amp; Approval.</p>
+              <p className="note-clamp mt-1 max-w-lg text-sm text-muted-foreground">This empty state does not infer an acceptable result. Enter the overall disposition separately in Review &amp; Approval.</p>
               <Button type="button" variant="outline" className="mt-4" onClick={addIndication}>
                 <Plus className="mr-1.5 h-4 w-4" />
                 Add First Indication
@@ -1051,7 +1051,7 @@ function ReviewSection({ controller, disabled, onSelectIssue }: ReviewSectionPro
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <CardTitle>Personnel &amp; Approval Records</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">Typed personnel records support traceability only. This workspace does not create or claim a digital signature.</p>
+                <p className="note-clamp mt-1 text-sm text-muted-foreground">Typed personnel records support traceability only. This workspace does not create or claim a digital signature.</p>
               </div>
               <Button type="button" size="sm" variant="outline" onClick={addApproval}>
                 <Plus className="mr-1.5 h-4 w-4" />
@@ -1099,7 +1099,7 @@ function ReviewSection({ controller, disabled, onSelectIssue }: ReviewSectionPro
         </CardHeader>
         <CardContent>
           {validation.issues.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Performed fields, source-technique linkage, and personnel review requirements are complete.</p>
+            <p className="note-clamp text-sm text-muted-foreground">Performed fields, source-technique linkage, and personnel review requirements are complete.</p>
           ) : (
             <div className="space-y-2">
               {validation.issues.map((issue, index) => (

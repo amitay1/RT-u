@@ -187,7 +187,7 @@ export function RtPtLicenseCenterDialog({ open, onOpenChange }: RtPtLicenseCente
                 <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
                 Renew or replace license
               </h3>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              <p className="note-clamp mt-1 text-sm leading-6 text-muted-foreground">
                 You can install a renewed code before the current license expires. The replacement must be signed for this installation.
               </p>
             </div>

@@ -443,7 +443,7 @@ function GeneralSettings({ onOfflineUpdate }: { onOfflineUpdate?: () => void }) 
         </SettingsSection>
       )}
 
-      <p className="rounded-lg border border-border/80 bg-muted/25 px-4 py-3 text-sm leading-6 text-muted-foreground">
+      <p className="note-clamp rounded-lg border border-border/80 bg-muted/25 px-4 py-3 text-sm leading-6 text-muted-foreground">
         Units, controlled organization data, and PDF release content are set inside each technique so they remain part of the reviewed document.
       </p>
     </div>

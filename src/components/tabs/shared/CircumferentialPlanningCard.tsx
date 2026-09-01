@@ -68,7 +68,7 @@ export const CircumferentialPlanningCard = ({
     <section className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
       <div>
         <h3 className="text-sm font-semibold text-foreground">Circumferential coverage planning (computed)</h3>
-        <p className="text-xs text-muted-foreground">
+        <p className="note-clamp text-xs text-muted-foreground">
           Exact ray-geometry planning aid for pipe welds: the minimum number of exposures keeping the
           penetrated-thickness increase within the ISO 17636 class limit (20% class A / 10% class B).
           Uses the nominal wall thickness and default SFD; clear the pipe diameter to remove the plan.

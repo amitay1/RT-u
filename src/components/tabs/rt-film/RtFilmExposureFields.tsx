@@ -138,7 +138,7 @@ export function RtFilmExposureFields({
         <section className="space-y-4 rounded-2xl border border-primary/25 bg-primary/5 p-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">PS811000E C1 calculation assistance</h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="note-clamp text-xs text-muted-foreground">
               Table values are exact lookups. Figure values are approximate digitized graph readings and remain subject to controlled review.
             </p>
           </div>
@@ -190,7 +190,7 @@ export function RtFilmExposureFields({
             <div className="space-y-3 rounded-xl border border-border/70 bg-background/60 p-3">
               <div>
                 <div className="text-sm font-semibold">Honeycomb radiographic thickness</div>
-                <p className="text-xs text-muted-foreground">
+                <p className="note-clamp text-xs text-muted-foreground">
                   Enter summed skins, adhesive, applicable caps/flanges, and doublers/triplers. Core thickness is intentionally excluded.
                 </p>
               </div>

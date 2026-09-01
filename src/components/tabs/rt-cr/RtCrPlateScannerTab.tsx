@@ -41,7 +41,7 @@ export const RtCrPlateScannerTab = ({ plateSystem, scanner, onPlateSystemChange,
       <Card>
         <CardHeader>
           <CardTitle>4. Imaging Plate System</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             The storage-phosphor plate, cassette, and screens this technique is qualified with. The governing
             practice decides the required system class.
           </p>
@@ -84,7 +84,7 @@ export const RtCrPlateScannerTab = ({ plateSystem, scanner, onPlateSystemChange,
       <Card>
         <CardHeader>
           <CardTitle className="text-base">CR Scanner &amp; Readout</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             The laser scanner and readout settings this technique is qualified with. Qualification evidence is
             required before approval.
           </p>
@@ -131,7 +131,7 @@ export const RtCrPlateScannerTab = ({ plateSystem, scanner, onPlateSystemChange,
           />
           <div className="md:col-span-2 rounded-xl border border-border/70 bg-muted/20 p-4">
             <div className="text-sm font-semibold">Scanner qualification evidence</div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="note-clamp mt-1 text-xs text-muted-foreground">
               Reference, dates, and status of the scanner qualification this technique relies on. Approval requires
               a reference with real qualification and due dates.
             </p>

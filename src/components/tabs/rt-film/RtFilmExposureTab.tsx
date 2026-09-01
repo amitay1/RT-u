@@ -35,7 +35,7 @@ export const RtFilmExposureTab = ({
   <Card>
     <CardHeader>
       <CardTitle>2. Exposure Defaults</CardTitle>
-      <p className="text-sm text-muted-foreground">
+      <p className="note-clamp text-sm text-muted-foreground">
         Starting values for new exposure views. Each view remains independently controlled and editable.
       </p>
     </CardHeader>

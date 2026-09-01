@@ -154,7 +154,7 @@ function RepresentativeImageRoiCanvas({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-sm font-semibold">ROI reference canvas</h4>
-          <p className="text-xs text-muted-foreground">All interpretation areas are overlaid together; coordinates are normalized to this canvas.</p>
+          <p className="note-clamp text-xs text-muted-foreground">All interpretation areas are overlaid together; coordinates are normalized to this canvas.</p>
         </div>
         <Badge variant="outline">{areas.length} ROI {areas.length === 1 ? 'overlay' : 'overlays'}</Badge>
       </div>
@@ -355,7 +355,7 @@ export function RtDigitalInterpretationTab({
     <Card>
       <CardHeader>
         <CardTitle>08. Interpretation Plan</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="note-clamp text-sm text-muted-foreground">
           Exposure is not an interpretation area. Each acquisition may contain several independently positioned thickness regions.
         </p>
       </CardHeader>

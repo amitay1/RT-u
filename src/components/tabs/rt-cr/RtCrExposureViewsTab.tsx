@@ -40,7 +40,7 @@ export function RtCrExposureViewsTab({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>7. Exposure Views</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="note-clamp mt-1 text-sm text-muted-foreground">
               Build the complete planned exposure matrix. At least one uniquely identified view is required for approval.
             </p>
           </div>
@@ -158,7 +158,7 @@ export function RtCrExposureViewsTab({
                   <section className="space-y-3 border-t border-border/70 pt-5">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Planned setup map</h3>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="note-clamp text-xs text-muted-foreground">
                         Vector preview generated from the controlled view geometry. Numeric fields below remain governing.
                       </p>
                     </div>

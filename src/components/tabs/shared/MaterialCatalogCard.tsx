@@ -81,7 +81,7 @@ export const MaterialCatalogCard = () => {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Site Materials Catalog</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="note-clamp text-sm text-muted-foreground">
           Density and half-value-layer data entered from the site&apos;s controlled sources. The product ships no
           material physics of its own; every change bumps the record revision and keeps the prior state.
         </p>

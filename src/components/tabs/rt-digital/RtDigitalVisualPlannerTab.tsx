@@ -361,7 +361,7 @@ export function RtDigitalVisualPlannerTab({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>5. Visual Inspection Planner</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="note-clamp mt-1 text-sm text-muted-foreground">
                 Drag or focus a control and use arrow keys. Source/detector movement explicitly updates controlled SOD/ODD inputs.
               </p>
             </div>

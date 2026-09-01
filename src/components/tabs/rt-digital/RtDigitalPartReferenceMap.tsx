@@ -251,7 +251,7 @@ export function RtDigitalPartReferenceMap({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Reference Marking Canvas</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="note-clamp mt-1 text-xs text-muted-foreground">
             Select a mark, click to place it, drag to move, or drag its corner to resize. Arrow keys move the focused mark.
           </p>
         </div>
@@ -368,7 +368,7 @@ export function RtDigitalPartReferenceMap({
         </svg>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="note-clamp text-xs text-muted-foreground">
         Blue = inspection area; amber dashed = thickness zone. Coordinates are controlled normalized inputs and remain valid independently of the local attachment bytes.
       </p>
     </div>

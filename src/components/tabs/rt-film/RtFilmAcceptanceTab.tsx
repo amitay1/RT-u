@@ -24,7 +24,7 @@ export const RtFilmAcceptanceTab = ({
       <Card>
         <CardHeader>
           <CardTitle>6. Controlled Acceptance Criteria</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Enter the exact contractually controlled source and requirement. No class, grade, or limit is inferred.
           </p>
         </CardHeader>

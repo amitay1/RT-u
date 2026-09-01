@@ -32,7 +32,7 @@ export const RtCrGeneralTab = ({ data, onChange, iso17636TestClass, onIso17636Te
     <Card>
       <CardHeader>
         <CardTitle>1. General &amp; Part Definition</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="note-clamp text-sm text-muted-foreground">
           Identify the controlled part configuration and planned inspection scope for this CR technique.
         </p>
       </CardHeader>

@@ -63,7 +63,7 @@ export function RtDigitalAcquisitionFields({ data, onChange }: RtDigitalAcquisit
       <section className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Geometry &amp; image quality limits</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="note-clamp text-xs text-muted-foreground">
             Define the planned source, part, and detector geometry. Each acquisition remains independently controlled.
           </p>
         </div>
@@ -123,7 +123,7 @@ export function RtDigitalAcquisitionFields({ data, onChange }: RtDigitalAcquisit
       <section className="space-y-3 border-t border-border/70 pt-5">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Exposure &amp; frame acquisition</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="note-clamp text-xs text-muted-foreground">
             Planned generator and frame settings only; record performed values in the inspection record.
           </p>
         </div>
@@ -183,7 +183,7 @@ export function RtDigitalAcquisitionFields({ data, onChange }: RtDigitalAcquisit
       <section className="space-y-3 border-t border-border/70 pt-5">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Coverage, traceability &amp; records</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="note-clamp text-xs text-muted-foreground">
             State the planned coverage and the instructions needed to identify and retain each acquisition.
           </p>
         </div>

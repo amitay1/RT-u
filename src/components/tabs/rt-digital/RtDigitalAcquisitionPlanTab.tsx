@@ -70,7 +70,7 @@ export function RtDigitalAcquisitionPlanTab({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>07. Acquisition Plan</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="note-clamp mt-1 text-sm text-muted-foreground">
               Review the automatically generated exposure list and complete each controlled setup. At least one uniquely identified exposure is required for approval.
             </p>
           </div>
@@ -218,7 +218,7 @@ export function RtDigitalAcquisitionPlanTab({
                   <section className="space-y-3">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Required acquisition identity</h3>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="note-clamp text-xs text-muted-foreground">
                         Use controlled, project-specific identifiers; no values are inferred from example techniques.
                       </p>
                     </div>
@@ -256,7 +256,7 @@ export function RtDigitalAcquisitionPlanTab({
                   <section className="space-y-3 border-t border-border/70 pt-5">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Planned setup map</h3>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="note-clamp text-xs text-muted-foreground">
                         Vector preview generated from the controlled acquisition geometry. Numeric fields below remain governing.
                       </p>
                     </div>
@@ -283,7 +283,7 @@ export function RtDigitalAcquisitionPlanTab({
                   <section className="space-y-4 border-t border-border/70 pt-5">
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Auto-grid placement &amp; live results</h3>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="note-clamp text-xs text-muted-foreground">
                         Placement is the committed planner output. Engineering results below are recalculated live and are not stored in the technique document.
                       </p>
                     </div>
@@ -308,7 +308,7 @@ export function RtDigitalAcquisitionPlanTab({
                     <section className="space-y-5 border-t border-border/70 pt-5">
                       <div>
                         <h3 className="text-sm font-semibold text-foreground">Structured IQI assignment</h3>
-                        <p className="text-xs text-muted-foreground">The assignment is specific to this exposure and remains linked to its governing zone output.</p>
+                        <p className="note-clamp text-xs text-muted-foreground">The assignment is specific to this exposure and remains linked to its governing zone output.</p>
                       </div>
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                         <SelectField

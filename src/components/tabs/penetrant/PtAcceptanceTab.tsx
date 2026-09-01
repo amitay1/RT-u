@@ -17,7 +17,7 @@ export const PtAcceptanceTab = ({ data, onChange, techniqueNotes, onTechniqueNot
     <Card>
       <CardHeader>
         <CardTitle>7. Acceptance Criteria</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="note-clamp text-sm text-muted-foreground">
           Enter the requirements exactly as issued by the controlled drawing, product specification, or engineering disposition.
         </p>
       </CardHeader>

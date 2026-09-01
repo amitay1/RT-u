@@ -763,10 +763,11 @@ All colors MUST be HSL.
     );
   }
 
-  /* Quiet reading mode: section helper text is collapsed by default and
-     revealed on hover or keyboard focus, so the page shows titles and
-     fields first. The ⓘ glyph marks that guidance exists. */
-  .workbench-surface [data-slot="card"] > [data-slot="card-header"] > p {
+  /* Quiet reading mode, applied to every card in the product: section
+     helper text is collapsed by default and revealed on hover or keyboard
+     focus, so each screen shows titles and fields first. The ⓘ glyph marks
+     that guidance exists. */
+  [data-slot="card"] > [data-slot="card-header"] > p {
     max-height: 0;
     margin: 0;
     opacity: 0;
@@ -774,19 +775,38 @@ All colors MUST be HSL.
     transition: max-height 220ms ease, opacity 200ms ease, margin 220ms ease;
   }
 
-  .workbench-surface [data-slot="card"] > [data-slot="card-header"]:hover > p,
-  .workbench-surface [data-slot="card"] > [data-slot="card-header"]:focus-within > p {
+  [data-slot="card"] > [data-slot="card-header"]:hover > p,
+  [data-slot="card"] > [data-slot="card-header"]:focus-within > p {
     max-height: 6rem;
     opacity: 1;
   }
 
-  .workbench-surface [data-slot="card"] > [data-slot="card-header"]:has(> p) [data-slot="card-title"]::after {
+  [data-slot="card"] > [data-slot="card-header"]:has(> p) [data-slot="card-title"]::after {
     content: "ⓘ";
     margin-left: 0.45rem;
     font-size: 0.72em;
     font-weight: 400;
     color: hsl(var(--muted-foreground) / 0.7);
     vertical-align: 0.12em;
+  }
+
+  /* Persistent in-card notes and captions: clamped to one quiet line,
+     expanding on hover or focus. Applied per-element via .note-clamp. */
+  .note-clamp {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    cursor: default;
+    transition: opacity 160ms ease;
+  }
+
+  .note-clamp:hover,
+  .note-clamp:focus,
+  .note-clamp:focus-within {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
   }
 
   /* Title-block corner tick, echoing the RONEX aperture emblem. */

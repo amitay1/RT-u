@@ -276,7 +276,7 @@ export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApp
                 {validation.approvalReadiness.isReady ? 'READY FOR APPROVAL' : 'APPROVAL BLOCKED'}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="note-clamp text-sm text-muted-foreground">
               This check is recalculated from the current controlled inputs. Stored overrides are reviewed explicitly and never replace calculated values.
             </p>
           </CardHeader>
@@ -339,7 +339,7 @@ export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApp
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <CardTitle>Engineering Override Log</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="note-clamp mt-1 text-sm text-muted-foreground">
                   Record a controlled Level III disposition when an approved value intentionally differs from a calculated requirement.
                 </p>
               </div>
@@ -439,7 +439,7 @@ export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApp
               Add Revision Entry
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Record controlled document revisions here; performed inspection history belongs in inspection records.
           </p>
         </CardHeader>
@@ -503,7 +503,7 @@ export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApp
         </CardHeader>
         <CardContent className="space-y-3">
           {controlledReferences.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+            <p className="note-clamp rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
               No controlled reference selected. Add the contractually applicable document and enter its revision explicitly.
             </p>
           ) : controlledReferences.map((reference, index) => (
@@ -552,7 +552,7 @@ export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApp
         </CardHeader>
         <CardContent className="space-y-3">
           {approvals.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+            <p className="note-clamp rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
               No approvals recorded. An identified, dated NDT Level III approval is required for controlled release.
             </p>
           ) : approvals.map((approval, index) => (
@@ -595,7 +595,7 @@ export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApp
               <CardTitle>Migration Review Required</CardTitle>
               <Badge variant="outline">Read only</Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="note-clamp text-sm text-muted-foreground">
               Migrated from schema V{migration.sourceSchemaVersion}. Quarantined values are intentionally hidden and cannot be edited into this technique.
             </p>
           </CardHeader>
@@ -626,7 +626,7 @@ export function RtPtControlApprovalTab({ workspace, validation }: RtPtControlApp
               ) : (
                 <p className="mt-2 text-xs text-muted-foreground">No performed-data values were quarantined.</p>
               )}
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="note-clamp mt-3 text-xs text-muted-foreground">
                 Only category counts are shown. Legacy values remain outside the editable technique and are not included in technique exports.
               </p>
             </div>

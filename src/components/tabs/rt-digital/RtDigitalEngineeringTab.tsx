@@ -315,7 +315,7 @@ export function RtDigitalEngineeringTab({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>4. Geometry &amp; Engineering Calculations</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="note-clamp mt-1 text-sm text-muted-foreground">
                 Live values are calculated from controlled inputs only. Calculations are not persisted unless you explicitly apply one.
               </p>
             </div>
@@ -499,7 +499,7 @@ export function RtDigitalEngineeringTab({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Calculation Inputs from Source &amp; Detector</CardTitle>
-          <p className="text-sm text-muted-foreground">These remain controlled equipment inputs and are updated through their owning data records.</p>
+          <p className="note-clamp text-sm text-muted-foreground">These remain controlled equipment inputs and are updated through their owning data records.</p>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">

@@ -17,7 +17,7 @@ export const AstmIqiReferenceCard = ({ children }: Props) => (
   <Card>
     <CardHeader>
       <CardTitle className="text-base">ASTM E747 / E1025 dimensional reference</CardTitle>
-      <p className="text-sm text-muted-foreground">
+      <p className="note-clamp text-sm text-muted-foreground">
         Built-in wire and plaque identity tables. Reference only — no value is inserted into the controlled
         document, and the governing specification decides the required designation and quality level.
         Verify against the controlled revision in force.
@@ -81,7 +81,7 @@ export const AstmIqiReferenceCard = ({ children }: Props) => (
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="note-clamp mt-2 text-xs text-muted-foreground">
             Hole diameters are 1T/2T/4T of the plaque thickness, never below the E1025 minimums of
             0.010 / 0.020 / 0.040 inch.
           </p>
@@ -111,7 +111,7 @@ export const AstmIqiReferenceCard = ({ children }: Props) => (
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="note-clamp mt-2 text-xs text-muted-foreground">
             An element is resolved when its wire pair separates: total unsharpness 2d, basic spatial
             resolution SRb = d. The governing specification decides which element a technique must resolve.
           </p>

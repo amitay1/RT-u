@@ -74,7 +74,7 @@ export const RtDigitalImageProcessingTab = ({
       <Card>
         <CardHeader>
           <CardTitle>09. Image Processing</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Define the permitted review settings and controlled processing procedure without recording achieved results.
           </p>
         </CardHeader>
@@ -122,7 +122,7 @@ export const RtDigitalImageProcessingTab = ({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle className="text-base">Viewing Preset Library</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="note-clamp mt-1 text-sm text-muted-foreground">
                 Create reusable planned settings. Stable VP identifiers can be assigned to individual interpretation areas.
               </p>
             </div>
@@ -222,7 +222,7 @@ export const RtDigitalImageProcessingTab = ({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Storage, Archive &amp; Raw Data</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="note-clamp text-sm text-muted-foreground">
             Define the planned record format, archive controls, retention, and preservation of original detector data.
           </p>
         </CardHeader>
