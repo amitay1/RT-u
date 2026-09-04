@@ -17,11 +17,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "border-primary bg-primary text-primary-foreground shadow-sm hover:border-primary-hover hover:bg-primary-hover active:bg-primary-hover/90",
+          "border-primary bg-primary text-primary-foreground shadow-[inset_0_1px_0_hsl(var(--primary-foreground)/0.16),0_1px_3px_hsl(var(--primary)/0.35)] hover:border-primary-hover hover:bg-primary-hover active:bg-primary-hover/90 active:shadow-[inset_0_1px_2px_hsl(var(--primary-foreground)/0.1)]",
         destructive:
-          "border-destructive bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:bg-destructive/80",
+          "border-destructive bg-destructive text-destructive-foreground shadow-[inset_0_1px_0_hsl(var(--destructive-foreground)/0.14),0_1px_3px_hsl(var(--destructive)/0.3)] hover:bg-destructive/90 active:bg-destructive/80",
         outline:
-          "border-input bg-background text-foreground shadow-sm hover:border-ring/50 hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
+          "border-input bg-background text-foreground shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04),var(--shadow-sm)] hover:border-ring/50 hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
         secondary:
           "border-border bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 active:bg-secondary/70",
         ghost:

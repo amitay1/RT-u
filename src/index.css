@@ -736,6 +736,54 @@ All colors MUST be HSL.
 
   .workbench-surface > [data-state="active"] {
     background: hsl(var(--surface-subtle) / 0.44);
+    animation: workbench-step-in 220ms ease-out;
+  }
+
+  @keyframes workbench-step-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Engineering tables read as calibrated data sheets: tracked uppercase
+     column heads, zebra rows, aligned numerals. */
+  :is(.workbench-surface, .app-panel, [data-slot="card"]) table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :is(.workbench-surface, .app-panel, [data-slot="card"]) thead th {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: hsl(var(--muted-foreground));
+    border-bottom: 1px solid hsl(var(--accent-border) / 0.35);
+  }
+
+  :is(.workbench-surface, .app-panel, [data-slot="card"]) tbody tr:nth-child(even) {
+    background: hsl(var(--surface-subtle) / 0.4);
+  }
+
+  :is(.workbench-surface, .app-panel, [data-slot="card"]) tbody tr:hover {
+    background: hsl(var(--surface-hover) / 0.45);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workbench-surface > [data-state="active"] {
+      animation: none;
+    }
+
+    .note-clamp,
+    [data-slot="card"] > [data-slot="card-header"] > p,
+    .readiness-fill,
+    .workbench-inline-progress-fill {
+      transition: none;
+    }
   }
 
   /* Numbered document sections lift off the canvas as discrete sheets. */
