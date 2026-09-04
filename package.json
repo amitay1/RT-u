@@ -6,7 +6,7 @@
         "email": "amitay1@gmail.com"
     },
     "private": true,
-    "version": "1.1.4",
+    "version": "1.2.0",
     "type": "module",
     "scripts": {
         "dev": "tsx watch --clear-screen=false --ignore \"**/*.timestamp-*.mjs\" server/index.ts",
